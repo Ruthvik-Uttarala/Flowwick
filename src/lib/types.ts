@@ -17,9 +17,6 @@ export interface ConnectionSettings {
   shopifyClientSecret?: string;
   instagramAccessToken: string;
   instagramBusinessAccountId: string;
-  airiaApiUrl?: string;
-  airiaApiKey?: string;
-  airiaAgentGuid?: string;
 }
 
 export interface ProductBucket {

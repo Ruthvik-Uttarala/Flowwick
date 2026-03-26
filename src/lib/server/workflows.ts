@@ -1,4 +1,4 @@
-import { GoAllSummary, ProductBucket } from "@/src/lib/types";
+import { ConnectionSettings, GoAllSummary, ProductBucket } from "@/src/lib/types";
 import {
   createBucket,
   getBucketById,
@@ -9,7 +9,6 @@ import {
   enhanceDescriptionViaAiria,
   enhanceTitleViaAiria,
 } from "@/src/lib/server/airia";
-import { areSettingsConfigured, getSettings } from "@/src/lib/server/settings";
 import {
   getStableBucketStatus,
   hasRequiredBucketFields,
@@ -24,58 +23,38 @@ interface WorkflowResult {
   error?: string;
 }
 
-function buildSettingsError(): string {
-  return "Settings are incomplete. Required: Shopify store domain, Shopify client id, Shopify client secret, Instagram access token, and Instagram business account id.";
-}
-
-async function markBucketFailed(
-  bucketId: string,
-  errorMessage: string
-): Promise<ProductBucket | null> {
-  return updateBucket(bucketId, (bucket) => ({
-    ...bucket,
-    status: "FAILED",
-    errorMessage,
-  }));
-}
-
-async function buildAiriaPayload(
+function buildPayloadFromBucketAndSettings(
   bucket: ProductBucket,
+  settings: ConnectionSettings,
   mode: "enhanceTitle" | "enhanceDescription" | "fullLaunch"
 ) {
-  const settings = await getSettings();
-  const fallbackQuantity = bucket.quantity ?? 1;
-  const fallbackPrice = bucket.price ?? 1;
-
   return {
-    settings,
-    payload: {
-      storeDomain: settings.shopifyStoreDomain,
-      shopifyAdminToken: settings.shopifyAdminToken,
-      instagramAccessToken: settings.instagramAccessToken,
-      instagramBusinessAccountId: settings.instagramBusinessAccountId,
-      titleRaw: bucket.titleRaw,
-      descriptionRaw: bucket.descriptionRaw,
-      price: fallbackPrice,
-      quantity: fallbackQuantity,
-      imageUrls: bucket.imageUrls,
-      mode,
-    },
-    error: "",
+    storeDomain: settings.shopifyStoreDomain,
+    shopifyAdminToken: settings.shopifyAdminToken,
+    instagramAccessToken: settings.instagramAccessToken,
+    instagramBusinessAccountId: settings.instagramBusinessAccountId,
+    titleRaw: bucket.titleRaw,
+    descriptionRaw: bucket.descriptionRaw,
+    price: bucket.price ?? 1,
+    quantity: bucket.quantity ?? 1,
+    imageUrls: bucket.imageUrls,
+    mode,
   };
 }
 
 export async function enhanceBucket(
   bucketId: string,
-  mode: "enhanceTitle" | "enhanceDescription"
+  mode: "enhanceTitle" | "enhanceDescription",
+  settings: ConnectionSettings
 ): Promise<WorkflowResult> {
-  const existingBucket = (await getBucketById(bucketId)) ?? (await createBucket());
+  const existingBucket =
+    (await getBucketById(bucketId)) ?? (await createBucket());
 
-  const payloadBuild = await buildAiriaPayload(existingBucket, mode);
-  if (!payloadBuild.payload) {
-    const failed = await markBucketFailed(bucketId, payloadBuild.error);
-    return { bucket: failed, notFound: false, error: payloadBuild.error };
-  }
+  const payload = buildPayloadFromBucketAndSettings(
+    existingBucket,
+    settings,
+    mode
+  );
 
   await updateBucket(bucketId, (bucket) => ({
     ...bucket,
@@ -86,8 +65,8 @@ export async function enhanceBucket(
   try {
     const enhanced =
       mode === "enhanceTitle"
-        ? await enhanceTitleViaAiria(payloadBuild.payload, payloadBuild.settings)
-        : await enhanceDescriptionViaAiria(payloadBuild.payload, payloadBuild.settings);
+        ? await enhanceTitleViaAiria(payload)
+        : await enhanceDescriptionViaAiria(payload);
 
     const updated = await updateBucket(bucketId, (bucket) => {
       const next = {
@@ -100,11 +79,7 @@ export async function enhanceBucket(
             : bucket.descriptionEnhanced,
         errorMessage: "",
       };
-
-      return {
-        ...next,
-        status: getStableBucketStatus(next),
-      };
+      return { ...next, status: getStableBucketStatus(next) };
     });
 
     if (!updated) {
@@ -125,44 +100,22 @@ export async function enhanceBucket(
       status: "FAILED",
       errorMessage: message,
     }));
-    return {
-      bucket: failed,
-      notFound: false,
-      error: message,
-    };
+    return { bucket: failed, notFound: false, error: message };
   }
 }
 
-export async function launchBucket(bucketId: string): Promise<WorkflowResult> {
-  const existingBucket = (await getBucketById(bucketId)) ?? (await createBucket());
-
-  const payloadBuild = await buildAiriaPayload(existingBucket, "fullLaunch");
-
-  return launchBucketWithPayload(
-    bucketId,
-    existingBucket,
-    payloadBuild.payload,
-    payloadBuild.settings
-  );
-}
-
-async function launchBucketWithPayload(
+export async function launchBucket(
   bucketId: string,
-  existingBucket: ProductBucket,
-  payload: {
-    storeDomain: string;
-    shopifyAdminToken: string;
-    instagramAccessToken: string;
-    instagramBusinessAccountId: string;
-    titleRaw: string;
-    descriptionRaw: string;
-    price: number;
-    quantity: number;
-    imageUrls: string[];
-    mode: "fullLaunch";
-  },
-  settings: Awaited<ReturnType<typeof getSettings>>
+  settings: ConnectionSettings
 ): Promise<WorkflowResult> {
+  const existingBucket =
+    (await getBucketById(bucketId)) ?? (await createBucket());
+
+  const payload = buildPayloadFromBucketAndSettings(
+    existingBucket,
+    settings,
+    "fullLaunch"
+  );
 
   await updateBucket(bucketId, (bucket) => ({
     ...bucket,
@@ -175,7 +128,7 @@ async function launchBucketWithPayload(
 
   if (!enhancedTitle) {
     try {
-       const titleOutput = await enhanceTitleViaAiria(payload, settings);
+      const titleOutput = await enhanceTitleViaAiria(payload);
       enhancedTitle = titleOutput.title.trim();
     } catch (error) {
       const message =
@@ -187,17 +140,13 @@ async function launchBucketWithPayload(
         errorMessage: message,
         status: "FAILED",
       }));
-      return {
-        bucket: failed,
-        notFound: false,
-        error: message,
-      };
+      return { bucket: failed, notFound: false, error: message };
     }
   }
 
   if (!enhancedDescription) {
     try {
-       const descriptionOutput = await enhanceDescriptionViaAiria(payload, settings);
+      const descriptionOutput = await enhanceDescriptionViaAiria(payload);
       enhancedDescription = descriptionOutput.description.trim();
     } catch (error) {
       const message =
@@ -210,11 +159,7 @@ async function launchBucketWithPayload(
         errorMessage: message,
         status: "FAILED",
       }));
-      return {
-        bucket: failed,
-        notFound: false,
-        error: message,
-      };
+      return { bucket: failed, notFound: false, error: message };
     }
   }
 
@@ -260,11 +205,15 @@ async function launchBucketWithPayload(
         errorMessage:
           "Instagram was not attempted because Shopify product creation failed.",
       };
+
   const updated = await updateBucket(bucketId, (bucket) => {
     const errors = [
       shopifyArtifact.errorMessage,
       instagramArtifact.errorMessage,
-    ].filter((message): message is string => Boolean(message && message.trim().length > 0));
+    ].filter(
+      (message): message is string =>
+        Boolean(message && message.trim().length > 0)
+    );
     const errorMessage = errors.join(" | ");
     const isDone =
       shopifyArtifact.shopifyCreated &&
@@ -295,7 +244,9 @@ async function launchBucketWithPayload(
   return { bucket: updated, notFound: false };
 }
 
-export async function goAllSequentially(): Promise<GoAllSummary> {
+export async function goAllSequentially(
+  settings: ConnectionSettings
+): Promise<GoAllSummary> {
   const buckets = await getBuckets();
   const readyBucketIds = buckets
     .filter(
@@ -307,12 +258,12 @@ export async function goAllSequentially(): Promise<GoAllSummary> {
   let failed = 0;
 
   console.info(
-    `[merchflow:workflow] go-all started readyCount=${readyBucketIds.length} sequential=true`
+    `[merchflow:workflow] go-all started readyCount=${readyBucketIds.length}`
   );
 
   for (const bucketId of readyBucketIds) {
     console.info(`[merchflow:workflow] go-all processing bucketId=${bucketId}`);
-    const result = await launchBucket(bucketId);
+    const result = await launchBucket(bucketId, settings);
     if (result.bucket?.status === "DONE") {
       succeeded += 1;
     } else {

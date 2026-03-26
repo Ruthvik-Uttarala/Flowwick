@@ -13,9 +13,6 @@ const EMPTY_SETTINGS: ConnectionSettings = {
   shopifyClientSecret: "",
   instagramAccessToken: "",
   instagramBusinessAccountId: "",
-  airiaApiUrl: "",
-  airiaApiKey: "",
-  airiaAgentGuid: "",
 };
 
 interface SettingsPayload {
@@ -77,7 +74,10 @@ export default function SettingsPage() {
         throw new Error(apiErrorMessage(payload, "Failed to save settings."));
       }
 
-      await loadSettings();
+      setConnections(payload.data.settings);
+      setSavedSnapshot(payload.data.settings);
+      setStatus(payload.data.status);
+      setRuntime(payload.data.runtime);
       setMessage(payload.data.message ?? "Settings saved.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to save settings.");
@@ -101,12 +101,12 @@ export default function SettingsPage() {
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-stone-900">Integration Settings</h1>
             <p className="mt-2 text-sm text-stone-600">
-              Save live credentials for Shopify, Instagram, and Airia-powered launch execution.
+              Save your Shopify and Instagram credentials to enable product launches.
             </p>
           </div>
           <div className="space-y-2">
             <div className={`rounded-full px-3 py-1 text-xs font-semibold ${airiaLive ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-              Airia: {airiaLive ? "Live" : "Missing"}
+              Airia: {airiaLive ? "Live" : "Missing (env)"}
             </div>
             <div className={`rounded-full px-3 py-1 text-xs font-semibold ${launchReady ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
               Launch: {launchReady ? "Ready" : "Not Ready"}
@@ -114,9 +114,10 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <h2 className="mt-6 text-xl font-semibold text-stone-900">Shopify</h2>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Shopify Store Domain</span>
+            <span className="text-stone-600">Store Domain</span>
             <input
               value={connections.shopifyStoreDomain}
               onChange={(event) =>
@@ -130,7 +131,7 @@ export default function SettingsPage() {
             />
           </label>
           <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Shopify Client ID</span>
+            <span className="text-stone-600">Client ID</span>
             <input
               value={connections.shopifyClientId ?? ""}
               onChange={(event) =>
@@ -143,8 +144,8 @@ export default function SettingsPage() {
               className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
             />
           </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Shopify Client Secret</span>
+          <label className="space-y-2 text-sm sm:col-span-2">
+            <span className="text-stone-600">Client Secret</span>
             <input
               type="password"
               value={connections.shopifyClientSecret ?? ""}
@@ -158,8 +159,12 @@ export default function SettingsPage() {
               className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
             />
           </label>
+        </div>
+
+        <h2 className="mt-8 text-xl font-semibold text-stone-900">Instagram</h2>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
           <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Instagram Access Token</span>
+            <span className="text-stone-600">Access Token</span>
             <input
               type="password"
               value={connections.instagramAccessToken}
@@ -173,8 +178,8 @@ export default function SettingsPage() {
               className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
             />
           </label>
-          <label className="space-y-2 text-sm sm:col-span-2">
-            <span className="text-stone-600">Instagram Business Account ID</span>
+          <label className="space-y-2 text-sm">
+            <span className="text-stone-600">Business Account ID</span>
             <input
               value={connections.instagramBusinessAccountId}
               onChange={(event) =>
@@ -184,54 +189,6 @@ export default function SettingsPage() {
                 }))
               }
               placeholder="1784..."
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
-        </div>
-
-        <h2 className="mt-8 text-xl font-semibold text-stone-900">Airia AI Configuration</h2>
-        <p className="mt-1 text-sm text-stone-500">Connect your Airia pipeline for AI-powered title and description enhancement.</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2 text-sm sm:col-span-2">
-            <span className="text-stone-600">Airia API URL</span>
-            <input
-              value={connections.airiaApiUrl ?? ""}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  airiaApiUrl: event.target.value,
-                }))
-              }
-              placeholder="https://api.airia.com/v2/PipelineExecution/..."
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Airia API Key</span>
-            <input
-              type="password"
-              value={connections.airiaApiKey ?? ""}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  airiaApiKey: event.target.value,
-                }))
-              }
-              placeholder="Your Airia API key"
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Airia Agent GUID</span>
-            <input
-              value={connections.airiaAgentGuid ?? ""}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  airiaAgentGuid: event.target.value,
-                }))
-              }
-              placeholder="Agent pipeline GUID"
               className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
             />
           </label>

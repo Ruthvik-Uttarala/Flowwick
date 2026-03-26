@@ -55,7 +55,10 @@ export async function GET(request: Request) {
 
     return okResponse({ authenticated: false, configured: true });
   } catch (error) {
-    console.error(error);
-    return Response.json({ success: true });
+    console.error("[merchflow:auth:session]", error);
+    return Response.json(
+      { ok: false, error: { message: "Session check failed." } },
+      { status: 500 }
+    );
   }
 }

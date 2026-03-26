@@ -1,6 +1,8 @@
+import { extractUserId } from "@/src/lib/server/auth";
+import { getDbSettings } from "@/src/lib/server/db-settings";
 import { launchBucket } from "@/src/lib/server/workflows";
 import { getBucketById } from "@/src/lib/server/buckets";
-import { okResponse } from "@/src/lib/server/api-response";
+import { errorResponse, okResponse } from "@/src/lib/server/api-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,18 +11,21 @@ interface ParamsContext {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(_request: Request, context: ParamsContext) {
+export async function POST(request: Request, context: ParamsContext) {
   try {
+    const userId = await extractUserId(request);
+    if (!userId) {
+      return errorResponse("Not authenticated.", { status: 401 });
+    }
+
+    const settings = await getDbSettings(userId);
     const { id } = await context.params;
-    const result = await launchBucket(id);
+    const result = await launchBucket(id, settings);
 
     if (!result.bucket) {
       const fallback = await getBucketById(id);
       if (!fallback) {
-        return Response.json(
-          { ok: false, error: { message: "Bucket not found." } },
-          { status: 404 }
-        );
+        return errorResponse("Bucket not found.", { status: 404 });
       }
       return okResponse({
         bucket: fallback,
@@ -40,11 +45,9 @@ export async function POST(_request: Request, context: ParamsContext) {
         : result.error || result.bucket.errorMessage || "Launch failed.",
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Launch failed unexpectedly.";
-    console.error("[merchflow:go] unhandled error:", error);
-    return Response.json(
-      { ok: false, error: { message } },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error ? error.message : "Launch failed unexpectedly.";
+    console.error("[merchflow:go]", error);
+    return errorResponse(message, { status: 500 });
   }
 }

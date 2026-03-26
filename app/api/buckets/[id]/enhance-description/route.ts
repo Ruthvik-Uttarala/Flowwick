@@ -1,6 +1,8 @@
+import { extractUserId } from "@/src/lib/server/auth";
+import { getDbSettings } from "@/src/lib/server/db-settings";
 import { enhanceBucket } from "@/src/lib/server/workflows";
 import { createBucket } from "@/src/lib/server/buckets";
-import { okResponse } from "@/src/lib/server/api-response";
+import { errorResponse, okResponse } from "@/src/lib/server/api-response";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,10 +11,16 @@ interface ParamsContext {
   params: Promise<{ id: string }>;
 }
 
-export async function POST(_request: Request, context: ParamsContext) {
+export async function POST(request: Request, context: ParamsContext) {
   try {
+    const userId = await extractUserId(request);
+    if (!userId) {
+      return errorResponse("Not authenticated.", { status: 401 });
+    }
+
+    const settings = await getDbSettings(userId);
     const { id } = await context.params;
-    const result = await enhanceBucket(id, "enhanceDescription");
+    const result = await enhanceBucket(id, "enhanceDescription", settings);
 
     if (result.notFound || !result.bucket) {
       const fallback = await createBucket();
@@ -23,14 +31,10 @@ export async function POST(_request: Request, context: ParamsContext) {
     }
 
     if (result.error) {
-      return Response.json(
-        {
-          ok: false,
-          data: { bucket: result.bucket },
-          error: { message: result.error },
-        },
-        { status: 502 }
-      );
+      return errorResponse(result.error, {
+        data: { bucket: result.bucket },
+        status: 502,
+      });
     }
 
     return okResponse({
@@ -38,11 +42,11 @@ export async function POST(_request: Request, context: ParamsContext) {
       message: "Description enhanced.",
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Description enhancement failed.";
-    console.error("[merchflow:enhance-description] unhandled error:", error);
-    return Response.json(
-      { ok: false, error: { message } },
-      { status: 500 }
-    );
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Description enhancement failed.";
+    console.error("[merchflow:enhance-description]", error);
+    return errorResponse(message, { status: 500 });
   }
 }

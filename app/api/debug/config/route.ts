@@ -1,14 +1,24 @@
-import { getSettings, getSettingsStatus } from "@/src/lib/server/settings";
+import { getSettingsStatus } from "@/src/lib/server/settings";
 import { getRuntimeConfigSnapshot } from "@/src/lib/server/config";
 import { describeExecutionReadiness } from "@/src/lib/server/runtime";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
+import { extractUserId } from "@/src/lib/server/auth";
+import { getDbSettings } from "@/src/lib/server/db-settings";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+const EMPTY_SETTINGS = {
+  shopifyStoreDomain: "",
+  shopifyAdminToken: "",
+  instagramAccessToken: "",
+  instagramBusinessAccountId: "",
+};
+
+export async function GET(request: Request) {
   try {
-    const settings = await getSettings();
+    const userId = await extractUserId(request);
+    const settings = userId ? await getDbSettings(userId) : EMPTY_SETTINGS;
     const snapshot = getRuntimeConfigSnapshot(settings);
     const execution = describeExecutionReadiness(settings);
     return okResponse({

@@ -1,7 +1,5 @@
 import {
   AiriaConfigStatus,
-  AiriaHeaderConfigStatus,
-  AiriaRequestBodyShape,
   ConnectionSettings,
   LaunchReadinessStatus,
   SafeSettingsStatus,
@@ -11,23 +9,9 @@ import { getSettingsStatus } from "@/src/lib/server/settings";
 import { getExecutionReadiness } from "@/src/lib/server/runtime";
 import { getStorageDirectory, getUploadsDirectory } from "@/src/lib/server/store";
 
-const DEFAULT_AIRIA_AUTH_HEADER_NAME = "Authorization";
-const DEFAULT_AIRIA_AUTH_HEADER_PREFIX = "Bearer ";
-const DEFAULT_AIRIA_API_KEY_HEADER_NAME = "x-api-key";
-const DEFAULT_AIRIA_METHOD = "POST";
 const DEFAULT_AIRIA_TIMEOUT_MS = 30_000;
-const DEFAULT_AIRIA_BODY_SHAPE: AiriaRequestBodyShape = "compat";
-type AiriaEnvKey = "AIRIA_API_URL" | "AIRIA_API_KEY";
-const AIRIA_CUSTOM_HEADER_ENV_KEYS = [
-  "AIRIA_API_HEADERS_JSON",
-  "AIRIA_EXTRA_HEADERS_JSON",
-] as const;
 
-function getTrimmedEnv(name: AiriaEnvKey): string {
-  return process.env[name]?.trim() ?? "";
-}
-
-function getOptionalTrimmedEnv(name: string): string {
+function getTrimmedEnv(name: string): string {
   return process.env[name]?.trim() ?? "";
 }
 
@@ -36,228 +20,93 @@ function parseTimeoutMs(value: string | undefined): number {
   if (Number.isFinite(parsed) && parsed > 0) {
     return parsed;
   }
-
   return DEFAULT_AIRIA_TIMEOUT_MS;
 }
 
-function parseBodyShape(value: string | undefined): AiriaRequestBodyShape {
-  const normalized = value?.trim().toLowerCase();
-  if (
-    normalized === "compat" ||
-    normalized === "payload" ||
-    normalized === "wrapped" ||
-    normalized === "flat"
-  ) {
-    return normalized;
-  }
-
-  return DEFAULT_AIRIA_BODY_SHAPE;
-}
-
-function getAuthHeaderPrefix(): string {
-  const configured = getOptionalTrimmedEnv("AIRIA_API_AUTH_HEADER_PREFIX");
-  if (configured.length === 0) {
-    return DEFAULT_AIRIA_AUTH_HEADER_PREFIX;
-  }
-
-  return `${configured} `;
-}
-
-function parseHeadersJson(raw: string): Record<string, string> {
-  if (!raw.trim()) {
-    return {};
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      console.warn("[merchflow:airia-config] Ignoring non-object custom headers config.");
-      return {};
-    }
-
-    return Object.entries(parsed).reduce<Record<string, string>>((acc, [key, value]) => {
-      const trimmedKey = key.trim();
-      const trimmedValue =
-        typeof value === "string" ? value.trim() : value == null ? "" : String(value).trim();
-
-      if (trimmedKey.length > 0 && trimmedValue.length > 0) {
-        acc[trimmedKey] = trimmedValue;
-      }
-
-      return acc;
-    }, {});
-  } catch {
-    console.warn("[merchflow:airia-config] Ignoring invalid custom headers JSON.");
-    return {};
-  }
-}
-
-function getCustomAiriaHeadersConfig(): {
-  headers: Record<string, string>;
-  status: AiriaHeaderConfigStatus;
-} {
-  const headers = AIRIA_CUSTOM_HEADER_ENV_KEYS.reduce<Record<string, string>>(
-    (acc, envName) => ({ ...acc, ...parseHeadersJson(getOptionalTrimmedEnv(envName)) }),
-    {}
-  );
-
-  const customHeaderNames = Object.keys(headers).sort();
-
-  return {
-    headers,
-    status: {
-      customHeadersPresent: customHeaderNames.length > 0,
-      customHeaderNames,
-    },
-  };
-}
-
 /**
- * Resolve Airia credentials: saved settings take priority, then env vars.
+ * Airia credentials: ONLY from environment variables (global config).
  */
-function resolveAiriaCredentials(settings?: ConnectionSettings): {
+function resolveAiriaCredentials(): {
   apiUrl: string;
   apiKey: string;
   agentId: string;
 } {
-  const envApiUrl = getTrimmedEnv("AIRIA_API_URL");
-  const envApiKey = getTrimmedEnv("AIRIA_API_KEY");
-  const envAgentId =
-    getOptionalTrimmedEnv("AIRIA_AGENT_ID") ||
-    getOptionalTrimmedEnv("AIRIA_AGENT_GUID");
-
   return {
-    apiUrl: (settings?.airiaApiUrl ?? "").trim() || envApiUrl,
-    apiKey: (settings?.airiaApiKey ?? "").trim() || envApiKey,
-    agentId: (settings?.airiaAgentGuid ?? "").trim() || envAgentId,
+    apiUrl: getTrimmedEnv("AIRIA_API_URL"),
+    apiKey: getTrimmedEnv("AIRIA_API_KEY"),
+    agentId:
+      getTrimmedEnv("AIRIA_AGENT_GUID") || getTrimmedEnv("AIRIA_AGENT_ID"),
   };
 }
 
-function getAiriaRequiredFieldStatus(settings?: ConnectionSettings) {
-  const { apiUrl, apiKey, agentId } = resolveAiriaCredentials(settings);
+export function getAiriaConfigStatus(): AiriaConfigStatus {
+  const { apiUrl, apiKey, agentId } = resolveAiriaCredentials();
+  const liveConfigured =
+    apiUrl.length > 0 && apiKey.length > 0 && agentId.length > 0;
 
   return {
-    apiUrl,
-    apiKey,
-    agentId,
+    mode: liveConfigured ? "live" : "missing",
+    liveConfigured,
     apiUrlPresent: apiUrl.length > 0,
     apiKeyPresent: apiKey.length > 0,
     agentIdPresent: agentId.length > 0,
-    liveConfigured: apiUrl.length > 0 && apiKey.length > 0 && agentId.length > 0,
-  };
-}
-
-export function getAiriaConfigStatus(settings?: ConnectionSettings): AiriaConfigStatus {
-  const airia = getAiriaRequiredFieldStatus(settings);
-  const customHeaders = getCustomAiriaHeadersConfig();
-
-  return {
-    mode: airia.liveConfigured ? ("live" as const) : ("missing" as const),
-    liveConfigured: airia.liveConfigured,
-    apiUrlPresent: airia.apiUrlPresent,
-    apiKeyPresent: airia.apiKeyPresent,
-    agentIdPresent: airia.agentIdPresent,
     request: {
-      method:
-        getOptionalTrimmedEnv("AIRIA_API_METHOD") || DEFAULT_AIRIA_METHOD,
+      method: "POST",
       timeoutMs: parseTimeoutMs(process.env.AIRIA_API_TIMEOUT_MS),
-      authHeaderName:
-        getOptionalTrimmedEnv("AIRIA_API_AUTH_HEADER_NAME") ||
-        DEFAULT_AIRIA_AUTH_HEADER_NAME,
-      apiKeyHeaderName:
-        getOptionalTrimmedEnv("AIRIA_API_KEY_HEADER_NAME") ||
-        DEFAULT_AIRIA_API_KEY_HEADER_NAME,
-      bodyShape: parseBodyShape(process.env.AIRIA_API_BODY_SHAPE),
-      customHeaders: customHeaders.status,
+      authHeaderName: "Authorization",
+      apiKeyHeaderName: "",
+      bodyShape: "wrapped",
+      customHeaders: { customHeadersPresent: false, customHeaderNames: [] },
     },
   };
 }
 
-export function hasLiveAiriaConfig(settings?: ConnectionSettings): boolean {
-  return getAiriaConfigStatus(settings).liveConfigured;
+export function hasLiveAiriaConfig(): boolean {
+  return getAiriaConfigStatus().liveConfigured;
 }
 
 export interface AiriaRuntimeConfig {
-  status: AiriaConfigStatus;
-  apiUrl: string;
+  endpoint: string;
   apiKey: string;
   agentId: string;
-  authHeaderPrefix: string;
-  bodyShape: AiriaRequestBodyShape;
-  requestHeaders: Record<string, string>;
+  configured: boolean;
+  timeoutMs: number;
 }
 
-function buildRequestHeaders(
-  status: AiriaConfigStatus,
-  apiKey: string
-): Record<string, string> {
-  const customHeaders = getCustomAiriaHeadersConfig().headers;
-  const authHeaderPrefix = getAuthHeaderPrefix();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
+export function getAiriaRuntimeConfig(): AiriaRuntimeConfig {
+  const { apiUrl, apiKey, agentId } = resolveAiriaCredentials();
+  const configured =
+    apiUrl.length > 0 && apiKey.length > 0 && agentId.length > 0;
 
-  if (status.request.authHeaderName.trim().length > 0 && apiKey.length > 0) {
-    headers[status.request.authHeaderName] = `${authHeaderPrefix}${apiKey}`;
-  }
-
-  if (status.request.apiKeyHeaderName.trim().length > 0 && apiKey.length > 0) {
-    headers[status.request.apiKeyHeaderName] = apiKey;
-  }
-
-  Object.entries(customHeaders).forEach(([key, value]) => {
-    const normalizedKey = key.trim();
-    if (!normalizedKey) {
-      return;
-    }
-
-    if (
-      normalizedKey.toLowerCase() === "content-type" ||
-      normalizedKey.toLowerCase() === status.request.authHeaderName.toLowerCase() ||
-      normalizedKey.toLowerCase() === status.request.apiKeyHeaderName.toLowerCase()
-    ) {
-      return;
-    }
-
-    headers[normalizedKey] = value;
-  });
-
-  return headers;
-}
-
-export function getAiriaRuntimeConfig(settings?: ConnectionSettings): AiriaRuntimeConfig {
-  const status = getAiriaConfigStatus(settings);
-  const bodyShape = parseBodyShape(process.env.AIRIA_API_BODY_SHAPE);
-  const { apiUrl, apiKey, agentId } = resolveAiriaCredentials(settings);
+  const baseUrl = apiUrl.replace(/\/+$/, "");
+  const endpoint = agentId ? `${baseUrl}/${agentId}` : baseUrl;
 
   return {
-    status,
-    apiUrl,
+    endpoint,
     apiKey,
     agentId,
-    authHeaderPrefix: getAuthHeaderPrefix(),
-    bodyShape,
-    requestHeaders: buildRequestHeaders(status, apiKey),
+    configured,
+    timeoutMs: parseTimeoutMs(process.env.AIRIA_API_TIMEOUT_MS),
   };
 }
 
-export function getAiriaCredentials(settings?: ConnectionSettings) {
-  const runtime = getAiriaRuntimeConfig(settings);
-  return {
-    ...runtime,
-    mode: runtime.status.mode,
-    liveConfigured: runtime.status.liveConfigured,
-  };
+export function logRuntimeMode(context: string): void {
+  const airia = getAiriaConfigStatus();
+  console.info(
+    `[merchflow:${context}] airiaMode=${airia.mode} liveConfigured=${airia.liveConfigured} apiUrl=${airia.apiUrlPresent ? "yes" : "no"} apiKey=${airia.apiKeyPresent ? "yes" : "no"} agentId=${airia.agentIdPresent ? "yes" : "no"}`
+  );
 }
 
-export function getSafeSettingsStatus(settings: ConnectionSettings): SafeSettingsStatus {
+export function getSafeSettingsStatus(
+  settings: ConnectionSettings
+): SafeSettingsStatus {
   return getSettingsStatus(settings);
 }
 
 export function getLaunchReadinessStatus(
   settings: ConnectionSettings
 ): LaunchReadinessStatus {
-  const airia = getAiriaConfigStatus(settings);
+  const airia = getAiriaConfigStatus();
   const safeSettings = getSafeSettingsStatus(settings);
   const executionReadiness = getExecutionReadiness(settings);
   const missingSettingsFields = executionReadiness.missingRequirements;
@@ -266,7 +115,7 @@ export function getLaunchReadinessStatus(
   if (!airia.apiUrlPresent) missingAiriaFields.push("AIRIA_API_URL");
   if (!airia.apiKeyPresent) missingAiriaFields.push("AIRIA_API_KEY");
   if (!airia.agentIdPresent) {
-    missingAiriaFields.push("AIRIA_AGENT_ID|AIRIA_AGENT_GUID");
+    missingAiriaFields.push("AIRIA_AGENT_GUID");
   }
 
   const readyToLaunch = safeSettings.readyForLaunch && airia.liveConfigured;
@@ -291,7 +140,7 @@ export function getLaunchReadinessStatus(
 export function getRuntimeConfigSnapshot(
   settings: ConnectionSettings
 ): RuntimeConfigSnapshot {
-  const airia = getAiriaConfigStatus(settings);
+  const airia = getAiriaConfigStatus();
   return {
     appRunning: true,
     airiaMode: airia.mode,
@@ -305,11 +154,4 @@ export function getRuntimeConfigSnapshot(
       uploadsDirectory: getUploadsDirectory().replace(/\\/g, "/"),
     },
   };
-}
-
-export function logRuntimeMode(context: string, settings?: ConnectionSettings): void {
-  const airia = getAiriaConfigStatus(settings);
-  console.info(
-    `[merchflow:${context}] airiaMode=${airia.mode} liveConfigured=${airia.liveConfigured} apiUrl=${airia.apiUrlPresent ? "yes" : "no"} apiKey=${airia.apiKeyPresent ? "yes" : "no"} agentId=${airia.agentIdPresent ? "yes" : "no"} method=${airia.request.method} bodyShape=${airia.request.bodyShape} headers=${airia.request.customHeaders.customHeadersPresent ? airia.request.customHeaders.customHeaderNames.join(",") : "none"}`
-  );
 }

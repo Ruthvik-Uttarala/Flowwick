@@ -31,9 +31,6 @@ const DEFAULT_SETTINGS: ConnectionSettings = {
   shopifyClientSecret: "",
   instagramAccessToken: "",
   instagramBusinessAccountId: "",
-  airiaApiUrl: "",
-  airiaApiKey: "",
-  airiaAgentGuid: "",
 };
 
 let writeQueue: Promise<void> = Promise.resolve();

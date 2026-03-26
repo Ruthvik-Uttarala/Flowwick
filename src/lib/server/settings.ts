@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { ConnectionSettings } from "@/src/lib/types";
-import { readSettingsFile, writeSettingsFile } from "@/src/lib/server/store";
 import {
   describeExecutionReadiness,
   getExecutionReadiness,
@@ -9,67 +8,13 @@ import {
 
 export const settingsSchema = z.object({
   shopifyStoreDomain: z.string(),
-  shopifyAdminToken: z.string(),
+  shopifyAdminToken: z.string().optional().default(""),
   shopifyAccessToken: z.string().optional().default(""),
   shopifyClientId: z.string().optional().default(""),
   shopifyClientSecret: z.string().optional().default(""),
   instagramAccessToken: z.string(),
   instagramBusinessAccountId: z.string(),
-  airiaApiUrl: z.string().optional().default(""),
-  airiaApiKey: z.string().optional().default(""),
-  airiaAgentGuid: z.string().optional().default(""),
 });
-
-function getEnvSetting(name: string): string {
-  return (process.env[name] ?? "").trim();
-}
-
-function getEnvSettingsFallback(): ConnectionSettings {
-  return {
-    shopifyStoreDomain: getEnvSetting("SHOPIFY_STORE_DOMAIN"),
-    shopifyAdminToken: "",
-    shopifyAccessToken: "",
-    shopifyClientId: getEnvSetting("SHOPIFY_CLIENT_ID"),
-    shopifyClientSecret: getEnvSetting("SHOPIFY_CLIENT_SECRET"),
-    instagramAccessToken: getEnvSetting("INSTAGRAM_ACCESS_TOKEN"),
-    instagramBusinessAccountId: getEnvSetting("INSTAGRAM_BUSINESS_ACCOUNT_ID"),
-    airiaApiUrl: getEnvSetting("AIRIA_API_URL"),
-    airiaApiKey: getEnvSetting("AIRIA_API_KEY"),
-    airiaAgentGuid: getEnvSetting("AIRIA_AGENT_GUID") || getEnvSetting("AIRIA_AGENT_ID"),
-  };
-}
-
-export async function getSettings(): Promise<ConnectionSettings> {
-  const stored = await readSettingsFile();
-  const envFallback = getEnvSettingsFallback();
-  const parsed = settingsSchema.safeParse(stored);
-
-  if (parsed.success) {
-    return {
-      ...parsed.data,
-      shopifyStoreDomain:
-        parsed.data.shopifyStoreDomain.trim() || envFallback.shopifyStoreDomain,
-      shopifyClientId:
-        (parsed.data.shopifyClientId ?? "").trim() || envFallback.shopifyClientId,
-      shopifyClientSecret:
-        (parsed.data.shopifyClientSecret ?? "").trim() ||
-        envFallback.shopifyClientSecret,
-      instagramAccessToken:
-        parsed.data.instagramAccessToken.trim() || envFallback.instagramAccessToken,
-      instagramBusinessAccountId:
-        parsed.data.instagramBusinessAccountId.trim() ||
-        envFallback.instagramBusinessAccountId,
-      airiaApiUrl:
-        (parsed.data.airiaApiUrl ?? "").trim() || envFallback.airiaApiUrl,
-      airiaApiKey:
-        (parsed.data.airiaApiKey ?? "").trim() || envFallback.airiaApiKey,
-      airiaAgentGuid:
-        (parsed.data.airiaAgentGuid ?? "").trim() || envFallback.airiaAgentGuid,
-    };
-  }
-
-  return envFallback;
-}
 
 export function redactSettingsForClient(
   settings: ConnectionSettings
@@ -78,9 +23,8 @@ export function redactSettingsForClient(
     ...settings,
     shopifyAdminToken: "",
     shopifyAccessToken: "",
-    shopifyClientSecret: "",
-    instagramAccessToken: "",
-    airiaApiKey: "",
+    shopifyClientSecret: settings.shopifyClientSecret ? "••••••••" : "",
+    instagramAccessToken: settings.instagramAccessToken ? "••••••••" : "",
   };
 }
 
@@ -105,32 +49,6 @@ export function getSettingsStatus(settings: ConnectionSettings) {
     configured: areSettingsConfigured(settings),
     readyForLaunch: readiness.readyToLaunch,
   };
-}
-
-export async function saveSettings(input: unknown): Promise<ConnectionSettings> {
-  const parsed = settingsSchema.parse(input);
-  const existing = await getSettings();
-  const nextSettings: ConnectionSettings = {
-    shopifyStoreDomain:
-      parsed.shopifyStoreDomain.trim() || existing.shopifyStoreDomain,
-    shopifyAdminToken:
-      parsed.shopifyAdminToken.trim() || existing.shopifyAdminToken,
-    shopifyAccessToken:
-      parsed.shopifyAccessToken?.trim() || existing.shopifyAccessToken || "",
-    shopifyClientId: parsed.shopifyClientId?.trim() || existing.shopifyClientId || "",
-    shopifyClientSecret:
-      parsed.shopifyClientSecret?.trim() || existing.shopifyClientSecret || "",
-    instagramAccessToken:
-      parsed.instagramAccessToken.trim() || existing.instagramAccessToken,
-    instagramBusinessAccountId:
-      parsed.instagramBusinessAccountId.trim() || existing.instagramBusinessAccountId,
-    airiaApiUrl: parsed.airiaApiUrl?.trim() || existing.airiaApiUrl || "",
-    airiaApiKey: parsed.airiaApiKey?.trim() || existing.airiaApiKey || "",
-    airiaAgentGuid: parsed.airiaAgentGuid?.trim() || existing.airiaAgentGuid || "",
-  };
-
-  await writeSettingsFile(nextSettings);
-  return nextSettings;
 }
 
 export function areSettingsConfigured(settings: ConnectionSettings): boolean {
