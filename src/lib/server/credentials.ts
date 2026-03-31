@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/src/lib/server/supabase-admin";
+import { getSupabaseAdmin } from "@/src/lib/server/supabase-admin";
 
 export interface ActiveCredentials {
   shopifyStoreDomain: string;
@@ -9,7 +9,7 @@ export interface ActiveCredentials {
 }
 
 export async function getActiveCredentials(userId: string): Promise<ActiveCredentials> {
-  const { data } = await supabaseAdmin
+  const { data } = await getSupabaseAdmin()
     .from("integration_settings")
     .select("*")
     .eq("user_id", userId)

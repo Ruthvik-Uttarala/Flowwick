@@ -6,7 +6,7 @@ import {
   ProductBucket,
 } from "@/src/lib/types";
 import { getStableBucketStatus } from "@/src/lib/server/status";
-import { supabaseAdmin } from "@/src/lib/server/supabase-admin";
+import { getSupabaseAdmin } from "@/src/lib/server/supabase-admin";
 
 export const bucketStatusSchema = z.enum(BUCKET_STATUSES);
 
@@ -140,7 +140,7 @@ function createEmptyBucketRecord(): ProductBucket {
 }
 
 export async function getBuckets(userId: string): Promise<ProductBucket[]> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("buckets")
     .select("*")
     .eq("user_id", userId)
@@ -158,7 +158,7 @@ export async function createBucket(userId: string): Promise<ProductBucket> {
   const created = createEmptyBucketRecord();
   const row = bucketToRow(created, userId);
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("buckets")
     .insert({ ...row, created_at: created.createdAt })
     .select()
@@ -176,7 +176,7 @@ export async function getBucketById(
   bucketId: string,
   userId: string
 ): Promise<ProductBucket | null> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("buckets")
     .select("*")
     .eq("id", bucketId)
@@ -203,7 +203,7 @@ export async function updateBucket(
   const updated = updater(current);
   const row = bucketToRow(updated, userId);
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await getSupabaseAdmin()
     .from("buckets")
     .update(row)
     .eq("id", bucketId)

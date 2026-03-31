@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
 import type { ConnectionSettings, RuntimeConfigSnapshot, SafeSettingsStatus } from "@/src/lib/types";
 
@@ -22,6 +23,7 @@ interface SettingsPayload {
 }
 
 export default function SettingsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [connections, setConnections] = useState<ConnectionSettings>(EMPTY_SETTINGS);
   const [savedSnapshot, setSavedSnapshot] = useState<ConnectionSettings>(EMPTY_SETTINGS);
   const [status, setStatus] = useState<SafeSettingsStatus | null>(null);
@@ -54,8 +56,21 @@ export default function SettingsPage() {
   };
 
   useEffect(() => {
+    if (authLoading || !user) return;
     loadSettings();
-  }, []);
+  }, [authLoading, user]);
+
+  if (authLoading) {
+    return (
+      <div className="w-full text-center py-20">
+        <p className="text-stone-500">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const isDirty = JSON.stringify(connections) !== JSON.stringify(savedSnapshot);
 
