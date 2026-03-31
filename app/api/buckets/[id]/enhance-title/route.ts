@@ -1,5 +1,5 @@
 import { extractUserId } from "@/src/lib/server/auth";
-import { getDbSettings } from "@/src/lib/server/db-settings";
+import { getActiveCredentials } from "@/src/lib/server/credentials";
 import { enhanceBucket } from "@/src/lib/server/workflows";
 import { createBucket } from "@/src/lib/server/buckets";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
@@ -18,12 +18,21 @@ export async function POST(request: Request, context: ParamsContext) {
       return errorResponse("Not authenticated.", { status: 401 });
     }
 
-    const settings = await getDbSettings(userId);
+    const creds = await getActiveCredentials(userId);
+    const settings = {
+      shopifyStoreDomain: creds.shopifyStoreDomain,
+      shopifyAdminToken: "",
+      shopifyClientId: creds.shopifyClientId,
+      shopifyClientSecret: creds.shopifyClientSecret,
+      instagramAccessToken: creds.instagramAccessToken,
+      instagramBusinessAccountId: creds.instagramBusinessAccountId,
+    };
+
     const { id } = await context.params;
-    const result = await enhanceBucket(id, "enhanceTitle", settings);
+    const result = await enhanceBucket(id, userId, "enhanceTitle", settings);
 
     if (result.notFound || !result.bucket) {
-      const fallback = await createBucket();
+      const fallback = await createBucket(userId);
       return okResponse({
         bucket: fallback,
         message: "Bucket was missing; created a new one.",

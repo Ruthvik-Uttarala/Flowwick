@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { extractUserId } from "@/src/lib/server/auth";
 import { createBucket, patchBucket } from "@/src/lib/server/buckets";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
 
@@ -11,13 +12,18 @@ interface ParamsContext {
 
 export async function PATCH(request: Request, context: ParamsContext) {
   try {
+    const userId = await extractUserId(request);
+    if (!userId) {
+      return errorResponse("Not authenticated.", { status: 401 });
+    }
+
     const { id } = await context.params;
     const body = await request.json();
-    const bucket = await patchBucket(id, body);
+    const bucket = await patchBucket(id, userId, body);
 
     if (!bucket) {
-      const fallback = await createBucket();
-      const patchedFallback = await patchBucket(fallback.id, body);
+      const fallback = await createBucket(userId);
+      const patchedFallback = await patchBucket(fallback.id, userId, body);
       return okResponse({ bucket: patchedFallback ?? fallback });
     }
 

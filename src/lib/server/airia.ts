@@ -48,18 +48,16 @@ function previewBodyForLog(value: unknown): string {
 }
 
 /**
- * Build the clean request body that Airia expects.
- * Format: { input: { titleRaw, descriptionRaw, price, quantity } }
+ * Build the prompt for Airia based on mode.
  */
-function buildRequestBody(payload: AiriaPayload): Record<string, unknown> {
-  return {
-    input: {
-      titleRaw: payload.titleRaw,
-      descriptionRaw: payload.descriptionRaw,
-      price: payload.price,
-      quantity: payload.quantity,
-    },
-  };
+function buildUserMessage(payload: AiriaPayload): string {
+  if (payload.mode === "enhanceTitle") {
+    return `Enhance this product title for e-commerce. Make it concise, elegant, and SEO-friendly (max 70 characters). Input: "${payload.titleRaw}". Return ONLY the enhanced title, nothing else.`;
+  }
+  if (payload.mode === "enhanceDescription") {
+    return `Enhance this product description for e-commerce. Make it polished, professional, and conversion-optimized. Input: "${payload.descriptionRaw}". Return ONLY the enhanced description, nothing else.`;
+  }
+  return `Enhance this product for e-commerce launch. Title: "${payload.titleRaw}". Description: "${payload.descriptionRaw}". Price: $${payload.price}. Quantity: ${payload.quantity}. Return a JSON object with keys "enhancedTitle" and "enhancedDescription".`;
 }
 
 function extractJsonFromText(raw: string): Record<string, unknown> | null {
@@ -102,10 +100,22 @@ function normalizeAiriaResponse(
 ): AiriaResult {
   let candidate = input;
 
+  // Unwrap common wrapper shapes
   if (typeof candidate === "object" && candidate !== null) {
     const obj = candidate as Record<string, unknown>;
     candidate =
-      obj.data ?? obj.result ?? obj.response ?? obj.output ?? obj.value ?? candidate;
+      obj.result ?? obj.data ?? obj.response ?? obj.output ?? obj.value ?? obj.content ?? candidate;
+  }
+
+  // If content is an array (like Claude API format), extract text
+  if (Array.isArray(candidate)) {
+    const textItem = candidate.find(
+      (item: unknown) =>
+        typeof item === "object" && item !== null && "text" in (item as Record<string, unknown>)
+    ) as { text?: string } | undefined;
+    if (textItem?.text) {
+      candidate = textItem.text;
+    }
   }
 
   if (typeof candidate === "string") {
@@ -193,11 +203,12 @@ async function executeAiriaRequest(
     );
   }
 
-  const requestBody = buildRequestBody(payload);
+  const userMessage = buildUserMessage(payload);
+  const requestBody = { userMessage };
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${runtime.apiKey}`,
-    "x-api-key": runtime.apiKey,
+    "X-API-Key": runtime.apiKey,
   };
 
   console.log("[merchflow:airia] Airia request", {
@@ -205,10 +216,9 @@ async function executeAiriaRequest(
     agentId: runtime.agentId,
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer ***",
-      "x-api-key": "***",
+      "X-API-Key": "***",
     },
-    body: requestBody,
+    body: { userMessage: userMessage.slice(0, 200) + "..." },
   });
 
   const controller = new AbortController();
@@ -237,6 +247,32 @@ async function executeAiriaRequest(
         `[merchflow:airia] Airia returned ${response.status}:`,
         previewBodyForLog(responseBody)
       );
+
+      // Try alternative payload shapes on failure
+      if (response.status === 400 || response.status === 422) {
+        console.log("[merchflow:airia] Retrying with alternative payload shapes...");
+        for (const altBody of [
+          { input: userMessage },
+          { message: userMessage },
+          { prompt: userMessage },
+          { messages: [{ role: "user", content: userMessage }] },
+        ]) {
+          const altResponse = await fetch(runtime.endpoint, {
+            method: "POST",
+            headers,
+            body: JSON.stringify(altBody),
+          });
+          if (altResponse.ok) {
+            const altResponseBody = await readResponseBody(altResponse);
+            console.log("[merchflow:airia] Alternative payload succeeded:", {
+              shape: Object.keys(altBody),
+              body: previewBodyForLog(altResponseBody),
+            });
+            return normalizeAiriaResponse(altResponseBody, payload.mode);
+          }
+        }
+      }
+
       const normalized = normalizeAiriaResponse(responseBody, payload.mode);
       return {
         ...normalized,

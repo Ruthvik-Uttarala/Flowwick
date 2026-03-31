@@ -44,11 +44,12 @@ function buildPayloadFromBucketAndSettings(
 
 export async function enhanceBucket(
   bucketId: string,
+  userId: string,
   mode: "enhanceTitle" | "enhanceDescription",
   settings: ConnectionSettings
 ): Promise<WorkflowResult> {
   const existingBucket =
-    (await getBucketById(bucketId)) ?? (await createBucket());
+    (await getBucketById(bucketId, userId)) ?? (await createBucket(userId));
 
   const payload = buildPayloadFromBucketAndSettings(
     existingBucket,
@@ -56,7 +57,7 @@ export async function enhanceBucket(
     mode
   );
 
-  await updateBucket(bucketId, (bucket) => ({
+  await updateBucket(existingBucket.id, userId, (bucket) => ({
     ...bucket,
     status: "ENHANCING",
     errorMessage: "",
@@ -68,7 +69,7 @@ export async function enhanceBucket(
         ? await enhanceTitleViaAiria(payload)
         : await enhanceDescriptionViaAiria(payload);
 
-    const updated = await updateBucket(bucketId, (bucket) => {
+    const updated = await updateBucket(existingBucket.id, userId, (bucket) => {
       const next = {
         ...bucket,
         titleEnhanced:
@@ -83,7 +84,7 @@ export async function enhanceBucket(
     });
 
     if (!updated) {
-      const fallback = await getBucketById(bucketId);
+      const fallback = await getBucketById(existingBucket.id, userId);
       return { bucket: fallback, notFound: false, error: "" };
     }
 
@@ -95,7 +96,7 @@ export async function enhanceBucket(
         : mode === "enhanceTitle"
           ? "Airia did not return an enhanced title."
           : "Airia did not return an enhanced description.";
-    const failed = await updateBucket(bucketId, (bucket) => ({
+    const failed = await updateBucket(existingBucket.id, userId, (bucket) => ({
       ...bucket,
       status: "FAILED",
       errorMessage: message,
@@ -106,10 +107,11 @@ export async function enhanceBucket(
 
 export async function launchBucket(
   bucketId: string,
+  userId: string,
   settings: ConnectionSettings
 ): Promise<WorkflowResult> {
   const existingBucket =
-    (await getBucketById(bucketId)) ?? (await createBucket());
+    (await getBucketById(bucketId, userId)) ?? (await createBucket(userId));
 
   const payload = buildPayloadFromBucketAndSettings(
     existingBucket,
@@ -117,7 +119,7 @@ export async function launchBucket(
     "fullLaunch"
   );
 
-  await updateBucket(bucketId, (bucket) => ({
+  await updateBucket(existingBucket.id, userId, (bucket) => ({
     ...bucket,
     status: "PROCESSING",
     errorMessage: "",
@@ -135,7 +137,7 @@ export async function launchBucket(
         error instanceof Error
           ? error.message
           : "Airia title enhancement failed during launch.";
-      const failed = await updateBucket(bucketId, (bucket) => ({
+      const failed = await updateBucket(existingBucket.id, userId, (bucket) => ({
         ...bucket,
         errorMessage: message,
         status: "FAILED",
@@ -153,7 +155,7 @@ export async function launchBucket(
         error instanceof Error
           ? error.message
           : "Airia description enhancement failed during launch.";
-      const failed = await updateBucket(bucketId, (bucket) => ({
+      const failed = await updateBucket(existingBucket.id, userId, (bucket) => ({
         ...bucket,
         titleEnhanced: enhancedTitle,
         errorMessage: message,
@@ -206,7 +208,7 @@ export async function launchBucket(
           "Instagram was not attempted because Shopify product creation failed.",
       };
 
-  const updated = await updateBucket(bucketId, (bucket) => {
+  const updated = await updateBucket(existingBucket.id, userId, (bucket) => {
     const errors = [
       shopifyArtifact.errorMessage,
       instagramArtifact.errorMessage,
@@ -237,7 +239,7 @@ export async function launchBucket(
   });
 
   if (!updated) {
-    const fallback = await getBucketById(bucketId);
+    const fallback = await getBucketById(existingBucket.id, userId);
     return { bucket: fallback, notFound: false, error: "" };
   }
 
@@ -245,9 +247,10 @@ export async function launchBucket(
 }
 
 export async function goAllSequentially(
+  userId: string,
   settings: ConnectionSettings
 ): Promise<GoAllSummary> {
-  const buckets = await getBuckets();
+  const buckets = await getBuckets(userId);
   const readyBucketIds = buckets
     .filter(
       (bucket) => bucket.status === "READY" && hasRequiredBucketFields(bucket)
@@ -263,7 +266,7 @@ export async function goAllSequentially(
 
   for (const bucketId of readyBucketIds) {
     console.info(`[merchflow:workflow] go-all processing bucketId=${bucketId}`);
-    const result = await launchBucket(bucketId, settings);
+    const result = await launchBucket(bucketId, userId, settings);
     if (result.bucket?.status === "DONE") {
       succeeded += 1;
     } else {

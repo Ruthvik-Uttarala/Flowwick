@@ -7,7 +7,6 @@ import {
 } from "@/src/lib/types";
 import { getSettingsStatus } from "@/src/lib/server/settings";
 import { getExecutionReadiness } from "@/src/lib/server/runtime";
-import { getStorageDirectory, getUploadsDirectory } from "@/src/lib/server/store";
 
 const DEFAULT_AIRIA_TIMEOUT_MS = 30_000;
 
@@ -23,9 +22,6 @@ function parseTimeoutMs(value: string | undefined): number {
   return DEFAULT_AIRIA_TIMEOUT_MS;
 }
 
-/**
- * Airia credentials: ONLY from environment variables (global config).
- */
 function resolveAiriaCredentials(): {
   apiUrl: string;
   apiKey: string;
@@ -53,7 +49,7 @@ export function getAiriaConfigStatus(): AiriaConfigStatus {
     request: {
       method: "POST",
       timeoutMs: parseTimeoutMs(process.env.AIRIA_API_TIMEOUT_MS),
-      authHeaderName: "Authorization",
+      authHeaderName: "X-API-Key",
       apiKeyHeaderName: "",
       bodyShape: "wrapped",
       customHeaders: { customHeadersPresent: false, customHeaderNames: [] },
@@ -78,8 +74,8 @@ export function getAiriaRuntimeConfig(): AiriaRuntimeConfig {
   const configured =
     apiUrl.length > 0 && apiKey.length > 0 && agentId.length > 0;
 
-  const baseUrl = apiUrl.replace(/\/+$/, "");
-  const endpoint = agentId ? `${baseUrl}/${agentId}` : baseUrl;
+  // The AIRIA_API_URL already contains the full path including the agent GUID
+  const endpoint = apiUrl.replace(/\/+$/, "");
 
   return {
     endpoint,
@@ -150,8 +146,8 @@ export function getRuntimeConfigSnapshot(
     launch: getLaunchReadinessStatus(settings),
     storage: {
       persistence: "file",
-      dataDirectory: `${getStorageDirectory().replace(/\\/g, "/")}/data`,
-      uploadsDirectory: getUploadsDirectory().replace(/\\/g, "/"),
+      dataDirectory: "supabase",
+      uploadsDirectory: "supabase-storage",
     },
   };
 }

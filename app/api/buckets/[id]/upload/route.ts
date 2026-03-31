@@ -1,3 +1,4 @@
+import { extractUserId } from "@/src/lib/server/auth";
 import {
   createBucket,
   getBucketById,
@@ -16,8 +17,8 @@ const ALLOWED_TYPES = new Set([
   "image/webp",
   "image/gif",
 ]);
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const MAX_TOTAL_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
 const MAX_FILE_COUNT = 10;
 
 interface ParamsContext {
@@ -39,8 +40,13 @@ function collectFiles(formData: FormData): File[] {
 
 export async function POST(request: Request, context: ParamsContext) {
   try {
+    const userId = await extractUserId(request);
+    if (!userId) {
+      return errorResponse("Not authenticated.", { status: 401 });
+    }
+
     const { id } = await context.params;
-    const existingBucket = (await getBucketById(id)) ?? (await createBucket());
+    const existingBucket = (await getBucketById(id, userId)) ?? (await createBucket(userId));
 
     const formData = await request.formData();
     const files = collectFiles(formData);
@@ -75,7 +81,7 @@ export async function POST(request: Request, context: ParamsContext) {
     }
 
     const imageUrls = await saveUploadedFiles(files);
-    const updated = await updateBucket(existingBucket.id, (bucket) => {
+    const updated = await updateBucket(existingBucket.id, userId, (bucket) => {
       const next = {
         ...bucket,
         imageUrls: [...bucket.imageUrls, ...imageUrls],

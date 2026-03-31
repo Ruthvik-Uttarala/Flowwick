@@ -1,5 +1,5 @@
 import { extractUserId } from "@/src/lib/server/auth";
-import { getDbSettings } from "@/src/lib/server/db-settings";
+import { getActiveCredentials } from "@/src/lib/server/credentials";
 import { getBuckets } from "@/src/lib/server/buckets";
 import { goAllSequentially } from "@/src/lib/server/workflows";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
@@ -14,9 +14,18 @@ export async function POST(request: Request) {
       return errorResponse("Not authenticated.", { status: 401 });
     }
 
-    const settings = await getDbSettings(userId);
-    const summary = await goAllSequentially(settings);
-    const buckets = await getBuckets();
+    const creds = await getActiveCredentials(userId);
+    const settings = {
+      shopifyStoreDomain: creds.shopifyStoreDomain,
+      shopifyAdminToken: "",
+      shopifyClientId: creds.shopifyClientId,
+      shopifyClientSecret: creds.shopifyClientSecret,
+      instagramAccessToken: creds.instagramAccessToken,
+      instagramBusinessAccountId: creds.instagramBusinessAccountId,
+    };
+
+    const summary = await goAllSequentially(userId, settings);
+    const buckets = await getBuckets(userId);
     return okResponse({
       summary,
       buckets,

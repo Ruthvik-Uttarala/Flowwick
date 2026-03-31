@@ -1,5 +1,5 @@
 import { extractUserId } from "@/src/lib/server/auth";
-import { getDbSettings } from "@/src/lib/server/db-settings";
+import { getActiveCredentials } from "@/src/lib/server/credentials";
 import { launchBucket } from "@/src/lib/server/workflows";
 import { getBucketById } from "@/src/lib/server/buckets";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
@@ -18,12 +18,21 @@ export async function POST(request: Request, context: ParamsContext) {
       return errorResponse("Not authenticated.", { status: 401 });
     }
 
-    const settings = await getDbSettings(userId);
+    const creds = await getActiveCredentials(userId);
+    const settings = {
+      shopifyStoreDomain: creds.shopifyStoreDomain,
+      shopifyAdminToken: "",
+      shopifyClientId: creds.shopifyClientId,
+      shopifyClientSecret: creds.shopifyClientSecret,
+      instagramAccessToken: creds.instagramAccessToken,
+      instagramBusinessAccountId: creds.instagramBusinessAccountId,
+    };
+
     const { id } = await context.params;
-    const result = await launchBucket(id, settings);
+    const result = await launchBucket(id, userId, settings);
 
     if (!result.bucket) {
-      const fallback = await getBucketById(id);
+      const fallback = await getBucketById(id, userId);
       if (!fallback) {
         return errorResponse("Bucket not found.", { status: 404 });
       }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useAuth } from "@/src/context/AuthContext";
 import { ProductBucket } from "@/src/components/ProductBucket";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
 import type {
@@ -41,6 +42,7 @@ function bucketFromError(payload: ApiResponseShape<unknown> | null | undefined):
 }
 
 export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth();
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [actionsByBucket, setActionsByBucket] = useState<Record<string, BucketActionState>>(
     {}
@@ -111,6 +113,8 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (authLoading || !user) return;
+
     let active = true;
 
     const initialize = async () => {
@@ -133,7 +137,19 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, [loadBuckets, loadRuntimeHealth]);
+  }, [authLoading, user, loadBuckets, loadRuntimeHealth]);
+
+  if (authLoading) {
+    return (
+      <div className="w-full text-center py-20">
+        <p className="text-stone-500">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const updateLocalFieldValue = (
     bucketId: string,
@@ -240,7 +256,7 @@ export default function DashboardPage() {
     }
   };
 
-  const createBucket = async () => {
+  const createBucketAction = async () => {
     setPageError("");
     try {
       const response = await fetch("/api/buckets/create", { method: "POST" });
@@ -313,7 +329,7 @@ export default function DashboardPage() {
           <div className="flex flex-col gap-3">
             <button
               type="button"
-              onClick={createBucket}
+              onClick={createBucketAction}
               disabled={isRunningGoAll}
               className="rounded-2xl border border-stone-200 bg-white/60 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-white hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
             >

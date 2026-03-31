@@ -2,16 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const NAV_ITEMS = [
-  { href: "/", label: "Home" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/settings", label: "Settings" },
-  { href: "/auth", label: "Login" },
-];
+import { useAuth } from "@/src/context/AuthContext";
 
 export function Navbar() {
   const pathname = usePathname();
+  const { user, loading, signOut } = useAuth();
+
+  const navItems = user
+    ? [
+        { href: "/", label: "Home" },
+        { href: "/dashboard", label: "Dashboard" },
+        { href: "/settings", label: "Settings" },
+      ]
+    : [
+        { href: "/", label: "Home" },
+        { href: "/auth", label: "Login" },
+      ];
 
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200/60 bg-white/80 backdrop-blur-2xl">
@@ -29,7 +35,7 @@ export function Navbar() {
         </div>
 
         <nav className="glass-card flex flex-wrap items-center gap-1 rounded-2xl px-2 py-1.5">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
@@ -45,6 +51,20 @@ export function Navbar() {
               </Link>
             );
           })}
+          {!loading && user ? (
+            <>
+              <span className="px-2 text-xs text-stone-500">
+                {user.email}
+              </span>
+              <button
+                type="button"
+                onClick={signOut}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-rose-600 transition hover:bg-rose-50 hover:text-rose-800"
+              >
+                Logout
+              </button>
+            </>
+          ) : null}
         </nav>
       </div>
     </header>
