@@ -4,6 +4,16 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
+import {
+  ShoppingBag,
+  Instagram,
+  Save,
+  RefreshCw,
+  Loader2,
+  Zap,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import type { ConnectionSettings, RuntimeConfigSnapshot, SafeSettingsStatus } from "@/src/lib/types";
 
 const EMPTY_SETTINGS: ConnectionSettings = {
@@ -62,8 +72,8 @@ export default function SettingsPage() {
 
   if (authLoading) {
     return (
-      <div className="w-full text-center py-20">
-        <p className="text-stone-500">Loading...</p>
+      <div className="flex w-full items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-white/40" />
       </div>
     );
   }
@@ -104,6 +114,9 @@ export default function SettingsPage() {
   const launchReady = Boolean(status?.readyForLaunch && runtime?.airiaLiveConfigured);
   const airiaLive = runtime?.airiaMode === "live";
 
+  const inputClass =
+    "glass-input w-full rounded-2xl px-4 py-3 text-sm";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 18 }}
@@ -111,137 +124,165 @@ export default function SettingsPage() {
       transition={{ duration: 0.45 }}
       className="mx-auto w-full max-w-3xl"
     >
-      <section className="glass-card rounded-3xl p-6">
+      <section className="glass-card rounded-3xl p-6 space-y-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-stone-900">Integration Settings</h1>
-            <p className="mt-2 text-sm text-stone-600">
+            <h1 className="text-3xl font-semibold tracking-tight text-white">Integration Settings</h1>
+            <p className="mt-2 text-sm text-white/40">
               Save your Shopify and Instagram credentials to enable product launches.
             </p>
           </div>
-          <div className="space-y-2">
-            <div className={`rounded-full px-3 py-1 text-xs font-semibold ${airiaLive ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-              Airia: {airiaLive ? "Live" : "Missing (env)"}
-            </div>
-            <div className={`rounded-full px-3 py-1 text-xs font-semibold ${launchReady ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+          <div className="flex flex-wrap gap-2">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${airiaLive ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-400 glow-green" : "border border-amber-400/20 bg-amber-400/10 text-amber-400 glow-gold"}`}>
+              <Zap size={12} /> Airia: {airiaLive ? "Live" : "Missing"}
+            </span>
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${launchReady ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-400 glow-green" : "border border-rose-400/20 bg-rose-400/10 text-rose-400 glow-red"}`}>
+              {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
               Launch: {launchReady ? "Ready" : "Not Ready"}
-            </div>
+            </span>
           </div>
         </div>
 
-        <h2 className="mt-6 text-xl font-semibold text-stone-900">Shopify</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Store Domain</span>
-            <input
-              value={connections.shopifyStoreDomain}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  shopifyStoreDomain: event.target.value,
-                }))
-              }
-              placeholder="your-store.myshopify.com"
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Client ID</span>
-            <input
-              value={connections.shopifyClientId ?? ""}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  shopifyClientId: event.target.value,
-                }))
-              }
-              placeholder="Required for client credentials flow"
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
-          <label className="space-y-2 text-sm sm:col-span-2">
-            <span className="text-stone-600">Client Secret</span>
-            <input
-              type="password"
-              value={connections.shopifyClientSecret ?? ""}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  shopifyClientSecret: event.target.value,
-                }))
-              }
-              placeholder="Required for client credentials flow"
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
+        {/* Shopify Section */}
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <ShoppingBag size={18} className="text-emerald-400" />
+            <h2 className="text-lg font-semibold text-white">Shopify</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-2 text-sm">
+              <span className="text-white/50">Store Domain</span>
+              <input
+                value={connections.shopifyStoreDomain}
+                onChange={(event) =>
+                  setConnections((current) => ({
+                    ...current,
+                    shopifyStoreDomain: event.target.value,
+                  }))
+                }
+                placeholder="your-store.myshopify.com"
+                className={inputClass}
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-white/50">Client ID</span>
+              <input
+                value={connections.shopifyClientId ?? ""}
+                onChange={(event) =>
+                  setConnections((current) => ({
+                    ...current,
+                    shopifyClientId: event.target.value,
+                  }))
+                }
+                placeholder="Required for client credentials flow"
+                className={inputClass}
+              />
+            </label>
+            <label className="space-y-2 text-sm sm:col-span-2">
+              <span className="text-white/50">Client Secret</span>
+              <input
+                type="password"
+                value={connections.shopifyClientSecret ?? ""}
+                onChange={(event) =>
+                  setConnections((current) => ({
+                    ...current,
+                    shopifyClientSecret: event.target.value,
+                  }))
+                }
+                placeholder="Required for client credentials flow"
+                className={inputClass}
+              />
+            </label>
+          </div>
         </div>
 
-        <h2 className="mt-8 text-xl font-semibold text-stone-900">Instagram</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Access Token</span>
-            <input
-              type="password"
-              value={connections.instagramAccessToken}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  instagramAccessToken: event.target.value,
-                }))
-              }
-              placeholder="IGQ..."
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
-          <label className="space-y-2 text-sm">
-            <span className="text-stone-600">Business Account ID</span>
-            <input
-              value={connections.instagramBusinessAccountId}
-              onChange={(event) =>
-                setConnections((current) => ({
-                  ...current,
-                  instagramBusinessAccountId: event.target.value,
-                }))
-              }
-              placeholder="1784..."
-              className="w-full rounded-xl border border-stone-200 bg-white/80 px-3 py-2 text-stone-900 outline-none transition focus:border-orange-400/60 focus:ring-1 focus:ring-orange-400/20"
-            />
-          </label>
+        {/* Instagram Section */}
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <Instagram size={18} className="text-pink-400" />
+            <h2 className="text-lg font-semibold text-white">Instagram</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-2 text-sm">
+              <span className="text-white/50">Access Token</span>
+              <input
+                type="password"
+                value={connections.instagramAccessToken}
+                onChange={(event) =>
+                  setConnections((current) => ({
+                    ...current,
+                    instagramAccessToken: event.target.value,
+                  }))
+                }
+                placeholder="IGQ..."
+                className={inputClass}
+              />
+            </label>
+            <label className="space-y-2 text-sm">
+              <span className="text-white/50">Business Account ID</span>
+              <input
+                value={connections.instagramBusinessAccountId}
+                onChange={(event) =>
+                  setConnections((current) => ({
+                    ...current,
+                    instagramBusinessAccountId: event.target.value,
+                  }))
+                }
+                placeholder="1784..."
+                className={inputClass}
+              />
+            </label>
+          </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+        {/* Actions */}
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={save}
             disabled={isSaving || isLoading}
-            className="rounded-2xl bg-gradient-to-r from-orange-400 to-amber-500 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn-gradient inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSaving ? "Saving..." : "Save Settings"}
+            <span className="flex items-center gap-2">
+              {isSaving ? (
+                <><Loader2 size={14} className="animate-spin" /> Saving...</>
+              ) : (
+                <><Save size={14} /> Save Settings</>
+              )}
+            </span>
           </button>
           <button
             type="button"
             onClick={loadSettings}
             disabled={isSaving}
-            className="rounded-2xl border border-stone-200 bg-white/60 px-5 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-white hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-white/70 backdrop-blur-sm transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Refresh
+            <RefreshCw size={14} /> Refresh
           </button>
           {isDirty ? (
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+            <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-400">
               Unsaved changes
             </span>
           ) : null}
         </div>
 
         {message ? (
-          <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-400"
+          >
             {message}
-          </p>
+          </motion.div>
         ) : null}
         {errorMessage ? (
-          <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-400"
+          >
             {errorMessage}
-          </p>
+          </motion.div>
         ) : null}
       </section>
     </motion.div>

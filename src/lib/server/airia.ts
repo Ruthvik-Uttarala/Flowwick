@@ -47,9 +47,6 @@ function previewBodyForLog(value: unknown): string {
   }
 }
 
-/**
- * Build the prompt for Airia based on mode.
- */
 function buildUserMessage(payload: AiriaPayload): string {
   if (payload.mode === "enhanceTitle") {
     return `Enhance this product title for e-commerce. Make it concise, elegant, and SEO-friendly (max 70 characters). Input: "${payload.titleRaw}". Return ONLY the enhanced title, nothing else.`;
@@ -100,14 +97,12 @@ function normalizeAiriaResponse(
 ): AiriaResult {
   let candidate = input;
 
-  // Unwrap common wrapper shapes
   if (typeof candidate === "object" && candidate !== null) {
     const obj = candidate as Record<string, unknown>;
     candidate =
       obj.result ?? obj.data ?? obj.response ?? obj.output ?? obj.value ?? obj.content ?? candidate;
   }
 
-  // If content is an array (like Claude API format), extract text
   if (Array.isArray(candidate)) {
     const textItem = candidate.find(
       (item: unknown) =>
@@ -204,21 +199,21 @@ async function executeAiriaRequest(
   }
 
   const userMessage = buildUserMessage(payload);
-  const requestBody = { userMessage };
+
+  // Primary payload: { input: "..." } with Authorization: Bearer
+  const requestBody = { input: userMessage };
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    "X-API-Key": runtime.apiKey,
+    "Authorization": `Bearer ${runtime.apiKey}`,
   };
 
-  console.log("[merchflow:airia] Airia request", {
+  console.log("[merchflow:airia] FULL REQUEST DEBUG", {
     url: runtime.endpoint,
-    agentId: runtime.agentId,
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": "***",
-    },
-    body: { userMessage: userMessage.slice(0, 200) + "..." },
+    method: "POST",
+    headerKeys: Object.keys(headers),
+    bodyKeys: Object.keys(requestBody),
+    bodyPreview: JSON.stringify(requestBody).slice(0, 500),
   });
 
   const controller = new AbortController();
@@ -242,37 +237,68 @@ async function executeAiriaRequest(
       body: previewBodyForLog(responseBody),
     });
 
+    // If 401 with Bearer, retry with X-API-Key header
+    if (response.status === 401) {
+      console.log("[merchflow:airia] Retrying with X-API-Key header...");
+      const altHeaders = {
+        "Content-Type": "application/json",
+        "X-API-Key": runtime.apiKey,
+      };
+      const altResponse = await fetch(runtime.endpoint, {
+        method: "POST",
+        headers: altHeaders,
+        body: JSON.stringify(requestBody),
+      });
+      if (altResponse.ok) {
+        const altResponseBody = await readResponseBody(altResponse);
+        console.log("[merchflow:airia] X-API-Key header succeeded:", {
+          status: altResponse.status,
+          body: previewBodyForLog(altResponseBody),
+        });
+        return normalizeAiriaResponse(altResponseBody, payload.mode);
+      }
+      console.error("[merchflow:airia] X-API-Key header also failed:", altResponse.status);
+    }
+
+    // If 400/422, try alternative payload shapes
+    if (response.status === 400 || response.status === 422) {
+      console.log("[merchflow:airia] Retrying with alternative payload shapes...");
+      for (const altBody of [
+        { userMessage },
+        { message: userMessage },
+        { prompt: userMessage },
+        {
+          input: {
+            titleRaw: payload.titleRaw,
+            descriptionRaw: payload.descriptionRaw,
+            price: payload.price,
+            quantity: payload.quantity,
+          },
+        },
+      ]) {
+        console.log("[merchflow:airia] Trying shape:", Object.keys(altBody));
+        const altResponse = await fetch(runtime.endpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(altBody),
+        });
+        if (altResponse.ok) {
+          const altResponseBody = await readResponseBody(altResponse);
+          console.log("[merchflow:airia] Alternative payload succeeded:", {
+            shape: Object.keys(altBody),
+            body: previewBodyForLog(altResponseBody),
+          });
+          return normalizeAiriaResponse(altResponseBody, payload.mode);
+        }
+        console.log("[merchflow:airia] Shape failed:", Object.keys(altBody), "status:", altResponse.status);
+      }
+    }
+
     if (!response.ok) {
       console.error(
         `[merchflow:airia] Airia returned ${response.status}:`,
         previewBodyForLog(responseBody)
       );
-
-      // Try alternative payload shapes on failure
-      if (response.status === 400 || response.status === 422) {
-        console.log("[merchflow:airia] Retrying with alternative payload shapes...");
-        for (const altBody of [
-          { input: userMessage },
-          { message: userMessage },
-          { prompt: userMessage },
-          { messages: [{ role: "user", content: userMessage }] },
-        ]) {
-          const altResponse = await fetch(runtime.endpoint, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(altBody),
-          });
-          if (altResponse.ok) {
-            const altResponseBody = await readResponseBody(altResponse);
-            console.log("[merchflow:airia] Alternative payload succeeded:", {
-              shape: Object.keys(altBody),
-              body: previewBodyForLog(altResponseBody),
-            });
-            return normalizeAiriaResponse(altResponseBody, payload.mode);
-          }
-        }
-      }
-
       const normalized = normalizeAiriaResponse(responseBody, payload.mode);
       return {
         ...normalized,

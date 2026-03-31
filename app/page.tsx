@@ -1,196 +1,186 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
-import { motion, useMotionValue, useSpring } from "framer-motion";
+import { motion } from "framer-motion";
+import { Sparkles, ShoppingBag, Instagram, ArrowRight, Zap } from "lucide-react";
 
-const flow = [
-  { step: "Sign up", desc: "Create your account with Supabase email auth." },
-  { step: "Connect", desc: "Save Shopify, Instagram, and Airia settings." },
-  { step: "Upload", desc: "Create a bucket and upload product images." },
-  { step: "Enhance", desc: "AI-enhance titles and descriptions with Airia." },
-  { step: "Launch", desc: "Publish to Shopify + Instagram in one click." },
+const features = [
+  {
+    icon: Sparkles,
+    title: "AI Enhancement",
+    desc: "Airia-powered title and description enhancement for maximum conversion.",
+    gradient: "from-purple-500 to-pink-500",
+    glow: "rgba(168, 85, 247, 0.3)",
+  },
+  {
+    icon: ShoppingBag,
+    title: "Shopify Launch",
+    desc: "One-click product creation with images, variants, and pricing.",
+    gradient: "from-emerald-400 to-cyan-400",
+    glow: "rgba(52, 211, 153, 0.3)",
+  },
+  {
+    icon: Instagram,
+    title: "Instagram Auto-Post",
+    desc: "Publish stunning product posts with captions and shop links.",
+    gradient: "from-pink-500 to-orange-400",
+    glow: "rgba(236, 72, 153, 0.3)",
+  },
 ];
 
 const container = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.08, delayChildren: 0.2 },
+    transition: { staggerChildren: 0.12, delayChildren: 0.3 },
   },
 };
 
 const item = {
-  hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
+  hidden: { opacity: 0, y: 30 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.6 } },
 };
 
-function CursorGlow() {
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const springX = useSpring(x, { stiffness: 60, damping: 20 });
-  const springY = useSpring(y, { stiffness: 60, damping: 20 });
-
-  return (
-    <motion.div
-      className="pointer-events-none absolute z-0 h-[420px] w-[420px] rounded-full opacity-40"
-      style={{
-        x: springX,
-        y: springY,
-        background:
-          "radial-gradient(circle, rgba(224,122,58,0.18) 0%, rgba(212,165,116,0.08) 45%, transparent 70%)",
-        translateX: "-50%",
-        translateY: "-50%",
-      }}
-      onPointerMove={() => {}}
-    />
-  );
-}
-
 export default function Home() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const glowX = useMotionValue(0);
-  const glowY = useMotionValue(0);
-  const springGlowX = useSpring(glowX, { stiffness: 50, damping: 18 });
-  const springGlowY = useSpring(glowY, { stiffness: 50, damping: 18 });
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const rect = heroRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    glowX.set(e.clientX - rect.left);
-    glowY.set(e.clientY - rect.top);
-  };
-
   return (
-    <div className="w-full space-y-8">
-      {/* Hero Section */}
-      <motion.section
-        ref={heroRef}
-        onMouseMove={handleMouseMove}
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55 }}
-        className="glass-card accent-ring relative overflow-hidden rounded-3xl p-8 sm:p-10"
-      >
-        {/* Cursor glow */}
-        <motion.div
-          className="pointer-events-none absolute z-0 h-[400px] w-[400px] rounded-full"
-          style={{
-            left: springGlowX,
-            top: springGlowY,
-            background:
-              "radial-gradient(circle, rgba(224,122,58,0.15) 0%, rgba(212,165,116,0.06) 45%, transparent 70%)",
-            translateX: "-50%",
-            translateY: "-50%",
-          }}
-        />
+    <div className="w-full space-y-12">
+      {/* Floating orbs */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="float-slow absolute top-[15%] left-[10%] h-72 w-72 rounded-full bg-purple-500/[0.06] blur-[80px]" />
+        <div className="float-medium absolute top-[60%] right-[15%] h-96 w-96 rounded-full bg-cyan-500/[0.05] blur-[100px]" />
+        <div className="float-fast absolute top-[30%] right-[30%] h-48 w-48 rounded-full bg-pink-500/[0.04] blur-[60px]" />
+      </div>
 
-        {/* Animated gradient band */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0 opacity-30"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(224,122,58,0.08) 0%, rgba(245,240,235,0.1) 35%, rgba(212,165,116,0.08) 65%, rgba(250,249,246,0.05) 100%)",
-            animation: "gradientShift 8s ease-in-out infinite alternate",
-          }}
-        />
+      {/* Hero */}
+      <motion.section
+        initial={{ opacity: 0, y: 40 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+        className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-white/[0.03] p-10 sm:p-14 backdrop-blur-2xl"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.05] via-transparent to-purple-500/[0.05]" />
 
         <div className="relative z-10">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-orange-300/40 bg-orange-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-orange-700">
-              FlowCart
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+            className="flex flex-wrap items-center gap-3 mb-6"
+          >
+            <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
+              <Zap size={12} /> FlowCart
             </span>
-            <span className="rounded-full border border-amber-300/40 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-amber-700">
+            <span className="rounded-full border border-purple-400/20 bg-purple-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">
               Live Integrations
             </span>
-          </div>
-          <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-stone-900 sm:text-5xl">
-            Upload once. Launch everywhere.
-          </h1>
-          <p className="mt-4 max-w-2xl text-base leading-8 text-stone-600">
-            FlowCart is a launch cockpit for sellers who need one clean path from
-            product idea to live storefront and social post, powered by Airia,
-            Shopify, Instagram, and Supabase auth.
-          </p>
+          </motion.div>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/auth"
-              className="rounded-2xl bg-gradient-to-r from-orange-400 to-amber-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md hover:brightness-105"
-            >
-              Get Started
-            </Link>
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="max-w-3xl text-5xl sm:text-6xl font-extrabold tracking-tight"
+          >
+            <span className="gradient-text">Upload once.</span>
+            <br />
+            <span className="text-white">Launch everywhere.</span>
+          </motion.h1>
+
+          <motion.p
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45, duration: 0.6 }}
+            className="mt-5 max-w-2xl text-base leading-8 text-white/50"
+          >
+            FlowCart is a launch cockpit for sellers who need one clean path from
+            product idea to live storefront and social post, powered by Airia AI,
+            Shopify, Instagram, and Supabase.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="mt-8 flex flex-wrap gap-4"
+          >
             <Link
               href="/dashboard"
-              className="rounded-2xl border border-stone-200 bg-white/60 px-5 py-3 text-sm font-semibold text-stone-700 transition hover:bg-white hover:shadow-sm"
+              className="btn-gradient inline-flex items-center gap-2 rounded-2xl px-6 py-3.5 text-sm font-semibold shadow-lg"
             >
-              Open Dashboard
+              <span className="flex items-center gap-2">
+                Get Started <ArrowRight size={16} />
+              </span>
             </Link>
-          </div>
+            <Link
+              href="/auth"
+              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-3.5 text-sm font-semibold text-white/70 backdrop-blur-sm transition hover:bg-white/[0.08] hover:text-white"
+            >
+              Sign In
+            </Link>
+          </motion.div>
         </div>
       </motion.section>
 
-      {/* Flow + Links */}
-      <section className="grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
-        <motion.div
-          variants={container}
-          initial="hidden"
-          animate="show"
-          className="glass-card rounded-3xl p-6"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">
-            How It Works
-          </p>
-          <div className="mt-4 space-y-3">
-            {flow.map((s, index) => (
-              <motion.div
-                key={s.step}
-                variants={item}
-                whileHover={{ y: -2, boxShadow: "0 6px 20px rgba(41,37,36,0.06)" }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="rounded-2xl border border-stone-200 bg-white/60 px-4 py-3 text-sm transition"
+      {/* Feature Cards */}
+      <motion.section
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="grid gap-5 sm:grid-cols-3"
+      >
+        {features.map((feature) => {
+          const Icon = feature.icon;
+          return (
+            <motion.div
+              key={feature.title}
+              variants={item}
+              whileHover={{ y: -6, scale: 1.02 }}
+              transition={{ type: "spring", stiffness: 300, damping: 20 }}
+              className="glass-card glass-card-hover group rounded-2xl p-6 cursor-default"
+            >
+              <div
+                className={`mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${feature.gradient}`}
+                style={{ boxShadow: `0 4px 20px ${feature.glow}` }}
               >
-                <span className="mr-2 font-semibold text-orange-500">{index + 1}.</span>
-                <span className="font-medium text-stone-800">{s.step}</span>
-                <span className="text-stone-500"> &mdash; {s.desc}</span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+                <Icon size={22} className="text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">{feature.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-white/40">{feature.desc}</p>
+            </motion.div>
+          );
+        })}
+      </motion.section>
 
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, delay: 0.15 }}
-          className="glass-card rounded-3xl p-6"
-        >
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-500">
-            Quick Links
-          </p>
-          <div className="mt-4 space-y-3">
-            <Link
-              href="/settings"
-              className="block rounded-2xl border border-stone-200 bg-white/60 px-4 py-3 text-sm font-semibold text-stone-700 transition hover:bg-white hover:shadow-sm"
+      {/* How It Works */}
+      <motion.section
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.6 }}
+        className="glass-card rounded-[2rem] p-8"
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/30">
+          How It Works
+        </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-5">
+          {[
+            { step: "Sign Up", desc: "Create your account" },
+            { step: "Connect", desc: "Save API credentials" },
+            { step: "Upload", desc: "Add product images" },
+            { step: "Enhance", desc: "AI-optimize content" },
+            { step: "Launch", desc: "Go live everywhere" },
+          ].map((s, index) => (
+            <motion.div
+              key={s.step}
+              whileHover={{ y: -3 }}
+              className="relative rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-4 text-center transition hover:border-white/[0.12] hover:bg-white/[0.06]"
             >
-              Configure Integrations
-            </Link>
-            <Link
-              href="/dashboard"
-              className="block rounded-2xl border border-stone-200 bg-white/60 px-4 py-3 text-sm font-semibold text-stone-700 transition hover:bg-white hover:shadow-sm"
-            >
-              Manage Buckets
-            </Link>
-          </div>
-        </motion.div>
-      </section>
-
-      <style>{`
-        @keyframes gradientShift {
-          0% { background-position: 0% 50%; }
-          100% { background-position: 100% 50%; }
-        }
-      `}</style>
+              <span className="text-2xl font-bold gradient-text">{index + 1}</span>
+              <p className="mt-1 text-sm font-semibold text-white">{s.step}</p>
+              <p className="mt-1 text-xs text-white/30">{s.desc}</p>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
     </div>
   );
 }

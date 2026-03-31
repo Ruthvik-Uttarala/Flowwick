@@ -214,7 +214,7 @@ export async function createShopifyProductArtifact(input: {
     return buildFailure(tokenResult.errorMessage);
   }
 
-  const productEndpoint = `https://${storeDomain}/admin/api/2026-01/products.json`;
+  const productEndpoint = `https://${storeDomain}/admin/api/2024-01/products.json`;
   const imageCandidate = input.payload.imageUrls[0] ?? "";
   const imageInput = await buildShopifyImageInput(imageCandidate);
   const productBody: Record<string, unknown> = {
