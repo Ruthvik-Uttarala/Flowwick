@@ -96,25 +96,25 @@ export function AuthView({ redirectTo }: AuthViewProps) {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="grid w-full gap-6 rounded-[2rem] border border-white/[0.08] bg-white/[0.03] p-6 shadow-2xl backdrop-blur-2xl lg:grid-cols-[1.05fr_0.95fr] lg:p-8"
+        className="grid w-full gap-6 rounded-[2rem] border border-[#2B1B12]/[0.08] bg-white/60 p-6 shadow-lg backdrop-blur-2xl lg:grid-cols-[1.05fr_0.95fr] lg:p-8"
       >
         {/* Left panel */}
-        <section className="relative overflow-hidden rounded-[1.75rem] border border-white/[0.06] bg-gradient-to-br from-emerald-500/[0.08] via-cyan-500/[0.05] to-purple-500/[0.08] p-8">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(52,211,153,0.1),transparent_50%)]" />
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-[#C47A2C]/[0.12] bg-gradient-to-br from-[#C47A2C]/[0.06] via-[#D4943F]/[0.04] to-[#F5F1E8] p-8">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(196,122,44,0.08),transparent_50%)]" />
           <div className="relative space-y-5">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C47A2C]/20 bg-[#C47A2C]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#C47A2C]">
               <Zap size={12} /> FlowCart
             </span>
-            <h1 className="text-4xl font-bold tracking-tight text-white">
+            <h1 className="text-4xl font-bold tracking-tight text-[#2B1B12]">
               Upload once.
               <br />
-              <span className="gradient-text">Launch everywhere.</span>
+              <span className="gradient-text-warm">Launch everywhere.</span>
             </h1>
-            <p className="text-sm leading-7 text-white/40">
+            <p className="text-sm leading-7 text-[#2B1B12]/50">
               Sign in to access your dashboard, configure integrations, and
               launch products to Shopify and Instagram with one click.
             </p>
-            <div className="rounded-2xl border border-white/[0.06] bg-white/[0.04] p-4 text-sm text-white/50">
+            <div className="rounded-2xl border border-[#2B1B12]/[0.06] bg-white/40 p-4 text-sm text-[#2B1B12]/50">
               After login, FlowCart routes you straight into the dashboard.
             </div>
           </div>
@@ -123,7 +123,7 @@ export function AuthView({ redirectTo }: AuthViewProps) {
         {/* Right panel */}
         <section className="rounded-[1.75rem] p-6">
           {/* Tab switcher */}
-          <div className="flex gap-1 rounded-2xl border border-white/[0.06] bg-white/[0.03] p-1 text-sm">
+          <div className="flex gap-1 rounded-2xl border border-[#2B1B12]/[0.06] bg-white/40 p-1 text-sm">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -134,8 +134,8 @@ export function AuthView({ redirectTo }: AuthViewProps) {
                 }}
                 className={`flex-1 rounded-xl px-3 py-3 font-semibold transition-all duration-200 ${
                   mode === tab.key
-                    ? "bg-white/10 text-white shadow-sm"
-                    : "text-white/40 hover:text-white/60"
+                    ? "bg-[#C47A2C]/10 text-[#C47A2C] shadow-sm"
+                    : "text-[#2B1B12]/40 hover:text-[#2B1B12]/60"
                 }`}
               >
                 {tab.label}
@@ -145,15 +145,15 @@ export function AuthView({ redirectTo }: AuthViewProps) {
 
           <div className="mt-6 space-y-4">
             <label className="block space-y-2 text-sm">
-              <span className="text-white/50">Email</span>
+              <span className="text-[#2B1B12]/60">Email</span>
               <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#2B1B12]/25" />
                 <input
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   type="email"
                   autoComplete="email"
-                  className="glass-input w-full rounded-2xl pl-11 pr-4 py-3 text-sm"
+                  className="warm-input w-full rounded-2xl pl-11 pr-4 py-3 text-sm"
                   placeholder="you@example.com"
                 />
               </div>
@@ -161,15 +161,15 @@ export function AuthView({ redirectTo }: AuthViewProps) {
 
             {mode !== "reset" && (
               <label className="block space-y-2 text-sm">
-                <span className="text-white/50">Password</span>
+                <span className="text-[#2B1B12]/60">Password</span>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/20" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#2B1B12]/25" />
                   <input
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     type="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="glass-input w-full rounded-2xl pl-11 pr-4 py-3 text-sm"
+                    className="warm-input w-full rounded-2xl pl-11 pr-4 py-3 text-sm"
                     placeholder={mode === "login" ? "Your password" : "At least 8 characters"}
                   />
                 </div>
@@ -180,7 +180,7 @@ export function AuthView({ redirectTo }: AuthViewProps) {
               type="button"
               disabled={isPending}
               onClick={handleSubmit}
-              className="btn-gradient inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-warm inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="flex items-center gap-2">
                 {isPending ? (
@@ -199,7 +199,7 @@ export function AuthView({ redirectTo }: AuthViewProps) {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-white/[0.06] bg-white/[0.04] px-4 py-3 text-sm text-white/60"
+                className="rounded-2xl border border-[#2B1B12]/[0.06] bg-white/40 px-4 py-3 text-sm text-[#2B1B12]/60"
               >
                 {status}
               </motion.div>

@@ -15,9 +15,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="relative isolate flex min-h-full flex-col">
-        {/* Animated mesh background */}
-        <div className="mesh-bg" />
+      <body className="relative isolate flex min-h-full flex-col bg-[#F5F1E8] text-[#2B1B12]">
+        {/* Warm animated background */}
+        <div className="warm-bg" />
 
         <AuthProvider>
           <Navbar />

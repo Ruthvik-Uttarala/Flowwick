@@ -148,7 +148,7 @@ export default function DashboardPage() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-white/40" />
+        <Loader2 size={24} className="animate-spin text-[#C47A2C]" />
       </div>
     );
   }
@@ -316,37 +316,37 @@ export default function DashboardPage() {
       label: "Ready",
       value: readyCount,
       icon: Clock,
-      glow: "glow-green",
-      color: "text-emerald-400",
-      border: "border-emerald-400/20",
-      bg: "bg-emerald-400/10",
+      badge: "badge-green",
+      color: "text-green-700",
+      border: "border-green-600/20",
+      bg: "bg-green-600/10",
     },
     {
       label: "Done",
       value: doneCount,
       icon: CheckCircle2,
-      glow: "glow-gold",
-      color: "text-amber-400",
-      border: "border-amber-400/20",
-      bg: "bg-amber-400/10",
+      badge: "badge-gold",
+      color: "text-[#C47A2C]",
+      border: "border-[#C47A2C]/20",
+      bg: "bg-[#C47A2C]/10",
     },
     {
       label: "Failed",
       value: failedCount,
       icon: XCircle,
-      glow: "glow-red",
-      color: "text-rose-400",
-      border: "border-rose-400/20",
-      bg: "bg-rose-400/10",
+      badge: "badge-red",
+      color: "text-red-600",
+      border: "border-red-400/20",
+      bg: "bg-red-400/10",
     },
     {
       label: "AI",
       value: runtimeHealth.openaiConfigured ? "Live" : "Missing",
       icon: Zap,
-      glow: runtimeHealth.openaiConfigured ? "glow-purple" : "",
-      color: runtimeHealth.openaiConfigured ? "text-purple-400" : "text-white/40",
-      border: runtimeHealth.openaiConfigured ? "border-purple-400/20" : "border-white/[0.06]",
-      bg: runtimeHealth.openaiConfigured ? "bg-purple-400/10" : "bg-white/[0.03]",
+      badge: runtimeHealth.openaiConfigured ? "badge-purple" : "",
+      color: runtimeHealth.openaiConfigured ? "text-purple-600" : "text-[#2B1B12]/40",
+      border: runtimeHealth.openaiConfigured ? "border-purple-400/20" : "border-[#2B1B12]/[0.06]",
+      bg: runtimeHealth.openaiConfigured ? "bg-purple-400/10" : "bg-white/40",
     },
   ];
 
@@ -356,18 +356,18 @@ export default function DashboardPage() {
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45 }}
-        className="glass-card rounded-3xl p-6"
+        className="warm-card rounded-3xl p-6"
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/30">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#2B1B12]/30">
               Launch Console
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#2B1B12]">
               FlowCart Dashboard
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-white/40">
-              Build a bucket, upload product assets, enhance with Airia, then run GO to
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[#2B1B12]/45">
+              Build a bucket, upload product assets, enhance with AI, then run GO to
               create a Shopify product and Instagram post through live integrations.
             </p>
           </div>
@@ -376,7 +376,7 @@ export default function DashboardPage() {
               type="button"
               onClick={createBucketAction}
               disabled={isRunningGoAll}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white/70 backdrop-blur-sm transition hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#2B1B12]/10 bg-white/60 px-4 py-2.5 text-sm font-semibold text-[#2B1B12]/70 transition hover:bg-white/80 hover:text-[#2B1B12] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus size={16} /> Create Bucket
             </button>
@@ -384,7 +384,7 @@ export default function DashboardPage() {
               type="button"
               onClick={goAllBuckets}
               disabled={readyCount === 0 || isRunningGoAll}
-              className="btn-gradient inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn-warm inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="flex items-center gap-2">
                 {isRunningGoAll ? (
@@ -403,11 +403,11 @@ export default function DashboardPage() {
             return (
               <div
                 key={card.label}
-                className={`rounded-2xl border ${card.border} ${card.bg} px-4 py-3 ${card.glow}`}
+                className={`rounded-2xl border ${card.border} ${card.bg} px-4 py-3 ${card.badge}`}
               >
                 <div className="flex items-center gap-2">
                   <Icon size={14} className={card.color} />
-                  <p className="text-xs font-semibold uppercase tracking-wide text-white/40">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#2B1B12]/40">
                     {card.label}
                   </p>
                 </div>
@@ -419,9 +419,9 @@ export default function DashboardPage() {
       </motion.section>
 
       {loading ? (
-        <div className="flex items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-          <Loader2 size={14} className="animate-spin text-white/40" />
-          <span className="text-sm text-white/40">Loading buckets...</span>
+        <div className="flex items-center gap-2 rounded-2xl border border-[#2B1B12]/[0.06] bg-white/50 px-4 py-3">
+          <Loader2 size={14} className="animate-spin text-[#C47A2C]" />
+          <span className="text-sm text-[#2B1B12]/45">Loading buckets...</span>
         </div>
       ) : null}
 
@@ -429,7 +429,7 @@ export default function DashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-400"
+          className="rounded-2xl border border-green-600/20 bg-green-600/10 px-4 py-3 text-sm text-green-700"
         >
           {summaryMessage}
           {goAllSummary ? ` (${goAllSummary.total} processed)` : ""}
@@ -440,15 +440,15 @@ export default function DashboardPage() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-400"
+          className="rounded-2xl border border-red-400/20 bg-red-400/10 px-4 py-3 text-sm text-red-600"
         >
           {pageError}
         </motion.div>
       ) : null}
 
       {buckets.length === 0 && !loading ? (
-        <div className="glass-card rounded-3xl p-8 text-center">
-          <p className="text-sm text-white/40">
+        <div className="warm-card rounded-3xl p-8 text-center">
+          <p className="text-sm text-[#2B1B12]/40">
             No buckets yet. Create your first bucket to start the launch flow.
           </p>
         </div>

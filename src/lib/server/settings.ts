@@ -3,8 +3,7 @@ import { ConnectionSettings } from "@/src/lib/types";
 import { describeExecutionReadiness, getExecutionReadiness } from "@/src/lib/server/runtime";
 
 export const settingsSchema = z.object({
-  shopifyStoreDomain: z.string(),
-  shopifyAdminToken: z.string().default(""),
+  shopifyStoreDomain: z.string().default(""),
   instagramAccessToken: z.string().default(""),
   instagramBusinessAccountId: z.string().default(""),
 });
@@ -12,7 +11,7 @@ export const settingsSchema = z.object({
 export function redactSettingsForClient(settings: ConnectionSettings): ConnectionSettings {
   return {
     ...settings,
-    shopifyAdminToken: settings.shopifyAdminToken ? "••••••••" : "",
+    shopifyAdminToken: "",
     instagramAccessToken: settings.instagramAccessToken ? "••••••••" : "",
   };
 }
@@ -21,7 +20,7 @@ export function getSettingsStatus(settings: ConnectionSettings) {
   const readiness = describeExecutionReadiness(settings);
   return {
     shopifyStoreDomainPresent: settings.shopifyStoreDomain.trim().length > 0,
-    shopifyAdminTokenPresent: settings.shopifyAdminToken.trim().length > 0,
+    shopifyConnected: settings.shopifyAdminToken.trim().length > 0,
     instagramAccessTokenPresent: settings.instagramAccessToken.trim().length > 0,
     instagramBusinessAccountIdPresent: settings.instagramBusinessAccountId.trim().length > 0,
     instagramEnabled: readiness.instagramEnabled,

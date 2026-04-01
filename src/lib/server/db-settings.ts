@@ -78,7 +78,8 @@ export async function saveDbSettings(
     user_id: userId,
     shopify_store_domain:
       (settings.shopifyStoreDomain ?? "").trim() || existing.shopifyStoreDomain,
-    shopify_admin_token: resolveSecret(settings.shopifyAdminToken, existing.shopifyAdminToken),
+    // shopify_admin_token is set exclusively via OAuth callback — never overwrite from settings form
+    shopify_admin_token: existing.shopifyAdminToken,
     instagram_access_token: resolveSecret(
       settings.instagramAccessToken,
       existing.instagramAccessToken

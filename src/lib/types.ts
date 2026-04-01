@@ -85,7 +85,7 @@ export interface GoAllSummary {
 
 export interface SafeSettingsStatus {
   shopifyStoreDomainPresent: boolean;
-  shopifyAdminTokenPresent: boolean;
+  shopifyConnected: boolean;
   instagramAccessTokenPresent: boolean;
   instagramBusinessAccountIdPresent: boolean;
   instagramEnabled: boolean;
