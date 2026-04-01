@@ -9,7 +9,7 @@ import {
   Loader2,
   ExternalLink,
   ShoppingBag,
-  Instagram,
+  Camera,
   AlertCircle,
 } from "lucide-react";
 import type { EditableBucketField, ProductBucket as Bucket } from "@/src/lib/types";
@@ -263,8 +263,8 @@ export function ProductBucket({
             rel="noreferrer"
             className="flex items-center gap-2 rounded-xl border border-pink-400/20 bg-pink-400/10 px-3 py-2 text-sm text-pink-400 transition hover:bg-pink-400/20"
           >
-            <Instagram size={14} />
-            <span className="truncate">Instagram: {bucket.instagramPostUrl}</span>
+            <Camera size={14} />
+            <span className="truncate">Camera: {bucket.instagramPostUrl}</span>
             <ExternalLink size={12} className="ml-auto shrink-0" />
           </a>
         ) : null}
@@ -283,7 +283,7 @@ export function ProductBucket({
               <ShoppingBag size={12} /> {bucket.shopifyCreated ? "Created" : "Pending"}
             </span>
             <span className="flex items-center gap-1">
-              <Instagram size={12} /> {bucket.instagramPublished ? "Published" : bucket.status === "FAILED" ? "Failed" : "Pending"}
+              <Camera size={12} /> {bucket.instagramPublished ? "Published" : bucket.status === "FAILED" ? "Failed" : "Pending"}
             </span>
           </div>
           <button

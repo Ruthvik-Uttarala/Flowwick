@@ -6,7 +6,7 @@ import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
 import {
   ShoppingBag,
-  Instagram,
+  Camera,
   Save,
   RefreshCw,
   Loader2,
@@ -199,7 +199,7 @@ export default function SettingsPage() {
         {/* Instagram Section */}
         <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4">
           <div className="flex items-center gap-2">
-            <Instagram size={18} className="text-pink-400" />
+            <Camera size={18} className="text-pink-400" />
             <h2 className="text-lg font-semibold text-white">Instagram</h2>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

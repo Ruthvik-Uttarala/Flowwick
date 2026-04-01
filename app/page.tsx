@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Sparkles, ShoppingBag, Instagram, ArrowRight, Zap } from "lucide-react";
+import { Sparkles, ShoppingBag, Camera, ArrowRight, Zap } from "lucide-react";
 
 const features = [
   {
@@ -20,7 +20,7 @@ const features = [
     glow: "rgba(52, 211, 153, 0.3)",
   },
   {
-    icon: Instagram,
+    icon: Camera,
     title: "Instagram Auto-Post",
     desc: "Publish stunning product posts with captions and shop links.",
     gradient: "from-pink-500 to-orange-400",
