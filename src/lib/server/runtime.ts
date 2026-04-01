@@ -1,34 +1,13 @@
-import { ConnectionSettings, ShopifyAuthMode } from "@/src/lib/types";
+import { ConnectionSettings } from "@/src/lib/types";
 
 function parseBooleanEnv(value: string | undefined, defaultValue = false): boolean {
   const normalized = value?.trim().toLowerCase();
-  if (!normalized) {
-    return defaultValue;
-  }
-
+  if (!normalized) return defaultValue;
   return ["1", "true", "yes", "on"].includes(normalized);
 }
 
 export function isInstagramEnabled(): boolean {
   return parseBooleanEnv(process.env.INSTAGRAM_ENABLED, true);
-}
-
-export function getShopifyAuthMode(settings: ConnectionSettings): ShopifyAuthMode {
-  const clientIdPresent = (settings.shopifyClientId ?? "").trim().length > 0;
-  const clientSecretPresent = (settings.shopifyClientSecret ?? "").trim().length > 0;
-  const clientCredentialsPresent = clientIdPresent && clientSecretPresent;
-  const adminTokenPresent = settings.shopifyAdminToken.trim().length > 0;
-  const accessTokenPresent = (settings.shopifyAccessToken ?? "").trim().length > 0;
-
-  if (clientCredentialsPresent) {
-    return "client-credentials";
-  }
-
-  if (adminTokenPresent || accessTokenPresent) {
-    return "admin-token";
-  }
-
-  return "missing";
 }
 
 export function hasPublicUrl(url: string): boolean {
@@ -40,42 +19,26 @@ export function normalizeStoreDomain(storeDomain: string): string {
     .trim()
     .replace(/^https?:\/\//i, "")
     .replace(/\/+$/, "");
-  if (!normalized) {
-    return "";
-  }
-
-  if (normalized.includes(".")) {
-    return normalized;
-  }
-
+  if (!normalized) return "";
+  if (normalized.includes(".")) return normalized;
   return `${normalized}.myshopify.com`;
 }
 
 export function getExecutionReadiness(settings: ConnectionSettings) {
-  const shopifyAuthMode = getShopifyAuthMode(settings);
   const shopifyStoreDomainReady = normalizeStoreDomain(settings.shopifyStoreDomain).length > 0;
-  const shopifyClientIdReady = (settings.shopifyClientId ?? "").trim().length > 0;
-  const shopifyClientSecretReady = (settings.shopifyClientSecret ?? "").trim().length > 0;
-  const shopifyClientCredentialsReady = shopifyClientIdReady && shopifyClientSecretReady;
-  const shopifyDirectExecutionReady = shopifyStoreDomainReady && shopifyClientCredentialsReady;
-  const shopifyReady = shopifyDirectExecutionReady;
+  const shopifyAdminTokenReady = settings.shopifyAdminToken.trim().length > 0;
+  const shopifyReady = shopifyStoreDomainReady && shopifyAdminTokenReady;
+
   const instagramEnabled = isInstagramEnabled();
   const instagramConfigured =
     !instagramEnabled ||
-    ((settings.instagramAccessToken ?? "").trim().length > 0 &&
+    (settings.instagramAccessToken.trim().length > 0 &&
       settings.instagramBusinessAccountId.trim().length > 0);
 
   const missingRequirements: string[] = [];
-  if (!shopifyStoreDomainReady) {
-    missingRequirements.push("shopifyStoreDomain");
-  }
-  if (!shopifyClientIdReady) {
-    missingRequirements.push("shopifyClientId");
-  }
-  if (!shopifyClientSecretReady) {
-    missingRequirements.push("shopifyClientSecret");
-  }
-  if (instagramEnabled && (settings.instagramAccessToken ?? "").trim().length === 0) {
+  if (!shopifyStoreDomainReady) missingRequirements.push("shopifyStoreDomain");
+  if (!shopifyAdminTokenReady) missingRequirements.push("shopifyAdminToken");
+  if (instagramEnabled && settings.instagramAccessToken.trim().length === 0) {
     missingRequirements.push("instagramAccessToken");
   }
   if (instagramEnabled && settings.instagramBusinessAccountId.trim().length === 0) {
@@ -84,14 +47,10 @@ export function getExecutionReadiness(settings: ConnectionSettings) {
 
   return {
     instagramEnabled,
-    shopifyAuthMode,
     shopifyReady,
-    shopifyDirectExecutionReady,
+    shopifyDirectExecutionReady: shopifyReady,
     instagramConfigured,
-    readyToLaunch:
-      shopifyStoreDomainReady &&
-      shopifyDirectExecutionReady &&
-      instagramConfigured,
+    readyToLaunch: shopifyReady && instagramConfigured,
     missingRequirements,
   };
 }

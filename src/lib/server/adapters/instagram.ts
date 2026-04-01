@@ -1,4 +1,4 @@
-import { LaunchPayload, EnhancementResult, ConnectionSettings } from "@/src/lib/types";
+import { LaunchPayload, ConnectionSettings } from "@/src/lib/types";
 import { isInstagramEnabled } from "@/src/lib/server/runtime";
 
 export interface InstagramLaunchArtifact {
@@ -39,7 +39,6 @@ async function readJsonResponse<T>(response: Response): Promise<T | null> {
     const raw = await response.text().catch(() => "");
     return (raw ? ({ raw } as unknown as T) : null) as T | null;
   }
-
   return response.json().catch(() => null);
 }
 
@@ -47,12 +46,8 @@ function normalizeGraphError(payload: unknown, status: number): string {
   if (!payload || typeof payload !== "object") {
     return `Instagram request failed with status ${status}.`;
   }
-
   const candidate = payload as { error?: unknown };
-  if (!candidate.error) {
-    return `Instagram request failed with status ${status}.`;
-  }
-
+  if (!candidate.error) return `Instagram request failed with status ${status}.`;
   try {
     return JSON.stringify(candidate.error);
   } catch {
@@ -60,53 +55,31 @@ function normalizeGraphError(payload: unknown, status: number): string {
   }
 }
 
-function buildCaption(input: {
-  payload: LaunchPayload;
-  enhancementResult: EnhancementResult;
-  shopifyProductUrl?: string;
-}): string {
-  const title = input.enhancementResult.enhancedTitle.trim() || input.payload.titleRaw.trim();
-  const description =
-    input.enhancementResult.enhancedDescription.trim() || input.payload.descriptionRaw.trim();
-  const lines = [
-    title,
-    description,
-    `Price: $${input.payload.price.toFixed(2)}`,
-    `Quantity: ${input.payload.quantity}`,
-  ];
-  if (input.shopifyProductUrl && input.shopifyProductUrl.trim()) {
-    lines.push(`Shop now: ${input.shopifyProductUrl.trim()}`);
-  }
-
-  return lines.filter((line) => line && line.trim().length > 0).join("\n\n");
+function resolveImageUrl(payload: LaunchPayload, shopifyImageUrl?: string): string {
+  if (shopifyImageUrl && hasPublicUrl(shopifyImageUrl)) return shopifyImageUrl.trim();
+  const fromPayload = payload.imageUrls.find((url) => hasPublicUrl(url));
+  return fromPayload?.trim() ?? "";
 }
 
-function resolveImageUrl(input: {
-  payload: LaunchPayload;
-  shopifyImageUrl?: string;
-}): string {
-  if (input.shopifyImageUrl && hasPublicUrl(input.shopifyImageUrl)) {
-    return input.shopifyImageUrl.trim();
+function buildCaption(payload: LaunchPayload, shopifyProductUrl?: string): string {
+  const lines = [
+    payload.title,
+    payload.description,
+    `Price: $${payload.price.toFixed(2)}`,
+    `Quantity: ${payload.quantity}`,
+  ];
+  if (shopifyProductUrl?.trim()) {
+    lines.push(`Shop now: ${shopifyProductUrl.trim()}`);
   }
-
-  const fromPayload = input.payload.imageUrls.find((url) => hasPublicUrl(url));
-  return fromPayload?.trim() ?? "";
+  return lines.filter((l) => l.trim().length > 0).join("\n\n");
 }
 
 export async function publishInstagramPostArtifact(input: {
   payload: LaunchPayload;
-  enhancementResult: EnhancementResult;
   settings: ConnectionSettings;
   shopifyProductUrl?: string;
   shopifyImageUrl?: string;
 }): Promise<InstagramLaunchArtifact> {
-  if (!input.enhancementResult.success) {
-    return buildFailure(
-      input.enhancementResult.errorMessage ||
-        "Enhancement failed before Instagram execution."
-    );
-  }
-
   if (!isInstagramEnabled()) {
     return buildFailure("Instagram execution is disabled (INSTAGRAM_ENABLED=false).");
   }
@@ -117,64 +90,53 @@ export async function publishInstagramPostArtifact(input: {
     return buildFailure("Instagram credentials are missing.");
   }
 
-  const imageUrl = resolveImageUrl({
-    payload: input.payload,
-    shopifyImageUrl: input.shopifyImageUrl,
-  });
+  const imageUrl = resolveImageUrl(input.payload, input.shopifyImageUrl);
   if (!imageUrl) {
     return buildFailure(
-      "Instagram requires a public image URL. Upload an image, then retry after Shopify returns an image URL."
+      "Instagram requires a public image URL. Upload an image and retry after Shopify returns an image URL."
     );
   }
 
-  const caption = buildCaption({
-    payload: input.payload,
-    enhancementResult: input.enhancementResult,
-    shopifyProductUrl: input.shopifyProductUrl,
-  });
-
+  const caption = buildCaption(input.payload, input.shopifyProductUrl);
   const graphBase = `https://graph.facebook.com/v21.0/${businessAccountId}`;
-  console.info(
-    `[flowcart:instagram] publish started businessAccountId=${businessAccountId} imageUrlPresent=yes`
-  );
+
+  console.info(`[flowcart:instagram] publishing post businessAccountId=${businessAccountId}`);
 
   try {
     const createResponse = await fetch(`${graphBase}/media`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         image_url: imageUrl,
         caption,
         access_token: accessToken,
       }).toString(),
     });
-    const createPayload = await readJsonResponse<InstagramCreateMediaResponse>(
-      createResponse
-    );
+
+    const createPayload = await readJsonResponse<InstagramCreateMediaResponse>(createResponse);
     const creationId = (createPayload?.id ?? "").trim();
+
     if (!createResponse.ok || !creationId) {
       return buildFailure(normalizeGraphError(createPayload, createResponse.status));
     }
 
     const publishResponse = await fetch(`${graphBase}/media_publish`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         creation_id: creationId,
         access_token: accessToken,
       }).toString(),
     });
-    const publishPayload = await readJsonResponse<InstagramPublishResponse>(
-      publishResponse
-    );
+
+    const publishPayload = await readJsonResponse<InstagramPublishResponse>(publishResponse);
     const postId = (publishPayload?.id ?? creationId).trim();
+
     if (!publishResponse.ok || !postId) {
       return buildFailure(normalizeGraphError(publishPayload, publishResponse.status));
     }
+
+    console.info(`[flowcart:instagram] post published postId=${postId}`);
 
     return {
       instagramPublished: true,

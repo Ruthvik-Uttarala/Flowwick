@@ -23,23 +23,10 @@ interface WorkflowResult {
   error?: string;
 }
 
-function buildLaunchPayload(
-  bucket: ProductBucket,
-  settings: ConnectionSettings
-) {
-  return {
-    storeDomain: settings.shopifyStoreDomain,
-    shopifyAdminToken: settings.shopifyAdminToken,
-    instagramAccessToken: settings.instagramAccessToken,
-    instagramBusinessAccountId: settings.instagramBusinessAccountId,
-    titleRaw: bucket.titleRaw,
-    descriptionRaw: bucket.descriptionRaw,
-    price: bucket.price ?? 1,
-    quantity: bucket.quantity ?? 1,
-    imageUrls: bucket.imageUrls,
-  };
-}
-
+/**
+ * Enhancement: calls OpenAI, then writes the result into BOTH the enhanced field
+ * AND the raw field so the input shows the improved text immediately.
+ */
 export async function enhanceBucket(
   bucketId: string,
   userId: string,
@@ -56,19 +43,28 @@ export async function enhanceBucket(
   }));
 
   try {
+    let titleRaw = existingBucket.titleRaw;
     let titleEnhanced = existingBucket.titleEnhanced;
+    let descriptionRaw = existingBucket.descriptionRaw;
     let descriptionEnhanced = existingBucket.descriptionEnhanced;
 
     if (mode === "enhanceTitle") {
-      titleEnhanced = await enhanceTitleViaOpenAI(existingBucket.titleRaw);
+      const enhanced = await enhanceTitleViaOpenAI(existingBucket.titleRaw);
+      // Write enhanced text back into the raw field so the input is updated in UI
+      titleRaw = enhanced;
+      titleEnhanced = enhanced;
     } else {
-      descriptionEnhanced = await enhanceDescriptionViaOpenAI(existingBucket.descriptionRaw);
+      const enhanced = await enhanceDescriptionViaOpenAI(existingBucket.descriptionRaw);
+      descriptionRaw = enhanced;
+      descriptionEnhanced = enhanced;
     }
 
     const updated = await updateBucket(existingBucket.id, userId, (bucket) => {
       const next = {
         ...bucket,
+        titleRaw,
         titleEnhanced,
+        descriptionRaw,
         descriptionEnhanced,
         errorMessage: "",
       };
@@ -112,13 +108,15 @@ export async function launchBucket(
     errorMessage: "",
   }));
 
-  let enhancedTitle = existingBucket.titleEnhanced.trim();
-  let enhancedDescription = existingBucket.descriptionEnhanced.trim();
+  // Use enhanced value if present, otherwise raw; auto-enhance if neither exists
+  let finalTitle = (existingBucket.titleEnhanced || existingBucket.titleRaw).trim();
+  let finalDescription = (
+    existingBucket.descriptionEnhanced || existingBucket.descriptionRaw
+  ).trim();
 
-  // Auto-enhance title if not already enhanced
-  if (!enhancedTitle) {
+  if (!finalTitle) {
     try {
-      enhancedTitle = await enhanceTitleViaOpenAI(existingBucket.titleRaw);
+      finalTitle = await enhanceTitleViaOpenAI(existingBucket.titleRaw);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Title enhancement failed during launch.";
@@ -131,16 +129,16 @@ export async function launchBucket(
     }
   }
 
-  // Auto-enhance description if not already enhanced
-  if (!enhancedDescription) {
+  if (!finalDescription) {
     try {
-      enhancedDescription = await enhanceDescriptionViaOpenAI(existingBucket.descriptionRaw);
+      finalDescription = await enhanceDescriptionViaOpenAI(existingBucket.descriptionRaw);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Description enhancement failed during launch.";
+        error instanceof Error
+          ? error.message
+          : "Description enhancement failed during launch.";
       const failed = await updateBucket(existingBucket.id, userId, (bucket) => ({
         ...bucket,
-        titleEnhanced: enhancedTitle,
         errorMessage: message,
         status: "FAILED",
       }));
@@ -148,69 +146,70 @@ export async function launchBucket(
     }
   }
 
-  const enhancementResult = {
-    success: true,
-    enhancedTitle,
-    enhancedDescription,
-    shopifyCreated: false,
-    shopifyProductId: "",
-    shopifyProductUrl: "",
-    instagramPublished: false,
-    instagramPostId: "",
-    instagramPostUrl: "",
-    errorMessage: "",
-  };
-
   const launchPayload = {
-    ...buildLaunchPayload(existingBucket, settings),
     storeDomain: normalizeStoreDomain(settings.shopifyStoreDomain),
-    titleRaw: enhancedTitle || existingBucket.titleRaw.trim(),
-    descriptionRaw: enhancedDescription || existingBucket.descriptionRaw.trim(),
+    shopifyAdminToken: settings.shopifyAdminToken,
+    instagramAccessToken: settings.instagramAccessToken,
+    instagramBusinessAccountId: settings.instagramBusinessAccountId,
+    title: finalTitle,
+    description: finalDescription,
+    price: existingBucket.price ?? 1,
+    quantity: existingBucket.quantity ?? 1,
+    imageUrls: existingBucket.imageUrls,
   };
 
+  // Step 1: Create Shopify product
   const shopifyArtifact = await createShopifyProductArtifact({
     payload: launchPayload,
-    enhancementResult,
     settings,
   });
 
+  console.log(
+    "[flowcart:workflow] Shopify result:",
+    shopifyArtifact.shopifyCreated,
+    shopifyArtifact.shopifyProductId || shopifyArtifact.errorMessage
+  );
+
+  // Step 2: Post to Instagram ONLY if Shopify succeeded
   const instagramArtifact = shopifyArtifact.shopifyCreated
-    ? await publishInstagramPostArtifact({
-        payload: launchPayload,
-        enhancementResult,
-        settings,
-        shopifyProductUrl: shopifyArtifact.shopifyProductUrl,
-        shopifyImageUrl: shopifyArtifact.shopifyImageUrl,
-      })
-    : {
+    ? (() => {
+        console.log("[flowcart:workflow] Triggering Instagram...");
+        return publishInstagramPostArtifact({
+          payload: launchPayload,
+          settings,
+          shopifyProductUrl: shopifyArtifact.shopifyProductUrl,
+          shopifyImageUrl: shopifyArtifact.shopifyImageUrl,
+        });
+      })()
+    : Promise.resolve({
         instagramPublished: false,
         instagramPostId: "",
         instagramPostUrl: "",
         adapterMode: "live" as const,
         errorMessage:
           "Instagram was not attempted because Shopify product creation failed.",
-      };
+      });
+
+  const igResult = await instagramArtifact;
 
   const updated = await updateBucket(existingBucket.id, userId, (bucket) => {
-    const errors = [shopifyArtifact.errorMessage, instagramArtifact.errorMessage].filter(
+    const errors = [shopifyArtifact.errorMessage, igResult.errorMessage].filter(
       (msg): msg is string => Boolean(msg && msg.trim().length > 0)
     );
     const errorMessage = errors.join(" | ");
     const isDone =
-      shopifyArtifact.shopifyCreated &&
-      instagramArtifact.instagramPublished &&
-      errorMessage.length === 0;
+      shopifyArtifact.shopifyCreated && igResult.instagramPublished && errorMessage.length === 0;
 
     return {
       ...bucket,
-      titleEnhanced: enhancedTitle || bucket.titleEnhanced,
-      descriptionEnhanced: enhancedDescription || bucket.descriptionEnhanced,
+      titleEnhanced: finalTitle,
+      descriptionEnhanced: finalDescription,
       shopifyCreated: shopifyArtifact.shopifyCreated,
       shopifyProductId: shopifyArtifact.shopifyProductId,
       shopifyProductUrl: shopifyArtifact.shopifyProductUrl,
-      instagramPublished: instagramArtifact.instagramPublished,
-      instagramPostId: instagramArtifact.instagramPostId,
-      instagramPostUrl: instagramArtifact.instagramPostUrl,
+      instagramPublished: igResult.instagramPublished,
+      instagramPostId: igResult.instagramPostId,
+      instagramPostUrl: igResult.instagramPostUrl,
       errorMessage,
       status: isDone ? "DONE" : "FAILED",
     };
@@ -230,10 +229,8 @@ export async function goAllSequentially(
 ): Promise<GoAllSummary> {
   const buckets = await getBuckets(userId);
   const readyBucketIds = buckets
-    .filter(
-      (bucket) => bucket.status === "READY" && hasRequiredBucketFields(bucket)
-    )
-    .map((bucket) => bucket.id);
+    .filter((b) => b.status === "READY" && hasRequiredBucketFields(b))
+    .map((b) => b.id);
 
   let succeeded = 0;
   let failed = 0;
@@ -257,10 +254,5 @@ export async function goAllSequentially(
     `[flowcart:workflow] go-all finished total=${readyBucketIds.length} succeeded=${succeeded} failed=${failed}`
   );
 
-  return {
-    total: readyBucketIds.length,
-    succeeded,
-    failed,
-    bucketIds: readyBucketIds,
-  };
+  return { total: readyBucketIds.length, succeeded, failed, bucketIds: readyBucketIds };
 }

@@ -12,9 +12,6 @@ export type BucketStatus = (typeof BUCKET_STATUSES)[number];
 export interface ConnectionSettings {
   shopifyStoreDomain: string;
   shopifyAdminToken: string;
-  shopifyAccessToken?: string;
-  shopifyClientId?: string;
-  shopifyClientSecret?: string;
   instagramAccessToken: string;
   instagramBusinessAccountId: string;
 }
@@ -53,8 +50,6 @@ export interface BucketPatchPayload {
   price?: number | null;
 }
 
-export type ShopifyAuthMode = "admin-token" | "client-credentials" | "missing";
-
 export interface ApiErrorShape {
   message: string;
 }
@@ -67,34 +62,18 @@ export interface ApiResponseShape<T = unknown> {
 
 /**
  * Payload passed to launch adapters (Shopify, Instagram).
- * Enhancement (title/description) is handled separately via OpenAI before this.
+ * Title/description here are already the final values (enhanced or raw).
  */
 export interface LaunchPayload {
   storeDomain: string;
   shopifyAdminToken: string;
   instagramAccessToken: string;
   instagramBusinessAccountId: string;
-  titleRaw: string;
-  descriptionRaw: string;
+  title: string;
+  description: string;
   price: number;
   quantity: number;
   imageUrls: string[];
-}
-
-/**
- * Result object passed between the launch workflow and the Shopify/Instagram adapters.
- */
-export interface EnhancementResult {
-  success: boolean;
-  enhancedTitle: string;
-  enhancedDescription: string;
-  shopifyCreated: boolean;
-  shopifyProductId: string;
-  shopifyProductUrl: string;
-  instagramPublished: boolean;
-  instagramPostId: string;
-  instagramPostUrl: string;
-  errorMessage: string;
 }
 
 export interface GoAllSummary {
@@ -107,11 +86,6 @@ export interface GoAllSummary {
 export interface SafeSettingsStatus {
   shopifyStoreDomainPresent: boolean;
   shopifyAdminTokenPresent: boolean;
-  shopifyAccessTokenPresent: boolean;
-  shopifyClientIdPresent: boolean;
-  shopifyClientSecretPresent: boolean;
-  shopifyClientCredentialsPresent: boolean;
-  shopifyAuthMode: ShopifyAuthMode;
   instagramAccessTokenPresent: boolean;
   instagramBusinessAccountIdPresent: boolean;
   instagramEnabled: boolean;

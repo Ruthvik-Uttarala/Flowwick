@@ -17,26 +17,18 @@ export async function POST(request: Request) {
     const creds = await getActiveCredentials(userId);
     const settings = {
       shopifyStoreDomain: creds.shopifyStoreDomain,
-      shopifyAdminToken: "",
-      shopifyClientId: creds.shopifyClientId,
-      shopifyClientSecret: creds.shopifyClientSecret,
+      shopifyAdminToken: creds.shopifyAdminToken,
       instagramAccessToken: creds.instagramAccessToken,
       instagramBusinessAccountId: creds.instagramBusinessAccountId,
     };
 
     const summary = await goAllSequentially(userId, settings);
     const buckets = await getBuckets(userId);
-    return okResponse({
-      summary,
-      buckets,
-      message: "Sequential Go(All) completed.",
-    });
+    return okResponse({ summary, buckets, message: "Sequential Go(All) completed." });
   } catch (error) {
     const message =
-      error instanceof Error
-        ? error.message
-        : "Failed to process ready buckets.";
-    console.error("[merchflow:go-all]", error);
+      error instanceof Error ? error.message : "Failed to process ready buckets.";
+    console.error("[flowcart:go-all]", error);
     return errorResponse(message, { status: 500 });
   }
 }

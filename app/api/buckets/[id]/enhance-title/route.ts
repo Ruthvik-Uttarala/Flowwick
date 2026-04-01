@@ -21,9 +21,7 @@ export async function POST(request: Request, context: ParamsContext) {
     const creds = await getActiveCredentials(userId);
     const settings = {
       shopifyStoreDomain: creds.shopifyStoreDomain,
-      shopifyAdminToken: "",
-      shopifyClientId: creds.shopifyClientId,
-      shopifyClientSecret: creds.shopifyClientSecret,
+      shopifyAdminToken: creds.shopifyAdminToken,
       instagramAccessToken: creds.instagramAccessToken,
       instagramBusinessAccountId: creds.instagramBusinessAccountId,
     };
@@ -33,27 +31,17 @@ export async function POST(request: Request, context: ParamsContext) {
 
     if (result.notFound || !result.bucket) {
       const fallback = await createBucket(userId);
-      return okResponse({
-        bucket: fallback,
-        message: "Bucket was missing; created a new one.",
-      });
+      return okResponse({ bucket: fallback, message: "Bucket was missing; created a new one." });
     }
 
     if (result.error) {
-      return errorResponse(result.error, {
-        data: { bucket: result.bucket },
-        status: 502,
-      });
+      return errorResponse(result.error, { data: { bucket: result.bucket }, status: 502 });
     }
 
-    return okResponse({
-      bucket: result.bucket,
-      message: "Title enhanced.",
-    });
+    return okResponse({ bucket: result.bucket, message: "Title enhanced." });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Title enhancement failed.";
-    console.error("[merchflow:enhance-title]", error);
+    const message = error instanceof Error ? error.message : "Title enhancement failed.";
+    console.error("[flowcart:enhance-title]", error);
     return errorResponse(message, { status: 500 });
   }
 }

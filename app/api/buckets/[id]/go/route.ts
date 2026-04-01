@@ -21,9 +21,7 @@ export async function POST(request: Request, context: ParamsContext) {
     const creds = await getActiveCredentials(userId);
     const settings = {
       shopifyStoreDomain: creds.shopifyStoreDomain,
-      shopifyAdminToken: "",
-      shopifyClientId: creds.shopifyClientId,
-      shopifyClientSecret: creds.shopifyClientSecret,
+      shopifyAdminToken: creds.shopifyAdminToken,
       instagramAccessToken: creds.instagramAccessToken,
       instagramBusinessAccountId: creds.instagramBusinessAccountId,
     };
@@ -54,9 +52,8 @@ export async function POST(request: Request, context: ParamsContext) {
         : result.error || result.bucket.errorMessage || "Launch failed.",
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Launch failed unexpectedly.";
-    console.error("[merchflow:go]", error);
+    const message = error instanceof Error ? error.message : "Launch failed unexpectedly.";
+    console.error("[flowcart:go]", error);
     return errorResponse(message, { status: 500 });
   }
 }

@@ -91,7 +91,9 @@ export function ProductBucket({
           <h2 className="text-lg font-semibold text-white">Bucket {bucketNumber}</h2>
           <p className="mt-1 text-xs text-white/30">ID: {bucket.id}</p>
         </div>
-        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClasses} ${statusGlow}`}>
+        <span
+          className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClasses} ${statusGlow}`}
+        >
           {bucket.status}
         </span>
       </div>
@@ -113,7 +115,10 @@ export function ProductBucket({
           {bucket.imageUrls.length > 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {bucket.imageUrls.map((imageUrl) => (
-                <div key={`${bucket.id}-${imageUrl}`} className="overflow-hidden rounded-xl border border-white/[0.06]">
+                <div
+                  key={`${bucket.id}-${imageUrl}`}
+                  className="overflow-hidden rounded-xl border border-white/[0.06]"
+                >
                   <Image
                     src={imageUrl}
                     alt="Uploaded"
@@ -130,8 +135,8 @@ export function ProductBucket({
           )}
         </label>
 
-        {/* Title */}
-        <label className="block space-y-2 text-sm">
+        {/* Title — Enhance rewrites this input directly */}
+        <div className="space-y-2 text-sm">
           <span className="text-white/50">Title</span>
           <div className="flex gap-2">
             <input
@@ -147,7 +152,7 @@ export function ProductBucket({
             <button
               type="button"
               onClick={() => onEnhanceTitle(bucket.id)}
-              disabled={controlsLocked}
+              disabled={controlsLocked || !bucket.titleRaw.trim()}
               className="inline-flex items-center gap-1.5 rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-semibold text-purple-400 transition hover:bg-purple-400/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isEnhancingTitle ? (
@@ -155,18 +160,13 @@ export function ProductBucket({
               ) : (
                 <Sparkles size={12} />
               )}
-              {isEnhancingTitle ? "..." : "Enhance"}
+              {isEnhancingTitle ? "Enhancing..." : "Enhance"}
             </button>
           </div>
-          {bucket.titleEnhanced ? (
-            <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-400">
-              Enhanced: {bucket.titleEnhanced}
-            </div>
-          ) : null}
-        </label>
+        </div>
 
-        {/* Description */}
-        <label className="block space-y-2 text-sm">
+        {/* Description — Enhance rewrites this textarea directly */}
+        <div className="space-y-2 text-sm">
           <span className="text-white/50">Description</span>
           <div className="flex gap-2">
             <textarea
@@ -183,7 +183,7 @@ export function ProductBucket({
             <button
               type="button"
               onClick={() => onEnhanceDescription(bucket.id)}
-              disabled={controlsLocked}
+              disabled={controlsLocked || !bucket.descriptionRaw.trim()}
               className="h-fit inline-flex items-center gap-1.5 rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-semibold text-purple-400 transition hover:bg-purple-400/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isEnhancingDescription ? (
@@ -191,15 +191,10 @@ export function ProductBucket({
               ) : (
                 <Sparkles size={12} />
               )}
-              {isEnhancingDescription ? "..." : "Enhance"}
+              {isEnhancingDescription ? "Enhancing..." : "Enhance"}
             </button>
           </div>
-          {bucket.descriptionEnhanced ? (
-            <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs text-emerald-400">
-              Enhanced: {bucket.descriptionEnhanced}
-            </div>
-          ) : null}
-        </label>
+        </div>
 
         {/* Quantity & Price */}
         <div className="grid gap-3 sm:grid-cols-2">
@@ -222,7 +217,7 @@ export function ProductBucket({
             />
           </label>
           <label className="space-y-2 text-sm">
-            <span className="text-white/50">Price</span>
+            <span className="text-white/50">Price ($)</span>
             <input
               type="number"
               min="0"
@@ -264,7 +259,7 @@ export function ProductBucket({
             className="flex items-center gap-2 rounded-xl border border-pink-400/20 bg-pink-400/10 px-3 py-2 text-sm text-pink-400 transition hover:bg-pink-400/20"
           >
             <Camera size={14} />
-            <span className="truncate">Camera: {bucket.instagramPostUrl}</span>
+            <span className="truncate">Instagram: {bucket.instagramPostUrl}</span>
             <ExternalLink size={12} className="ml-auto shrink-0" />
           </a>
         ) : null}
@@ -280,10 +275,16 @@ export function ProductBucket({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 text-xs text-white/30">
             <span className="flex items-center gap-1">
-              <ShoppingBag size={12} /> {bucket.shopifyCreated ? "Created" : "Pending"}
+              <ShoppingBag size={12} />{" "}
+              {bucket.shopifyCreated ? "Created" : "Pending"}
             </span>
             <span className="flex items-center gap-1">
-              <Camera size={12} /> {bucket.instagramPublished ? "Published" : bucket.status === "FAILED" ? "Failed" : "Pending"}
+              <Camera size={12} />{" "}
+              {bucket.instagramPublished
+                ? "Published"
+                : bucket.status === "FAILED"
+                  ? "Failed"
+                  : "Pending"}
             </span>
           </div>
           <button
@@ -294,9 +295,13 @@ export function ProductBucket({
           >
             <span className="flex items-center gap-2">
               {isLaunching ? (
-                <><Loader2 size={14} className="animate-spin" /> Launching...</>
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Launching...
+                </>
               ) : (
-                <><Rocket size={14} /> GO</>
+                <>
+                  <Rocket size={14} /> GO
+                </>
               )}
             </span>
           </button>

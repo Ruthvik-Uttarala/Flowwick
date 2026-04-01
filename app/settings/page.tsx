@@ -19,9 +19,6 @@ import type { ConnectionSettings, RuntimeConfigSnapshot, SafeSettingsStatus } fr
 const EMPTY_SETTINGS: ConnectionSettings = {
   shopifyStoreDomain: "",
   shopifyAdminToken: "",
-  shopifyAccessToken: "",
-  shopifyClientId: "",
-  shopifyClientSecret: "",
   instagramAccessToken: "",
   instagramBusinessAccountId: "",
 };
@@ -114,8 +111,7 @@ export default function SettingsPage() {
   const launchReady = Boolean(status?.readyForLaunch);
   const openaiLive = Boolean(runtime?.openaiConfigured);
 
-  const inputClass =
-    "glass-input w-full rounded-2xl px-4 py-3 text-sm";
+  const inputClass = "glass-input w-full rounded-2xl px-4 py-3 text-sm";
 
   return (
     <motion.div
@@ -165,31 +161,17 @@ export default function SettingsPage() {
               />
             </label>
             <label className="space-y-2 text-sm">
-              <span className="text-white/50">Client ID</span>
-              <input
-                value={connections.shopifyClientId ?? ""}
-                onChange={(event) =>
-                  setConnections((current) => ({
-                    ...current,
-                    shopifyClientId: event.target.value,
-                  }))
-                }
-                placeholder="Required for client credentials flow"
-                className={inputClass}
-              />
-            </label>
-            <label className="space-y-2 text-sm sm:col-span-2">
-              <span className="text-white/50">Client Secret</span>
+              <span className="text-white/50">Admin API Access Token</span>
               <input
                 type="password"
-                value={connections.shopifyClientSecret ?? ""}
+                value={connections.shopifyAdminToken}
                 onChange={(event) =>
                   setConnections((current) => ({
                     ...current,
-                    shopifyClientSecret: event.target.value,
+                    shopifyAdminToken: event.target.value,
                   }))
                 }
-                placeholder="Required for client credentials flow"
+                placeholder="shpat_..."
                 className={inputClass}
               />
             </label>
