@@ -53,9 +53,6 @@ export interface BucketPatchPayload {
   price?: number | null;
 }
 
-export type AiriaMode = "enhanceTitle" | "enhanceDescription" | "fullLaunch";
-export type RuntimeMode = "missing" | "live";
-export type AiriaRequestBodyShape = "compat" | "payload" | "wrapped" | "flat";
 export type ShopifyAuthMode = "admin-token" | "client-credentials" | "missing";
 
 export interface ApiErrorShape {
@@ -68,7 +65,11 @@ export interface ApiResponseShape<T = unknown> {
   error?: ApiErrorShape;
 }
 
-export interface AiriaPayload {
+/**
+ * Payload passed to launch adapters (Shopify, Instagram).
+ * Enhancement (title/description) is handled separately via OpenAI before this.
+ */
+export interface LaunchPayload {
   storeDomain: string;
   shopifyAdminToken: string;
   instagramAccessToken: string;
@@ -78,10 +79,12 @@ export interface AiriaPayload {
   price: number;
   quantity: number;
   imageUrls: string[];
-  mode: AiriaMode;
 }
 
-export interface AiriaResult {
+/**
+ * Result object passed between the launch workflow and the Shopify/Instagram adapters.
+ */
+export interface EnhancementResult {
   success: boolean;
   enhancedTitle: string;
   enhancedDescription: string;
@@ -116,45 +119,19 @@ export interface SafeSettingsStatus {
   readyForLaunch: boolean;
 }
 
-export interface AiriaHeaderConfigStatus {
-  customHeadersPresent: boolean;
-  customHeaderNames: string[];
-}
-
-export interface AiriaRequestConfigStatus {
-  method: string;
-  timeoutMs: number;
-  authHeaderName: string;
-  apiKeyHeaderName: string;
-  bodyShape: AiriaRequestBodyShape;
-  customHeaders: AiriaHeaderConfigStatus;
-}
-
-export interface AiriaConfigStatus {
-  mode: RuntimeMode;
-  liveConfigured: boolean;
-  apiUrlPresent: boolean;
-  apiKeyPresent: boolean;
-  agentIdPresent: boolean;
-  request: AiriaRequestConfigStatus;
-}
-
 export interface LaunchReadinessStatus {
   appRunning: true;
   liveCapable: boolean;
   readyToLaunch: boolean;
   settingsConfigured: boolean;
-  airiaConfigured: boolean;
+  openaiConfigured: boolean;
   missingSettingsFields: string[];
-  missingAiriaFields: string[];
   modeLabel: string;
 }
 
 export interface RuntimeConfigSnapshot {
   appRunning: true;
-  airiaMode: RuntimeMode;
-  airiaLiveConfigured: boolean;
-  airia: AiriaConfigStatus;
+  openaiConfigured: boolean;
   settings: SafeSettingsStatus;
   launch: LaunchReadinessStatus;
   storage: {

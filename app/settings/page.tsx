@@ -111,8 +111,8 @@ export default function SettingsPage() {
     }
   };
 
-  const launchReady = Boolean(status?.readyForLaunch && runtime?.airiaLiveConfigured);
-  const airiaLive = runtime?.airiaMode === "live";
+  const launchReady = Boolean(status?.readyForLaunch);
+  const openaiLive = Boolean(runtime?.openaiConfigured);
 
   const inputClass =
     "glass-input w-full rounded-2xl px-4 py-3 text-sm";
@@ -133,8 +133,8 @@ export default function SettingsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${airiaLive ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-400 glow-green" : "border border-amber-400/20 bg-amber-400/10 text-amber-400 glow-gold"}`}>
-              <Zap size={12} /> Airia: {airiaLive ? "Live" : "Missing"}
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${openaiLive ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-400 glow-green" : "border border-amber-400/20 bg-amber-400/10 text-amber-400 glow-gold"}`}>
+              <Zap size={12} /> AI: {openaiLive ? "Live" : "Missing"}
             </span>
             <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${launchReady ? "border border-emerald-400/20 bg-emerald-400/10 text-emerald-400 glow-green" : "border border-rose-400/20 bg-rose-400/10 text-rose-400 glow-red"}`}>
               {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}

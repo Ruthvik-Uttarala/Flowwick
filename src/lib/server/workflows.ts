@@ -6,9 +6,9 @@ import {
   updateBucket,
 } from "@/src/lib/server/buckets";
 import {
-  enhanceDescriptionViaAiria,
-  enhanceTitleViaAiria,
-} from "@/src/lib/server/airia";
+  enhanceTitleViaOpenAI,
+  enhanceDescriptionViaOpenAI,
+} from "@/src/lib/server/openai";
 import {
   getStableBucketStatus,
   hasRequiredBucketFields,
@@ -23,10 +23,9 @@ interface WorkflowResult {
   error?: string;
 }
 
-function buildPayloadFromBucketAndSettings(
+function buildLaunchPayload(
   bucket: ProductBucket,
-  settings: ConnectionSettings,
-  mode: "enhanceTitle" | "enhanceDescription" | "fullLaunch"
+  settings: ConnectionSettings
 ) {
   return {
     storeDomain: settings.shopifyStoreDomain,
@@ -38,7 +37,6 @@ function buildPayloadFromBucketAndSettings(
     price: bucket.price ?? 1,
     quantity: bucket.quantity ?? 1,
     imageUrls: bucket.imageUrls,
-    mode,
   };
 }
 
@@ -46,16 +44,10 @@ export async function enhanceBucket(
   bucketId: string,
   userId: string,
   mode: "enhanceTitle" | "enhanceDescription",
-  settings: ConnectionSettings
+  _settings: ConnectionSettings
 ): Promise<WorkflowResult> {
   const existingBucket =
     (await getBucketById(bucketId, userId)) ?? (await createBucket(userId));
-
-  const payload = buildPayloadFromBucketAndSettings(
-    existingBucket,
-    settings,
-    mode
-  );
 
   await updateBucket(existingBucket.id, userId, (bucket) => ({
     ...bucket,
@@ -64,20 +56,20 @@ export async function enhanceBucket(
   }));
 
   try {
-    const enhanced =
-      mode === "enhanceTitle"
-        ? await enhanceTitleViaAiria(payload)
-        : await enhanceDescriptionViaAiria(payload);
+    let titleEnhanced = existingBucket.titleEnhanced;
+    let descriptionEnhanced = existingBucket.descriptionEnhanced;
+
+    if (mode === "enhanceTitle") {
+      titleEnhanced = await enhanceTitleViaOpenAI(existingBucket.titleRaw);
+    } else {
+      descriptionEnhanced = await enhanceDescriptionViaOpenAI(existingBucket.descriptionRaw);
+    }
 
     const updated = await updateBucket(existingBucket.id, userId, (bucket) => {
       const next = {
         ...bucket,
-        titleEnhanced:
-          mode === "enhanceTitle" ? enhanced.title : bucket.titleEnhanced,
-        descriptionEnhanced:
-          mode === "enhanceDescription"
-            ? enhanced.description
-            : bucket.descriptionEnhanced,
+        titleEnhanced,
+        descriptionEnhanced,
         errorMessage: "",
       };
       return { ...next, status: getStableBucketStatus(next) };
@@ -94,8 +86,9 @@ export async function enhanceBucket(
       error instanceof Error
         ? error.message
         : mode === "enhanceTitle"
-          ? "Airia did not return an enhanced title."
-          : "Airia did not return an enhanced description.";
+          ? "Title enhancement failed."
+          : "Description enhancement failed.";
+
     const failed = await updateBucket(existingBucket.id, userId, (bucket) => ({
       ...bucket,
       status: "FAILED",
@@ -113,12 +106,6 @@ export async function launchBucket(
   const existingBucket =
     (await getBucketById(bucketId, userId)) ?? (await createBucket(userId));
 
-  const payload = buildPayloadFromBucketAndSettings(
-    existingBucket,
-    settings,
-    "fullLaunch"
-  );
-
   await updateBucket(existingBucket.id, userId, (bucket) => ({
     ...bucket,
     status: "PROCESSING",
@@ -128,15 +115,13 @@ export async function launchBucket(
   let enhancedTitle = existingBucket.titleEnhanced.trim();
   let enhancedDescription = existingBucket.descriptionEnhanced.trim();
 
+  // Auto-enhance title if not already enhanced
   if (!enhancedTitle) {
     try {
-      const titleOutput = await enhanceTitleViaAiria(payload);
-      enhancedTitle = titleOutput.title.trim();
+      enhancedTitle = await enhanceTitleViaOpenAI(existingBucket.titleRaw);
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Airia title enhancement failed during launch.";
+        error instanceof Error ? error.message : "Title enhancement failed during launch.";
       const failed = await updateBucket(existingBucket.id, userId, (bucket) => ({
         ...bucket,
         errorMessage: message,
@@ -146,15 +131,13 @@ export async function launchBucket(
     }
   }
 
+  // Auto-enhance description if not already enhanced
   if (!enhancedDescription) {
     try {
-      const descriptionOutput = await enhanceDescriptionViaAiria(payload);
-      enhancedDescription = descriptionOutput.description.trim();
+      enhancedDescription = await enhanceDescriptionViaOpenAI(existingBucket.descriptionRaw);
     } catch (error) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Airia description enhancement failed during launch.";
+        error instanceof Error ? error.message : "Description enhancement failed during launch.";
       const failed = await updateBucket(existingBucket.id, userId, (bucket) => ({
         ...bucket,
         titleEnhanced: enhancedTitle,
@@ -165,7 +148,7 @@ export async function launchBucket(
     }
   }
 
-  const result = {
+  const enhancementResult = {
     success: true,
     enhancedTitle,
     enhancedDescription,
@@ -179,22 +162,22 @@ export async function launchBucket(
   };
 
   const launchPayload = {
-    ...payload,
-    storeDomain: normalizeStoreDomain(payload.storeDomain),
+    ...buildLaunchPayload(existingBucket, settings),
+    storeDomain: normalizeStoreDomain(settings.shopifyStoreDomain),
     titleRaw: enhancedTitle || existingBucket.titleRaw.trim(),
     descriptionRaw: enhancedDescription || existingBucket.descriptionRaw.trim(),
   };
 
   const shopifyArtifact = await createShopifyProductArtifact({
     payload: launchPayload,
-    airiaResult: result,
+    enhancementResult,
     settings,
   });
 
   const instagramArtifact = shopifyArtifact.shopifyCreated
     ? await publishInstagramPostArtifact({
         payload: launchPayload,
-        airiaResult: result,
+        enhancementResult,
         settings,
         shopifyProductUrl: shopifyArtifact.shopifyProductUrl,
         shopifyImageUrl: shopifyArtifact.shopifyImageUrl,
@@ -209,12 +192,8 @@ export async function launchBucket(
       };
 
   const updated = await updateBucket(existingBucket.id, userId, (bucket) => {
-    const errors = [
-      shopifyArtifact.errorMessage,
-      instagramArtifact.errorMessage,
-    ].filter(
-      (message): message is string =>
-        Boolean(message && message.trim().length > 0)
+    const errors = [shopifyArtifact.errorMessage, instagramArtifact.errorMessage].filter(
+      (msg): msg is string => Boolean(msg && msg.trim().length > 0)
     );
     const errorMessage = errors.join(" | ");
     const isDone =
@@ -224,9 +203,8 @@ export async function launchBucket(
 
     return {
       ...bucket,
-      titleEnhanced: result.enhancedTitle || bucket.titleEnhanced,
-      descriptionEnhanced:
-        result.enhancedDescription || bucket.descriptionEnhanced,
+      titleEnhanced: enhancedTitle || bucket.titleEnhanced,
+      descriptionEnhanced: enhancedDescription || bucket.descriptionEnhanced,
       shopifyCreated: shopifyArtifact.shopifyCreated,
       shopifyProductId: shopifyArtifact.shopifyProductId,
       shopifyProductUrl: shopifyArtifact.shopifyProductUrl,
@@ -260,12 +238,10 @@ export async function goAllSequentially(
   let succeeded = 0;
   let failed = 0;
 
-  console.info(
-    `[merchflow:workflow] go-all started readyCount=${readyBucketIds.length}`
-  );
+  console.info(`[flowcart:workflow] go-all started readyCount=${readyBucketIds.length}`);
 
   for (const bucketId of readyBucketIds) {
-    console.info(`[merchflow:workflow] go-all processing bucketId=${bucketId}`);
+    console.info(`[flowcart:workflow] go-all processing bucketId=${bucketId}`);
     const result = await launchBucket(bucketId, userId, settings);
     if (result.bucket?.status === "DONE") {
       succeeded += 1;
@@ -273,12 +249,12 @@ export async function goAllSequentially(
       failed += 1;
     }
     console.info(
-      `[merchflow:workflow] go-all completed bucketId=${bucketId} status=${result.bucket?.status ?? "UNKNOWN"}`
+      `[flowcart:workflow] go-all completed bucketId=${bucketId} status=${result.bucket?.status ?? "UNKNOWN"}`
     );
   }
 
   console.info(
-    `[merchflow:workflow] go-all finished total=${readyBucketIds.length} succeeded=${succeeded} failed=${failed}`
+    `[flowcart:workflow] go-all finished total=${readyBucketIds.length} succeeded=${succeeded} failed=${failed}`
   );
 
   return {

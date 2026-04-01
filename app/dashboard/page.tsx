@@ -30,7 +30,7 @@ interface BucketActionState {
 }
 
 interface RuntimeHealth {
-  airiaMode: "live" | "missing" | "unknown";
+  openaiConfigured: boolean;
   settingsConfigured: boolean;
 }
 
@@ -57,7 +57,7 @@ export default function DashboardPage() {
     {}
   );
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth>({
-    airiaMode: "unknown",
+    openaiConfigured: false,
     settingsConfigured: false,
   });
   const [loading, setLoading] = useState(true);
@@ -102,7 +102,7 @@ export default function DashboardPage() {
     try {
       const response = await fetch("/api/health", { cache: "no-store" });
       const payload = await readApiResponse<{
-        airiaMode?: string;
+        openaiConfigured?: boolean;
         settings?: { configured?: boolean };
       }>(response);
       if (!response.ok || !payload?.ok) {
@@ -110,14 +110,11 @@ export default function DashboardPage() {
       }
 
       setRuntimeHealth({
-        airiaMode:
-          payload.data?.airiaMode === "live" || payload.data?.airiaMode === "missing"
-            ? payload.data.airiaMode
-            : "unknown",
+        openaiConfigured: Boolean(payload.data?.openaiConfigured),
         settingsConfigured: Boolean(payload.data?.settings?.configured),
       });
     } catch {
-      setRuntimeHealth({ airiaMode: "unknown", settingsConfigured: false });
+      setRuntimeHealth({ openaiConfigured: false, settingsConfigured: false });
     }
   }, []);
 
@@ -343,13 +340,13 @@ export default function DashboardPage() {
       bg: "bg-rose-400/10",
     },
     {
-      label: "Airia",
-      value: runtimeHealth.airiaMode === "live" ? "Live" : "Missing",
+      label: "AI",
+      value: runtimeHealth.openaiConfigured ? "Live" : "Missing",
       icon: Zap,
-      glow: runtimeHealth.airiaMode === "live" ? "glow-purple" : "",
-      color: runtimeHealth.airiaMode === "live" ? "text-purple-400" : "text-white/40",
-      border: runtimeHealth.airiaMode === "live" ? "border-purple-400/20" : "border-white/[0.06]",
-      bg: runtimeHealth.airiaMode === "live" ? "bg-purple-400/10" : "bg-white/[0.03]",
+      glow: runtimeHealth.openaiConfigured ? "glow-purple" : "",
+      color: runtimeHealth.openaiConfigured ? "text-purple-400" : "text-white/40",
+      border: runtimeHealth.openaiConfigured ? "border-purple-400/20" : "border-white/[0.06]",
+      bg: runtimeHealth.openaiConfigured ? "bg-purple-400/10" : "bg-white/[0.03]",
     },
   ];
 

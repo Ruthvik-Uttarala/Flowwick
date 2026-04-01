@@ -1,4 +1,4 @@
-import { AiriaPayload, AiriaResult, ConnectionSettings } from "@/src/lib/types";
+import { LaunchPayload, EnhancementResult, ConnectionSettings } from "@/src/lib/types";
 import { normalizeStoreDomain } from "@/src/lib/server/runtime";
 import { readStoredUpload } from "@/src/lib/server/uploads";
 
@@ -141,7 +141,7 @@ export async function getShopifyAccessToken(
     client_secret: clientSecret,
   });
   console.info(
-    `[merchflow:shopify] token request started store=${redactDomain(storeDomain)}`
+    `[flowcart:shopify] token request started store=${redactDomain(storeDomain)}`
   );
 
   try {
@@ -181,26 +181,26 @@ export async function getShopifyAccessToken(
   }
 }
 
-function buildProductTitle(payload: AiriaPayload, airiaResult: AiriaResult): string {
-  const title = airiaResult.enhancedTitle.trim() || payload.titleRaw.trim();
-  return title.slice(0, 255) || "MerchFlow Product";
+function buildProductTitle(payload: LaunchPayload, result: EnhancementResult): string {
+  const title = result.enhancedTitle.trim() || payload.titleRaw.trim();
+  return title.slice(0, 255) || "FlowCart Product";
 }
 
-function buildProductBodyHtml(payload: AiriaPayload, airiaResult: AiriaResult): string {
+function buildProductBodyHtml(payload: LaunchPayload, result: EnhancementResult): string {
   const description =
-    airiaResult.enhancedDescription.trim() || payload.descriptionRaw.trim();
+    result.enhancedDescription.trim() || payload.descriptionRaw.trim();
   return description.replace(/\n/g, "<br />");
 }
 
 export async function createShopifyProductArtifact(input: {
-  payload: AiriaPayload;
-  airiaResult: AiriaResult;
+  payload: LaunchPayload;
+  enhancementResult: EnhancementResult;
   settings: ConnectionSettings;
 }): Promise<ShopifyLaunchArtifact> {
-  if (!input.airiaResult.success) {
+  if (!input.enhancementResult.success) {
     return buildFailure(
-      input.airiaResult.errorMessage ||
-        "Airia enhancement failed before Shopify execution."
+      input.enhancementResult.errorMessage ||
+        "Enhancement failed before Shopify execution."
     );
   }
 
@@ -219,8 +219,8 @@ export async function createShopifyProductArtifact(input: {
   const imageInput = await buildShopifyImageInput(imageCandidate);
   const productBody: Record<string, unknown> = {
     product: {
-      title: buildProductTitle(input.payload, input.airiaResult),
-      body_html: buildProductBodyHtml(input.payload, input.airiaResult),
+      title: buildProductTitle(input.payload, input.enhancementResult),
+      body_html: buildProductBodyHtml(input.payload, input.enhancementResult),
       status: "active",
       variants: [
         {
@@ -233,7 +233,7 @@ export async function createShopifyProductArtifact(input: {
   };
 
   console.info(
-    `[merchflow:shopify] product create started store=${redactDomain(
+    `[flowcart:shopify] product create started store=${redactDomain(
       storeDomain
     )} imageSource=${imageInput ? (isPublicUrl(imageCandidate) ? "public-url" : "local-attachment") : "none"}`
   );

@@ -1,5 +1,5 @@
 import { getSettingsStatus } from "@/src/lib/server/settings";
-import { getRuntimeConfigSnapshot, getAiriaConfigStatus } from "@/src/lib/server/config";
+import { getRuntimeConfigSnapshot } from "@/src/lib/server/config";
 import { describeExecutionReadiness } from "@/src/lib/server/runtime";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
 import { extractUserId } from "@/src/lib/server/auth";
@@ -28,13 +28,12 @@ export async function GET(request: Request) {
       readyToLaunch: execution.readyToLaunch,
       modeLabel: execution.modeLabel,
       liveCapable:
-        snapshot.airiaLiveConfigured &&
+        snapshot.openaiConfigured &&
         execution.shopifyDirectExecutionReady &&
         execution.instagramConfigured,
       settingsConfigured: getSettingsStatus(settings).configured,
-      airiaConfigured: snapshot.launch.airiaConfigured,
+      openaiConfigured: snapshot.openaiConfigured,
       missingSettingsFields: execution.missingRequirements,
-      missingAiriaFields: snapshot.launch.missingAiriaFields,
       settingsStatus: getSettingsStatus(settings),
       execution,
       launch: snapshot.launch,

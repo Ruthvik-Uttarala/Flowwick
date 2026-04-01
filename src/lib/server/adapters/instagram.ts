@@ -1,4 +1,4 @@
-import { AiriaPayload, AiriaResult, ConnectionSettings } from "@/src/lib/types";
+import { LaunchPayload, EnhancementResult, ConnectionSettings } from "@/src/lib/types";
 import { isInstagramEnabled } from "@/src/lib/server/runtime";
 
 export interface InstagramLaunchArtifact {
@@ -61,14 +61,19 @@ function normalizeGraphError(payload: unknown, status: number): string {
 }
 
 function buildCaption(input: {
-  payload: AiriaPayload;
-  airiaResult: AiriaResult;
+  payload: LaunchPayload;
+  enhancementResult: EnhancementResult;
   shopifyProductUrl?: string;
 }): string {
-  const title = input.airiaResult.enhancedTitle.trim() || input.payload.titleRaw.trim();
+  const title = input.enhancementResult.enhancedTitle.trim() || input.payload.titleRaw.trim();
   const description =
-    input.airiaResult.enhancedDescription.trim() || input.payload.descriptionRaw.trim();
-  const lines = [title, description, `Price: $${input.payload.price.toFixed(2)}`, `Quantity: ${input.payload.quantity}`];
+    input.enhancementResult.enhancedDescription.trim() || input.payload.descriptionRaw.trim();
+  const lines = [
+    title,
+    description,
+    `Price: $${input.payload.price.toFixed(2)}`,
+    `Quantity: ${input.payload.quantity}`,
+  ];
   if (input.shopifyProductUrl && input.shopifyProductUrl.trim()) {
     lines.push(`Shop now: ${input.shopifyProductUrl.trim()}`);
   }
@@ -77,7 +82,7 @@ function buildCaption(input: {
 }
 
 function resolveImageUrl(input: {
-  payload: AiriaPayload;
+  payload: LaunchPayload;
   shopifyImageUrl?: string;
 }): string {
   if (input.shopifyImageUrl && hasPublicUrl(input.shopifyImageUrl)) {
@@ -89,16 +94,16 @@ function resolveImageUrl(input: {
 }
 
 export async function publishInstagramPostArtifact(input: {
-  payload: AiriaPayload;
-  airiaResult: AiriaResult;
+  payload: LaunchPayload;
+  enhancementResult: EnhancementResult;
   settings: ConnectionSettings;
   shopifyProductUrl?: string;
   shopifyImageUrl?: string;
 }): Promise<InstagramLaunchArtifact> {
-  if (!input.airiaResult.success) {
+  if (!input.enhancementResult.success) {
     return buildFailure(
-      input.airiaResult.errorMessage ||
-        "Airia enhancement failed before Instagram execution."
+      input.enhancementResult.errorMessage ||
+        "Enhancement failed before Instagram execution."
     );
   }
 
@@ -124,13 +129,13 @@ export async function publishInstagramPostArtifact(input: {
 
   const caption = buildCaption({
     payload: input.payload,
-    airiaResult: input.airiaResult,
+    enhancementResult: input.enhancementResult,
     shopifyProductUrl: input.shopifyProductUrl,
   });
 
   const graphBase = `https://graph.facebook.com/v21.0/${businessAccountId}`;
   console.info(
-    `[merchflow:instagram] publish started businessAccountId=${businessAccountId} imageUrlPresent=yes`
+    `[flowcart:instagram] publish started businessAccountId=${businessAccountId} imageUrlPresent=yes`
   );
 
   try {

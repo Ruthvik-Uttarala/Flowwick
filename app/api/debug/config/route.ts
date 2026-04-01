@@ -24,9 +24,7 @@ export async function GET(request: Request) {
     return okResponse({
       timestamp: new Date().toISOString(),
       appRunning: true,
-      airiaMode: snapshot.airiaMode,
-      airiaLiveConfigured: snapshot.airiaLiveConfigured,
-      airia: snapshot.airia,
+      openaiConfigured: snapshot.openaiConfigured,
       settings: snapshot.settings,
       settingsStatus: getSettingsStatus(settings),
       launch: snapshot.launch,
