@@ -246,6 +246,7 @@ export async function patchBucket(
   });
 }
 
-export async function saveBuckets(_buckets: ProductBucket[]): Promise<void> {
+export async function saveBuckets(buckets: ProductBucket[]): Promise<void> {
+  void buckets;
   // No-op: individual bucket operations now use Supabase directly
 }

@@ -1,5 +1,19 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/src/lib/server/supabase-admin";
+import { getDbSettings, saveShopifyAdminToken, clearShopifyAdminToken } from "@/src/lib/server/db-settings";
+import {
+  SHOPIFY_OAUTH_STATE_COOKIE,
+  getShopifyClientId,
+  getShopifyClientSecret,
+  readCookieValue,
+  validateShopifyCallbackHmac,
+  verifyShopifyAdminToken,
+} from "@/src/lib/server/shopify";
+import {
+  normalizeShopifyDomain,
+  safeNormalizeShopifyDomain,
+  type ShopifyCallbackErrorCode,
+} from "@/src/lib/shopify";
+import { deleteShopifyOauthState, getShopifyOauthState } from "@/src/lib/server/shopify-oauth-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,85 +25,124 @@ interface ShopifyTokenResponse {
   error_description?: string;
 }
 
-export async function GET(request: Request) {
-  const url = new URL(request.url);
-  const code = url.searchParams.get("code");
-  const shop = url.searchParams.get("shop");
-  const state = url.searchParams.get("state");
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-
-  if (!code || !shop || !state) {
-    return NextResponse.redirect(`${appUrl}/settings?shopify_error=missing_params`);
+function settingsRedirect(
+  code?: ShopifyCallbackErrorCode,
+  clearStateCookie = true
+): NextResponse {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+  const redirectUrl = new URL("/settings", appUrl);
+  if (code) {
+    redirectUrl.searchParams.set("shopify_error", code);
+  } else {
+    redirectUrl.searchParams.set("shopify_connected", "true");
   }
 
-  const clientId = process.env.SHOPIFY_CLIENT_ID?.trim();
-  const clientSecret = process.env.SHOPIFY_CLIENT_SECRET?.trim();
+  const response = NextResponse.redirect(redirectUrl);
+  if (clearStateCookie) {
+    response.cookies.set(SHOPIFY_OAUTH_STATE_COOKIE, "", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 0,
+    });
+  }
+  return response;
+}
 
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code")?.trim() ?? "";
+  const shop = url.searchParams.get("shop")?.trim() ?? "";
+  const state = url.searchParams.get("state")?.trim() ?? "";
+  const hmac = url.searchParams.get("hmac")?.trim() ?? "";
+
+  if (!code || !shop || !state || !hmac) {
+    return settingsRedirect("missing_params");
+  }
+
+  let normalizedShop: string;
+  try {
+    normalizedShop = normalizeShopifyDomain(shop);
+  } catch {
+    return settingsRedirect("store_domain_mismatch");
+  }
+
+  const stateCookie = readCookieValue(request, SHOPIFY_OAUTH_STATE_COOKIE);
+  if (!stateCookie || stateCookie !== state) {
+    return settingsRedirect("invalid_state");
+  }
+
+  const storedState = await getShopifyOauthState(state);
+  if (!storedState) {
+    return settingsRedirect("invalid_state");
+  }
+
+  const finalizeFailure = async (errorCode: ShopifyCallbackErrorCode) => {
+    try {
+      await deleteShopifyOauthState(state);
+    } catch {
+      // Ignore cleanup failures and return the OAuth error instead.
+    }
+    return settingsRedirect(errorCode);
+  };
+
+  if (new Date(storedState.expires_at).getTime() <= Date.now()) {
+    return finalizeFailure("expired_state");
+  }
+
+  if (normalizedShop !== storedState.shop_domain) {
+    return finalizeFailure("store_domain_mismatch");
+  }
+
+  const clientId = getShopifyClientId();
+  const clientSecret = getShopifyClientSecret();
   if (!clientId || !clientSecret) {
-    console.error("[flowcart:shopify:callback] Missing SHOPIFY_CLIENT_ID or SHOPIFY_CLIENT_SECRET");
-    return NextResponse.redirect(`${appUrl}/settings?shopify_error=server_config`);
+    return finalizeFailure("token_exchange_failed");
+  }
+
+  if (!validateShopifyCallbackHmac(url.searchParams, clientSecret)) {
+    return finalizeFailure("invalid_hmac");
+  }
+
+  const currentSettings = await getDbSettings(storedState.user_id);
+  if (safeNormalizeShopifyDomain(currentSettings.shopifyStoreDomain || "") !== storedState.shop_domain) {
+    return finalizeFailure("store_domain_mismatch");
   }
 
   try {
-    const supabase = getSupabaseAdmin();
-
-    // Validate state to prevent CSRF
-    const { data: storedState } = await supabase
-      .from("shopify_oauth_states")
-      .select("*")
-      .eq("state", state)
-      .single();
-
-    if (!storedState) {
-      return NextResponse.redirect(`${appUrl}/settings?shopify_error=invalid_state`);
-    }
-
-    const userId = storedState.user_id;
-
-    // Clean up used state
-    await supabase.from("shopify_oauth_states").delete().eq("state", state);
-
-    // Exchange code for permanent access token
-    const tokenResponse = await fetch(`https://${shop}/admin/oauth/access_token`, {
+    const tokenResponse = await fetch(`https://${normalizedShop}/admin/oauth/access_token`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
         client_id: clientId,
         client_secret: clientSecret,
         code,
-      }),
+      }).toString(),
     });
 
-    const tokenData: ShopifyTokenResponse = await tokenResponse.json();
+    const tokenData = (await tokenResponse.json().catch(() => null)) as ShopifyTokenResponse | null;
+    const accessToken = tokenData?.access_token?.trim() ?? "";
 
-    if (!tokenResponse.ok || !tokenData.access_token) {
-      console.error("[flowcart:shopify:callback] Token exchange failed:", tokenData);
-      return NextResponse.redirect(`${appUrl}/settings?shopify_error=token_exchange_failed`);
+    if (!tokenResponse.ok || !accessToken) {
+      return finalizeFailure("token_exchange_failed");
     }
 
-    // Store the permanent access token in integration_settings
-    const normalizedShop = shop.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+    await saveShopifyAdminToken(storedState.user_id, normalizedShop, accessToken);
 
-    await supabase
-      .from("integration_settings")
-      .upsert(
-        {
-          user_id: userId,
-          shopify_store_domain: normalizedShop,
-          shopify_admin_token: tokenData.access_token,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "user_id" }
-      );
+    const verified = await verifyShopifyAdminToken({
+      shopDomain: normalizedShop,
+      adminToken: accessToken,
+    });
 
-    console.info(
-      `[flowcart:shopify:callback] OAuth token stored for user=${userId.slice(0, 8)}... shop=${normalizedShop}`
-    );
+    if (!verified) {
+      await clearShopifyAdminToken(storedState.user_id);
+      return finalizeFailure("token_verification_failed");
+    }
 
-    return NextResponse.redirect(`${appUrl}/settings?shopify_connected=true`);
-  } catch (error) {
-    console.error("[flowcart:shopify:callback] Error:", error);
-    return NextResponse.redirect(`${appUrl}/settings?shopify_error=unknown`);
+    await deleteShopifyOauthState(state);
+    return settingsRedirect();
+  } catch {
+    return finalizeFailure("token_exchange_failed");
   }
 }

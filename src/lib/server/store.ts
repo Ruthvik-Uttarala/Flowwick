@@ -26,9 +26,6 @@ const BUCKETS_FILE = path.join(DATA_DIR, "buckets.json");
 const DEFAULT_SETTINGS: ConnectionSettings = {
   shopifyStoreDomain: "",
   shopifyAdminToken: "",
-  shopifyAccessToken: "",
-  shopifyClientId: "",
-  shopifyClientSecret: "",
   instagramAccessToken: "",
   instagramBusinessAccountId: "",
 };

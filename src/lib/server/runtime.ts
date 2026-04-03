@@ -1,4 +1,5 @@
 import { ConnectionSettings } from "@/src/lib/types";
+import { safeNormalizeShopifyDomain } from "@/src/lib/shopify";
 
 function parseBooleanEnv(value: string | undefined, defaultValue = false): boolean {
   const normalized = value?.trim().toLowerCase();
@@ -15,19 +16,14 @@ export function hasPublicUrl(url: string): boolean {
 }
 
 export function normalizeStoreDomain(storeDomain: string): string {
-  const normalized = storeDomain
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/+$/, "");
-  if (!normalized) return "";
-  if (normalized.includes(".")) return normalized;
-  return `${normalized}.myshopify.com`;
+  return safeNormalizeShopifyDomain(storeDomain);
 }
 
 export function getExecutionReadiness(settings: ConnectionSettings) {
   const shopifyStoreDomainReady = normalizeStoreDomain(settings.shopifyStoreDomain).length > 0;
   const shopifyAdminTokenReady = settings.shopifyAdminToken.trim().length > 0;
   const shopifyReady = shopifyStoreDomainReady && shopifyAdminTokenReady;
+  const shopifyReauthorizationRequired = shopifyStoreDomainReady && !shopifyAdminTokenReady;
 
   const instagramEnabled = isInstagramEnabled();
   const instagramConfigured =
@@ -48,6 +44,7 @@ export function getExecutionReadiness(settings: ConnectionSettings) {
   return {
     instagramEnabled,
     shopifyReady,
+    shopifyReauthorizationRequired,
     shopifyDirectExecutionReady: shopifyReady,
     instagramConfigured,
     readyToLaunch: shopifyReady && instagramConfigured,

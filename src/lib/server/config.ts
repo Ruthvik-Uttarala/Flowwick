@@ -15,7 +15,6 @@ export function getSafeSettingsStatus(settings: ConnectionSettings): SafeSetting
 export function getLaunchReadinessStatus(settings: ConnectionSettings): LaunchReadinessStatus {
   const openaiConfigured = isOpenAIConfigured();
   const safeSettings = getSafeSettingsStatus(settings);
-  const executionReadiness = getExecutionReadiness(settings);
 
   const readyToLaunch = safeSettings.readyForLaunch;
   const modeLabel =
@@ -29,9 +28,9 @@ export function getLaunchReadinessStatus(settings: ConnectionSettings): LaunchRe
     appRunning: true,
     liveCapable: openaiConfigured && safeSettings.readyForLaunch,
     readyToLaunch,
-    settingsConfigured: safeSettings.readyForLaunch,
+    settingsConfigured: safeSettings.configured,
     openaiConfigured,
-    missingSettingsFields: executionReadiness.missingRequirements,
+    missingSettingsFields: getExecutionReadiness(settings).missingRequirements,
     modeLabel,
   };
 }

@@ -31,8 +31,9 @@ export async function enhanceBucket(
   bucketId: string,
   userId: string,
   mode: "enhanceTitle" | "enhanceDescription",
-  _settings: ConnectionSettings
+  settings: ConnectionSettings
 ): Promise<WorkflowResult> {
+  void settings;
   const existingBucket =
     (await getBucketById(bucketId, userId)) ?? (await createBucket(userId));
 

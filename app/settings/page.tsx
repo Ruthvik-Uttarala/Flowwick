@@ -17,6 +17,10 @@ import {
   Link as LinkIcon,
 } from "lucide-react";
 import type { ConnectionSettings, RuntimeConfigSnapshot, SafeSettingsStatus } from "@/src/lib/types";
+import {
+  SHOPIFY_CALLBACK_ERROR_MESSAGES,
+  safeNormalizeShopifyDomain,
+} from "@/src/lib/shopify";
 
 interface FormSettings {
   shopifyStoreDomain: string;
@@ -97,14 +101,11 @@ function SettingsContent() {
     }
     const shopifyError = searchParams.get("shopify_error");
     if (shopifyError) {
-      const errorMap: Record<string, string> = {
-        missing_params: "Shopify OAuth failed: missing parameters.",
-        server_config: "Shopify OAuth not configured on server.",
-        invalid_state: "Shopify OAuth failed: invalid state (possible CSRF).",
-        token_exchange_failed: "Shopify OAuth failed: could not exchange code for token.",
-        unknown: "Shopify OAuth failed with an unknown error.",
-      };
-      setErrorMessage(errorMap[shopifyError] ?? "Shopify connection failed.");
+      setErrorMessage(
+        SHOPIFY_CALLBACK_ERROR_MESSAGES[
+          shopifyError as keyof typeof SHOPIFY_CALLBACK_ERROR_MESSAGES
+        ] ?? "Shopify connection failed."
+      );
     }
   }, [searchParams]);
 
@@ -147,7 +148,12 @@ function SettingsContent() {
       setSavedSnapshot(formData);
       setStatus(payload.data.status);
       setRuntime(payload.data.runtime);
-      setMessage(payload.data.message ?? "Settings saved.");
+      setMessage(
+        payload.data.message ??
+          (payload.data.status.shopifyReauthorizationRequired
+            ? "Settings saved. Shopify must be authorized again before launch."
+            : "Settings saved.")
+      );
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to save settings.");
     } finally {
@@ -183,6 +189,14 @@ function SettingsContent() {
   const launchReady = Boolean(status?.readyForLaunch);
   const openaiLive = Boolean(runtime?.openaiConfigured);
   const shopifyConnected = Boolean(status?.shopifyConnected);
+  const shopifyReauthorizationRequired = Boolean(status?.shopifyReauthorizationRequired);
+  const shopifyDomainSaved = Boolean(status?.shopifyStoreDomainPresent);
+  const instagramConfigured =
+    Boolean(status?.instagramAccessTokenPresent) &&
+    Boolean(status?.instagramBusinessAccountIdPresent);
+  const domainChangedSinceSave =
+    safeNormalizeShopifyDomain(form.shopifyStoreDomain) !==
+    safeNormalizeShopifyDomain(savedSnapshot.shopifyStoreDomain);
 
   const inputClass = "warm-input w-full rounded-2xl px-4 py-3 text-sm";
 
@@ -219,11 +233,23 @@ function SettingsContent() {
               <ShoppingBag size={18} className="text-[#C47A2C]" />
               <h2 className="text-lg font-semibold text-[#2B1B12]">Shopify</h2>
             </div>
-            {shopifyConnected && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-green-600/30 bg-green-600/10 px-3 py-1 text-xs font-semibold text-green-700">
-                <CheckCircle2 size={12} /> Connected
-              </span>
-            )}
+            <div className="flex flex-wrap gap-2">
+              {shopifyDomainSaved ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C47A2C]/30 bg-[#C47A2C]/10 px-3 py-1 text-xs font-semibold text-[#C47A2C]">
+                  <ShoppingBag size={12} /> Domain Saved
+                </span>
+              ) : null}
+              {shopifyConnected ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-green-600/30 bg-green-600/10 px-3 py-1 text-xs font-semibold text-green-700">
+                  <CheckCircle2 size={12} /> Authorized
+                </span>
+              ) : null}
+              {shopifyReauthorizationRequired ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1 text-xs font-semibold text-red-600">
+                  <XCircle size={12} /> Reauthorization Required
+                </span>
+              ) : null}
+            </div>
           </div>
           <label className="block space-y-2 text-sm">
             <span className="text-[#2B1B12]/60">Store Domain</span>
@@ -253,11 +279,18 @@ function SettingsContent() {
               )}
             </span>
           </button>
-          {!shopifyConnected && (
-            <p className="text-xs text-[#2B1B12]/40">
-              Enter your store domain and click Connect. You will be redirected to Shopify to approve the app.
-            </p>
-          )}
+          <div className="space-y-1 text-xs text-[#2B1B12]/45">
+            {domainChangedSinceSave ? (
+              <p>Save or connect with this new domain to clear the old Shopify authorization.</p>
+            ) : null}
+            {shopifyConnected ? (
+              <p>Shopify is authorized for the saved store domain and ready for launch.</p>
+            ) : shopifyDomainSaved ? (
+              <p>Authorize Shopify to generate and verify the admin token for this store before launch.</p>
+            ) : (
+              <p>Enter your Shopify store domain, save it, then authorize Shopify.</p>
+            )}
+          </div>
         </div>
 
         {/* Instagram Section */}
@@ -265,6 +298,11 @@ function SettingsContent() {
           <div className="flex items-center gap-2">
             <Camera size={18} className="text-[#C47A2C]" />
             <h2 className="text-lg font-semibold text-[#2B1B12]">Instagram</h2>
+            {instagramConfigured ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-green-600/30 bg-green-600/10 px-3 py-1 text-xs font-semibold text-green-700">
+                <CheckCircle2 size={12} /> Configured
+              </span>
+            ) : null}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="space-y-2 text-sm">

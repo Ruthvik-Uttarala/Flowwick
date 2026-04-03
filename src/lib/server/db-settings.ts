@@ -1,7 +1,9 @@
 import { getSupabaseServiceClient } from "@/src/lib/supabase/server-client";
 import { ConnectionSettings } from "@/src/lib/types";
+import { normalizeStoreDomain } from "@/src/lib/server/runtime";
+import { SECRET_MASK } from "@/src/lib/server/settings";
 
-const TABLE = "integration_settings";
+const TABLE = "integration_settings" as const;
 
 const DEFAULT_SETTINGS: ConnectionSettings = {
   shopifyStoreDomain: "",
@@ -15,6 +17,8 @@ interface DbSettingsRow {
   user_id: string;
   shopify_store_domain: string;
   shopify_admin_token: string;
+  shopify_client_id?: string;
+  shopify_client_secret?: string;
   instagram_access_token: string;
   instagram_business_account_id: string;
   created_at: string;
@@ -66,33 +70,19 @@ export async function saveDbSettings(
 
   const existing = await getDbSettings(userId);
 
-  // Only overwrite a secret field if a non-redacted value is provided
-  function resolveSecret(incoming: string | undefined, current: string): string {
-    const trimmed = (incoming ?? "").trim();
-    // "••••••••" means the UI is echoing back a redacted value — keep current
-    if (!trimmed || trimmed === "••••••••") return current;
-    return trimmed;
-  }
-
+  const merged = mergeConnectionSettings(existing, settings);
   const row = {
     user_id: userId,
-    shopify_store_domain:
-      (settings.shopifyStoreDomain ?? "").trim() || existing.shopifyStoreDomain,
-    // shopify_admin_token is set exclusively via OAuth callback — never overwrite from settings form
-    shopify_admin_token: existing.shopifyAdminToken,
-    instagram_access_token: resolveSecret(
-      settings.instagramAccessToken,
-      existing.instagramAccessToken
-    ),
-    instagram_business_account_id:
-      (settings.instagramBusinessAccountId ?? "").trim() ||
-      existing.instagramBusinessAccountId,
+    shopify_store_domain: merged.shopifyStoreDomain,
+    shopify_admin_token: merged.shopifyAdminToken,
+    instagram_access_token: merged.instagramAccessToken,
+    instagram_business_account_id: merged.instagramBusinessAccountId,
     updated_at: new Date().toISOString(),
   };
 
   const { data, error } = await client
     .from(TABLE)
-    .upsert(row, { onConflict: "user_id" })
+    .upsert(row as never, { onConflict: "user_id" })
     .select()
     .single();
 
@@ -102,5 +92,95 @@ export async function saveDbSettings(
   }
 
   console.info(`[flowcart:db-settings] Saved settings for user=${userId.slice(0, 8)}...`);
+  return rowToSettings(data as DbSettingsRow);
+}
+
+export function mergeConnectionSettings(
+  existing: ConnectionSettings,
+  incoming: Partial<ConnectionSettings>
+): ConnectionSettings {
+  function resolveSecret(nextValue: string | undefined, current: string): string {
+    if (nextValue === undefined) return current;
+    const trimmed = nextValue.trim();
+    if (!trimmed || trimmed === SECRET_MASK) return current;
+    return trimmed;
+  }
+
+  function resolveText(nextValue: string | undefined, current: string): string {
+    if (nextValue === undefined) return current;
+    return nextValue.trim();
+  }
+
+  const existingDomain = normalizeStoreDomain(existing.shopifyStoreDomain);
+  const nextDomain = resolveText(incoming.shopifyStoreDomain, existingDomain);
+  const normalizedNextDomain = nextDomain ? normalizeStoreDomain(nextDomain) : "";
+  const domainChanged = normalizedNextDomain !== existingDomain;
+
+  return {
+    shopifyStoreDomain: normalizedNextDomain,
+    shopifyAdminToken: domainChanged ? "" : existing.shopifyAdminToken,
+    instagramAccessToken: resolveSecret(
+      incoming.instagramAccessToken,
+      existing.instagramAccessToken
+    ),
+    instagramBusinessAccountId: resolveText(
+      incoming.instagramBusinessAccountId,
+      existing.instagramBusinessAccountId
+    ),
+  };
+}
+
+export async function saveShopifyAdminToken(
+  userId: string,
+  shopDomain: string,
+  adminToken: string
+): Promise<ConnectionSettings> {
+  const client = getSupabaseServiceClient();
+  if (!client) {
+    throw new Error("Supabase service client not configured.");
+  }
+
+  const row = {
+    user_id: userId,
+    shopify_store_domain: normalizeStoreDomain(shopDomain),
+    shopify_admin_token: adminToken.trim(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await client
+    .from(TABLE)
+    .upsert(row as never, { onConflict: "user_id" })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to store Shopify authorization: ${error.message}`);
+  }
+
+  return rowToSettings(data as DbSettingsRow);
+}
+
+export async function clearShopifyAdminToken(userId: string): Promise<ConnectionSettings> {
+  const client = getSupabaseServiceClient();
+  if (!client) {
+    throw new Error("Supabase service client not configured.");
+  }
+
+  const { data, error } = await client
+    .from(TABLE)
+    .update(
+      {
+        shopify_admin_token: "",
+        updated_at: new Date().toISOString(),
+      } as never
+    )
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to clear Shopify authorization: ${error.message}`);
+  }
+
   return rowToSettings(data as DbSettingsRow);
 }

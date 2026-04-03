@@ -19,6 +19,11 @@ interface InstagramPublishResponse {
   error?: unknown;
 }
 
+interface InstagramMediaDetailsResponse {
+  permalink?: string;
+  error?: unknown;
+}
+
 function buildFailure(message: string): InstagramLaunchArtifact {
   return {
     instagramPublished: false,
@@ -49,7 +54,10 @@ function normalizeGraphError(payload: unknown, status: number): string {
   const candidate = payload as { error?: unknown };
   if (!candidate.error) return `Instagram request failed with status ${status}.`;
   try {
-    return JSON.stringify(candidate.error);
+    const serialized = JSON.stringify(candidate.error);
+    return serialized === "{}"
+      ? `Instagram request failed with status ${status}.`
+      : serialized;
   } catch {
     return `Instagram request failed with status ${status}.`;
   }
@@ -100,8 +108,6 @@ export async function publishInstagramPostArtifact(input: {
   const caption = buildCaption(input.payload, input.shopifyProductUrl);
   const graphBase = `https://graph.facebook.com/v21.0/${businessAccountId}`;
 
-  console.info(`[flowcart:instagram] publishing post businessAccountId=${businessAccountId}`);
-
   try {
     const createResponse = await fetch(`${graphBase}/media`, {
       method: "POST",
@@ -136,12 +142,19 @@ export async function publishInstagramPostArtifact(input: {
       return buildFailure(normalizeGraphError(publishPayload, publishResponse.status));
     }
 
-    console.info(`[flowcart:instagram] post published postId=${postId}`);
+    const detailsResponse = await fetch(
+      `https://graph.facebook.com/v21.0/${postId}?${new URLSearchParams({
+        fields: "permalink",
+        access_token: accessToken,
+      }).toString()}`
+    );
+    const detailsPayload = await readJsonResponse<InstagramMediaDetailsResponse>(detailsResponse);
+    const permalink = detailsResponse.ok ? detailsPayload?.permalink?.trim() ?? "" : "";
 
     return {
       instagramPublished: true,
       instagramPostId: postId,
-      instagramPostUrl: `https://www.instagram.com/p/${postId}/`,
+      instagramPostUrl: permalink,
       adapterMode: "live",
       errorMessage: "",
     };

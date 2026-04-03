@@ -28,7 +28,9 @@ export async function POST(request: Request) {
       settings: redactSettingsForClient(saved),
       status: getSettingsStatus(saved),
       runtime: getRuntimeConfigSnapshot(saved),
-      message: "Settings saved.",
+      message: saved.shopifyStoreDomain && !saved.shopifyAdminToken
+        ? "Settings saved. Shopify authorization is required before launch."
+        : "Settings saved.",
     });
   } catch (error) {
     if (error instanceof ZodError) {
