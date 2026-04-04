@@ -24,6 +24,21 @@ create table if not exists public.shopify_oauth_states (
   expires_at timestamptz not null
 );
 
+alter table if exists public.shopify_oauth_states
+  add column if not exists state text;
+
+alter table if exists public.shopify_oauth_states
+  add column if not exists user_id uuid references auth.users(id) on delete cascade;
+
+alter table if exists public.shopify_oauth_states
+  add column if not exists shop_domain text;
+
+alter table if exists public.shopify_oauth_states
+  add column if not exists created_at timestamptz not null default now();
+
+alter table if exists public.shopify_oauth_states
+  add column if not exists expires_at timestamptz;
+
 create index if not exists shopify_oauth_states_user_id_idx
   on public.shopify_oauth_states (user_id);
 
