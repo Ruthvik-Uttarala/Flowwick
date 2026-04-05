@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import {
-  SHOPIFY_CALLBACK_ERROR_MESSAGES,
+  SHOPIFY_OAUTH_ERROR_MESSAGES,
+  type ShopifyOauthErrorCode,
   SHOPIFY_OAUTH_SCOPE_PARAM,
   normalizeShopifyDomain,
 } from "@/src/lib/shopify";
@@ -26,9 +27,41 @@ export function getShopifyClientSecret(): string {
   return process.env.SHOPIFY_CLIENT_SECRET?.trim() ?? "";
 }
 
-export function buildShopifyCallbackUrl(): string {
+export function getAuthoritativeAppUrl(): string {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
-  return `${appUrl.replace(/\/$/, "")}/api/shopify/callback`;
+  return appUrl.replace(/\/$/, "");
+}
+
+export function buildShopifyCallbackUrl(): string {
+  return `${getAuthoritativeAppUrl()}/api/shopify/callback`;
+}
+
+export function buildShopifySettingsUrl(errorCode?: ShopifyOauthErrorCode): string {
+  const redirectUrl = new URL("/settings", getAuthoritativeAppUrl());
+  if (errorCode) {
+    redirectUrl.searchParams.set("shopify_error", errorCode);
+  }
+  return redirectUrl.toString();
+}
+
+export function getRequestHost(request: Request): string {
+  const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
+  if (forwardedHost) {
+    return forwardedHost.split(",")[0]?.trim().toLowerCase() ?? "";
+  }
+
+  const host = request.headers.get("host")?.trim();
+  if (host) {
+    return host.toLowerCase();
+  }
+
+  return new URL(request.url).host.toLowerCase();
+}
+
+export function isAuthoritativeAppRequest(request: Request): boolean {
+  const requestHost = getRequestHost(request);
+  const authoritativeHost = new URL(getAuthoritativeAppUrl()).host.toLowerCase();
+  return requestHost === authoritativeHost;
 }
 
 export function generateShopifyOauthState(): string {
@@ -150,8 +183,8 @@ export async function verifyShopifyAdminToken(input: {
 
 export function mapShopifyCallbackError(code: string): string {
   return (
-    SHOPIFY_CALLBACK_ERROR_MESSAGES[
-      code as keyof typeof SHOPIFY_CALLBACK_ERROR_MESSAGES
+    SHOPIFY_OAUTH_ERROR_MESSAGES[
+      code as keyof typeof SHOPIFY_OAUTH_ERROR_MESSAGES
     ] ?? "Shopify OAuth failed with an unknown error."
   );
 }

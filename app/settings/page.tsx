@@ -18,8 +18,10 @@ import {
 } from "lucide-react";
 import type { ConnectionSettings, RuntimeConfigSnapshot, SafeSettingsStatus } from "@/src/lib/types";
 import {
-  SHOPIFY_CALLBACK_ERROR_MESSAGES,
+  SHOPIFY_OAUTH_ERROR_MESSAGES,
+  getShopifyConnectRedirectUrl,
   safeNormalizeShopifyDomain,
+  type ShopifyConnectErrorCode,
 } from "@/src/lib/shopify";
 
 interface FormSettings {
@@ -102,8 +104,8 @@ function SettingsContent() {
     const shopifyError = searchParams.get("shopify_error");
     if (shopifyError) {
       setErrorMessage(
-        SHOPIFY_CALLBACK_ERROR_MESSAGES[
-          shopifyError as keyof typeof SHOPIFY_CALLBACK_ERROR_MESSAGES
+        SHOPIFY_OAUTH_ERROR_MESSAGES[
+          shopifyError as keyof typeof SHOPIFY_OAUTH_ERROR_MESSAGES
         ] ?? "Shopify connection failed."
       );
     }
@@ -175,8 +177,17 @@ function SettingsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ shopDomain: form.shopifyStoreDomain }),
       });
-      const payload = await readApiResponse<{ installUrl?: string }>(response);
+      const payload = await readApiResponse<{
+        installUrl?: string;
+        code?: ShopifyConnectErrorCode;
+        productionSettingsUrl?: string;
+      }>(response);
       if (!response.ok || !payload?.ok || !payload.data?.installUrl) {
+        const redirectUrl = getShopifyConnectRedirectUrl(payload?.data);
+        if (redirectUrl) {
+          window.location.href = redirectUrl;
+          return;
+        }
         throw new Error(apiErrorMessage(payload, "Failed to initiate Shopify connection."));
       }
       window.location.href = payload.data.installUrl;

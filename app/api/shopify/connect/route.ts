@@ -5,13 +5,22 @@ import { getDbSettings, saveDbSettings } from "@/src/lib/server/db-settings";
 import {
   SHOPIFY_OAUTH_STATE_COOKIE,
   SHOPIFY_OAUTH_STATE_TTL_SECONDS,
+  buildShopifySettingsUrl,
   buildShopifyAuthorizeUrl,
   generateShopifyOauthState,
   getShopifyClientId,
   getShopifyClientSecret,
+  isAuthoritativeAppRequest,
 } from "@/src/lib/server/shopify";
-import { normalizeShopifyDomain, safeNormalizeShopifyDomain } from "@/src/lib/shopify";
-import { saveShopifyOauthState } from "@/src/lib/server/shopify-oauth-state";
+import {
+  SHOPIFY_OAUTH_ERROR_MESSAGES,
+  normalizeShopifyDomain,
+  safeNormalizeShopifyDomain,
+} from "@/src/lib/shopify";
+import {
+  ShopifyOauthStatePersistenceError,
+  saveShopifyOauthState,
+} from "@/src/lib/server/shopify-oauth-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +30,16 @@ export async function POST(request: Request) {
     const userId = await extractUserId(request);
     if (!userId) {
       return errorResponse("Not authenticated.", { status: 401 });
+    }
+
+    if (!isAuthoritativeAppRequest(request)) {
+      return errorResponse(SHOPIFY_OAUTH_ERROR_MESSAGES.app_url_mismatch, {
+        status: 409,
+        data: {
+          code: "app_url_mismatch",
+          productionSettingsUrl: buildShopifySettingsUrl("app_url_mismatch"),
+        },
+      });
     }
 
     const body = (await request.json().catch(() => ({}))) as { shopDomain?: string };
@@ -79,6 +98,13 @@ export async function POST(request: Request) {
 
     return response;
   } catch (error) {
+    if (error instanceof ShopifyOauthStatePersistenceError) {
+      return errorResponse(error.message, {
+        status: 500,
+        data: { code: "oauth_state_persist_failed" },
+      });
+    }
+
     const message =
       error instanceof Error ? error.message : "Failed to initiate Shopify connection.";
     console.error("[flowcart:shopify:connect]", message);

@@ -39,13 +39,36 @@ alter table if exists public.shopify_oauth_states
 alter table if exists public.shopify_oauth_states
   add column if not exists expires_at timestamptz;
 
+update public.shopify_oauth_states
+set created_at = now()
+where created_at is null;
+
+alter table if exists public.shopify_oauth_states
+  alter column created_at set default now();
+
+alter table if exists public.shopify_oauth_states
+  alter column created_at set not null;
+
 create index if not exists shopify_oauth_states_user_id_idx
   on public.shopify_oauth_states (user_id);
 
 create index if not exists shopify_oauth_states_expires_at_idx
   on public.shopify_oauth_states (expires_at);
 
-alter table public.shopify_oauth_states enable row level security;
+alter table if exists public.shopify_oauth_states enable row level security;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.shopify_oauth_states'::regclass
+      and contype = 'p'
+  ) then
+    alter table public.shopify_oauth_states
+      add constraint shopify_oauth_states_pkey primary key (state);
+  end if;
+end $$;
 
 do $$
 begin

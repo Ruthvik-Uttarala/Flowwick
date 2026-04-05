@@ -224,15 +224,17 @@ describe("GET /api/shopify/callback", () => {
       "demo.myshopify.com",
       "verified-token"
     );
+    expect(vi.mocked(verifyShopifyAdminToken).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(saveShopifyAdminToken).mock.invocationCallOrder[0]
+    );
     expect(deleteShopifyOauthState).toHaveBeenCalledWith("expected-state");
     expect(response.headers.get("location")).toContain("shopify_connected=true");
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 
-  it("clears the token if Shopify verification fails", async () => {
+  it("returns token_exchange_failed when Shopify does not return an access token", async () => {
     const { getShopifyOauthState } = await import("@/src/lib/server/shopify-oauth-state");
-    const { getDbSettings, saveShopifyAdminToken, clearShopifyAdminToken } = await import(
-      "@/src/lib/server/db-settings"
-    );
+    const { getDbSettings, saveShopifyAdminToken } = await import("@/src/lib/server/db-settings");
     const { verifyShopifyAdminToken } = await import("@/src/lib/server/shopify");
 
     vi.mocked(getShopifyOauthState).mockResolvedValue({
@@ -248,13 +250,48 @@ describe("GET /api/shopify/callback", () => {
       instagramAccessToken: "",
       instagramBusinessAccountId: "",
     });
-    vi.mocked(saveShopifyAdminToken).mockResolvedValue({
-      shopifyStoreDomain: "demo.myshopify.com",
-      shopifyAdminToken: "unverified-token",
-      instagramAccessToken: "",
-      instagramBusinessAccountId: "",
+    vi.mocked(global.fetch).mockResolvedValue(
+      new Response(JSON.stringify({ access_token: "" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const { GET } = await import("@/app/api/shopify/callback/route");
+    const response = await GET(
+      new Request(
+        buildSignedCallbackUrl({
+          code: "auth-code",
+          shop: "demo.myshopify.com",
+          state: "expected-state",
+          timestamp: "1712345678",
+        }),
+        {
+          headers: { cookie: "flowcart-shopify-oauth-state=expected-state" },
+        }
+      )
+    );
+
+    expect(verifyShopifyAdminToken).not.toHaveBeenCalled();
+    expect(saveShopifyAdminToken).not.toHaveBeenCalled();
+    expect(response.headers.get("location")).toContain("shopify_error=token_exchange_failed");
+  });
+
+  it("does not persist the token if Shopify verification fails", async () => {
+    const { getShopifyOauthState } = await import("@/src/lib/server/shopify-oauth-state");
+    const { getDbSettings, saveShopifyAdminToken, clearShopifyAdminToken } = await import(
+      "@/src/lib/server/db-settings"
+    );
+    const { verifyShopifyAdminToken } = await import("@/src/lib/server/shopify");
+
+    vi.mocked(getShopifyOauthState).mockResolvedValue({
+      state: "expected-state",
+      user_id: "user-123",
+      shop_domain: "demo.myshopify.com",
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
     });
-    vi.mocked(clearShopifyAdminToken).mockResolvedValue({
+    vi.mocked(getDbSettings).mockResolvedValue({
       shopifyStoreDomain: "demo.myshopify.com",
       shopifyAdminToken: "",
       instagramAccessToken: "",
@@ -283,7 +320,8 @@ describe("GET /api/shopify/callback", () => {
       )
     );
 
-    expect(clearShopifyAdminToken).toHaveBeenCalledWith("user-123");
+    expect(saveShopifyAdminToken).not.toHaveBeenCalled();
+    expect(clearShopifyAdminToken).not.toHaveBeenCalled();
     expect(response.headers.get("location")).toContain(
       "shopify_error=token_verification_failed"
     );

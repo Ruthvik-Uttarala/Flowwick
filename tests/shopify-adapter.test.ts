@@ -9,6 +9,34 @@ describe("shopify adapter", () => {
     vi.clearAllMocks();
   });
 
+  it("fails with a clean authorization message when the DB-backed token is missing", async () => {
+    const { fetchShopifyAdminGraphQL } = await import("@/src/lib/server/shopify");
+    const { createShopifyProductArtifact } = await import("@/src/lib/server/adapters/shopify");
+    const result = await createShopifyProductArtifact({
+      payload: {
+        storeDomain: "demo.myshopify.com",
+        shopifyAdminToken: "",
+        instagramAccessToken: "ig-token",
+        instagramBusinessAccountId: "1789",
+        title: "FlowCart Hat",
+        description: "Warm wool hat",
+        price: 49.99,
+        quantity: 8,
+        imageUrls: ["https://public.example/hat.jpg"],
+      },
+      settings: {
+        shopifyStoreDomain: "demo.myshopify.com",
+        shopifyAdminToken: "",
+        instagramAccessToken: "ig-token",
+        instagramBusinessAccountId: "1789",
+      },
+    });
+
+    expect(result.shopifyCreated).toBe(false);
+    expect(result.errorMessage).toBe("Shopify authorization is required before launch.");
+    expect(fetchShopifyAdminGraphQL).not.toHaveBeenCalled();
+  });
+
   it("builds the expected GraphQL flow and returns the live product URL", async () => {
     const { fetchShopifyAdminGraphQL } = await import("@/src/lib/server/shopify");
     vi.mocked(fetchShopifyAdminGraphQL)

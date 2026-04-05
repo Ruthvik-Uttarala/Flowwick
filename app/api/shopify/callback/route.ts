@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getDbSettings, saveShopifyAdminToken, clearShopifyAdminToken } from "@/src/lib/server/db-settings";
+import { getDbSettings, saveShopifyAdminToken } from "@/src/lib/server/db-settings";
 import {
   SHOPIFY_OAUTH_STATE_COOKIE,
+  buildShopifySettingsUrl,
   getShopifyClientId,
   getShopifyClientSecret,
   readCookieValue,
@@ -29,15 +30,10 @@ function settingsRedirect(
   code?: ShopifyCallbackErrorCode,
   clearStateCookie = true
 ): NextResponse {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
-  const redirectUrl = new URL("/settings", appUrl);
-  if (code) {
-    redirectUrl.searchParams.set("shopify_error", code);
-  } else {
-    redirectUrl.searchParams.set("shopify_connected", "true");
-  }
-
-  const response = NextResponse.redirect(redirectUrl);
+  const targetUrl = code
+    ? buildShopifySettingsUrl(code)
+    : `${buildShopifySettingsUrl()}?shopify_connected=true`;
+  const response = NextResponse.redirect(new URL(targetUrl));
   if (clearStateCookie) {
     response.cookies.set(SHOPIFY_OAUTH_STATE_COOKIE, "", {
       httpOnly: true,
@@ -128,18 +124,16 @@ export async function GET(request: Request) {
       return finalizeFailure("token_exchange_failed");
     }
 
-    await saveShopifyAdminToken(storedState.user_id, normalizedShop, accessToken);
-
     const verified = await verifyShopifyAdminToken({
       shopDomain: normalizedShop,
       adminToken: accessToken,
     });
 
     if (!verified) {
-      await clearShopifyAdminToken(storedState.user_id);
       return finalizeFailure("token_verification_failed");
     }
 
+    await saveShopifyAdminToken(storedState.user_id, normalizedShop, accessToken);
     await deleteShopifyOauthState(state);
     return settingsRedirect();
   } catch {
