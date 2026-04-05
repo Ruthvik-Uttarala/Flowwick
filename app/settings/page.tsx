@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAuth } from "@/src/context/AuthContext";
@@ -19,9 +19,9 @@ import {
 import type { ConnectionSettings, RuntimeConfigSnapshot, SafeSettingsStatus } from "@/src/lib/types";
 import {
   SHOPIFY_OAUTH_ERROR_MESSAGES,
-  getShopifyConnectRedirectUrl,
+  getStandaloneShopifyConnectDomain,
+  shouldAutostartStandaloneShopifyConnect,
   safeNormalizeShopifyDomain,
-  type ShopifyConnectErrorCode,
 } from "@/src/lib/shopify";
 
 interface FormSettings {
@@ -62,6 +62,7 @@ function SettingsContent() {
   const [isConnectingShopify, setIsConnectingShopify] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const autostartedConnect = useRef(false);
 
   const loadSettings = async () => {
     setIsLoading(true);
@@ -101,6 +102,9 @@ function SettingsContent() {
       setMessage("Shopify connected successfully!");
       loadSettings();
     }
+
+    // Ignore ordinary Shopify app-open params here. Only explicit FlowCart
+    // handoff params should trigger a standalone reconnect.
     const shopifyError = searchParams.get("shopify_error");
     if (shopifyError) {
       setErrorMessage(
@@ -110,6 +114,26 @@ function SettingsContent() {
       );
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (authLoading || !user || autostartedConnect.current) return;
+    if (!shouldAutostartStandaloneShopifyConnect(new URLSearchParams(searchParams.toString()))) {
+      return;
+    }
+
+    const queryShopDomain = getStandaloneShopifyConnectDomain(
+      new URLSearchParams(searchParams.toString())
+    );
+    const connectShopDomain =
+      queryShopDomain || safeNormalizeShopifyDomain(form.shopifyStoreDomain);
+    if (!connectShopDomain) return;
+
+    autostartedConnect.current = true;
+    setIsConnectingShopify(true);
+    window.location.href = `/api/shopify/connect?shopDomain=${encodeURIComponent(
+      connectShopDomain
+    )}`;
+  }, [authLoading, user, searchParams, form.shopifyStoreDomain]);
 
   if (authLoading) {
     return (
@@ -171,30 +195,9 @@ function SettingsContent() {
     setIsConnectingShopify(true);
     setErrorMessage("");
     setMessage("");
-    try {
-      const response = await fetch("/api/shopify/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shopDomain: form.shopifyStoreDomain }),
-      });
-      const payload = await readApiResponse<{
-        installUrl?: string;
-        code?: ShopifyConnectErrorCode;
-        productionSettingsUrl?: string;
-      }>(response);
-      if (!response.ok || !payload?.ok || !payload.data?.installUrl) {
-        const redirectUrl = getShopifyConnectRedirectUrl(payload?.data);
-        if (redirectUrl) {
-          window.location.href = redirectUrl;
-          return;
-        }
-        throw new Error(apiErrorMessage(payload, "Failed to initiate Shopify connection."));
-      }
-      window.location.href = payload.data.installUrl;
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to connect Shopify.");
-      setIsConnectingShopify(false);
-    }
+    window.location.href = `/api/shopify/connect?shopDomain=${encodeURIComponent(
+      form.shopifyStoreDomain.trim()
+    )}`;
   };
 
   const launchReady = Boolean(status?.readyForLaunch);

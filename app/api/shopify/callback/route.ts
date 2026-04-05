@@ -14,7 +14,10 @@ import {
   safeNormalizeShopifyDomain,
   type ShopifyCallbackErrorCode,
 } from "@/src/lib/shopify";
-import { deleteShopifyOauthState, getShopifyOauthState } from "@/src/lib/server/shopify-oauth-state";
+import {
+  deleteShopifyOauthState,
+  getShopifyOauthState,
+} from "@/src/lib/server/shopify-oauth-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,12 +29,21 @@ interface ShopifyTokenResponse {
   error_description?: string;
 }
 
+interface DomainDiagnostics {
+  callbackShopRaw: string;
+  callbackShopNormalized: string;
+  oauthStateShopRaw: string;
+  oauthStateShopNormalized: string;
+  savedSettingsShopRaw: string;
+  savedSettingsShopNormalized: string;
+}
+
 function settingsRedirect(
   code?: ShopifyCallbackErrorCode,
   clearStateCookie = true
 ): NextResponse {
   const targetUrl = code
-    ? buildShopifySettingsUrl(code)
+    ? buildShopifySettingsUrl({ errorCode: code })
     : `${buildShopifySettingsUrl()}?shopify_connected=true`;
   const response = NextResponse.redirect(new URL(targetUrl));
   if (clearStateCookie) {
@@ -46,26 +58,36 @@ function settingsRedirect(
   return response;
 }
 
+function logShopifyDomainDiagnostics(
+  reason: string,
+  diagnostics: DomainDiagnostics
+): void {
+  console.warn("[flowcart:shopify:callback:domain-check]", {
+    reason,
+    ...diagnostics,
+  });
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code")?.trim() ?? "";
-  const shop = url.searchParams.get("shop")?.trim() ?? "";
+  const callbackShopRaw = url.searchParams.get("shop")?.trim() ?? "";
   const state = url.searchParams.get("state")?.trim() ?? "";
   const hmac = url.searchParams.get("hmac")?.trim() ?? "";
 
-  if (!code || !shop || !state || !hmac) {
+  if (!code || !callbackShopRaw || !state || !hmac) {
     return settingsRedirect("missing_params");
   }
 
-  let normalizedShop: string;
+  let callbackShopNormalized = "";
   try {
-    normalizedShop = normalizeShopifyDomain(shop);
+    callbackShopNormalized = normalizeShopifyDomain(callbackShopRaw);
   } catch {
     return settingsRedirect("store_domain_mismatch");
   }
 
   const stateCookie = readCookieValue(request, SHOPIFY_OAUTH_STATE_COOKIE);
-  if (!stateCookie || stateCookie !== state) {
+  if (stateCookie && stateCookie !== state) {
     return settingsRedirect("invalid_state");
   }
 
@@ -74,7 +96,34 @@ export async function GET(request: Request) {
     return settingsRedirect("invalid_state");
   }
 
-  const finalizeFailure = async (errorCode: ShopifyCallbackErrorCode) => {
+  const oauthStateShopNormalized = safeNormalizeShopifyDomain(storedState.shop_domain || "");
+  let currentSettings: Awaited<ReturnType<typeof getDbSettings>> | null = null;
+  try {
+    currentSettings = (await getDbSettings(storedState.user_id)) ?? null;
+  } catch {
+    currentSettings = null;
+  }
+  const savedSettingsShopNormalized = safeNormalizeShopifyDomain(
+    currentSettings?.shopifyStoreDomain || ""
+  );
+
+  const diagnostics: DomainDiagnostics = {
+    callbackShopRaw,
+    callbackShopNormalized,
+    oauthStateShopRaw: storedState.shop_domain ?? "",
+    oauthStateShopNormalized,
+    savedSettingsShopRaw: currentSettings?.shopifyStoreDomain ?? "",
+    savedSettingsShopNormalized,
+  };
+
+  const finalizeFailure = async (
+    errorCode: ShopifyCallbackErrorCode,
+    reason: string
+  ) => {
+    if (errorCode === "store_domain_mismatch") {
+      logShopifyDomainDiagnostics(reason, diagnostics);
+    }
+
     try {
       await deleteShopifyOauthState(state);
     } catch {
@@ -84,59 +133,66 @@ export async function GET(request: Request) {
   };
 
   if (new Date(storedState.expires_at).getTime() <= Date.now()) {
-    return finalizeFailure("expired_state");
+    return finalizeFailure("expired_state", "expired_oauth_state");
   }
 
-  if (normalizedShop !== storedState.shop_domain) {
-    return finalizeFailure("store_domain_mismatch");
+  if (!oauthStateShopNormalized || callbackShopNormalized !== oauthStateShopNormalized) {
+    return finalizeFailure("store_domain_mismatch", "callback_vs_oauth_state");
+  }
+
+  if (
+    savedSettingsShopNormalized &&
+    callbackShopNormalized !== savedSettingsShopNormalized
+  ) {
+    return finalizeFailure("store_domain_mismatch", "callback_vs_saved_settings");
   }
 
   const clientId = getShopifyClientId();
   const clientSecret = getShopifyClientSecret();
   if (!clientId || !clientSecret) {
-    return finalizeFailure("token_exchange_failed");
+    return finalizeFailure("token_exchange_failed", "missing_server_credentials");
   }
 
   if (!validateShopifyCallbackHmac(url.searchParams, clientSecret)) {
-    return finalizeFailure("invalid_hmac");
-  }
-
-  const currentSettings = await getDbSettings(storedState.user_id);
-  if (safeNormalizeShopifyDomain(currentSettings.shopifyStoreDomain || "") !== storedState.shop_domain) {
-    return finalizeFailure("store_domain_mismatch");
+    return finalizeFailure("invalid_hmac", "invalid_hmac");
   }
 
   try {
-    const tokenResponse = await fetch(`https://${normalizedShop}/admin/oauth/access_token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        code,
-      }).toString(),
-    });
+    const tokenResponse = await fetch(
+      `https://${callbackShopNormalized}/admin/oauth/access_token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+        }).toString(),
+      }
+    );
 
-    const tokenData = (await tokenResponse.json().catch(() => null)) as ShopifyTokenResponse | null;
+    const tokenData = (await tokenResponse.json().catch(() => null)) as
+      | ShopifyTokenResponse
+      | null;
     const accessToken = tokenData?.access_token?.trim() ?? "";
 
     if (!tokenResponse.ok || !accessToken) {
-      return finalizeFailure("token_exchange_failed");
+      return finalizeFailure("token_exchange_failed", "token_exchange_failed");
     }
 
     const verified = await verifyShopifyAdminToken({
-      shopDomain: normalizedShop,
+      shopDomain: callbackShopNormalized,
       adminToken: accessToken,
     });
 
     if (!verified) {
-      return finalizeFailure("token_verification_failed");
+      return finalizeFailure("token_verification_failed", "token_verification_failed");
     }
 
-    await saveShopifyAdminToken(storedState.user_id, normalizedShop, accessToken);
+    await saveShopifyAdminToken(storedState.user_id, callbackShopNormalized, accessToken);
     await deleteShopifyOauthState(state);
     return settingsRedirect();
   } catch {
-    return finalizeFailure("token_exchange_failed");
+    return finalizeFailure("token_exchange_failed", "unexpected_callback_error");
   }
 }

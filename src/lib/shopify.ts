@@ -20,6 +20,8 @@ export const SHOPIFY_OAUTH_ERROR_MESSAGES = {
     "Shopify connection could not be started. Please refresh and try again.",
   app_url_mismatch:
     "Shopify OAuth must be started from the production FlowCart URL. You are being redirected there now.",
+  unsupported_shopify_context:
+    "Shopify OAuth must be started from the standalone FlowCart settings page, not from Shopify admin.",
 } as const;
 
 export type ShopifyOauthErrorCode = keyof typeof SHOPIFY_OAUTH_ERROR_MESSAGES;
@@ -36,7 +38,7 @@ export type ShopifyCallbackErrorCode = Extract<
 >;
 export type ShopifyConnectErrorCode = Extract<
   ShopifyOauthErrorCode,
-  "oauth_state_persist_failed" | "app_url_mismatch"
+  "oauth_state_persist_failed" | "app_url_mismatch" | "unsupported_shopify_context"
 >;
 
 export interface ShopifyConnectErrorData {
@@ -45,8 +47,10 @@ export interface ShopifyConnectErrorData {
 }
 
 const SHOPIFY_HOSTNAME_REGEX = /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/;
+export const SHOPIFY_STANDALONE_CONNECT_PARAM = "shopify_connect";
+export const SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM = "shopDomain";
 
-export function normalizeShopifyDomain(value: string): string {
+export function canonicalizeShopifyShopDomain(value: string): string {
   const trimmed = value.trim().toLowerCase();
   if (!trimmed) return "";
 
@@ -65,9 +69,13 @@ export function normalizeShopifyDomain(value: string): string {
   return normalized;
 }
 
+export function normalizeShopifyDomain(value: string): string {
+  return canonicalizeShopifyShopDomain(value);
+}
+
 export function safeNormalizeShopifyDomain(value: string): string {
   try {
-    return normalizeShopifyDomain(value);
+    return canonicalizeShopifyShopDomain(value);
   } catch {
     return "";
   }
@@ -77,10 +85,36 @@ export function isShopifyDomainConfigured(value: string): boolean {
   return safeNormalizeShopifyDomain(value).length > 0;
 }
 
+export function shopifyDomainsMatch(left: string, right: string): boolean {
+  const normalizedLeft = safeNormalizeShopifyDomain(left);
+  const normalizedRight = safeNormalizeShopifyDomain(right);
+  return Boolean(normalizedLeft && normalizedLeft === normalizedRight);
+}
+
 export function getShopifyConnectRedirectUrl(
   input: ShopifyConnectErrorData | null | undefined
 ): string {
-  if (input?.code !== "app_url_mismatch") return "";
+  if (
+    input?.code !== "app_url_mismatch" &&
+    input?.code !== "unsupported_shopify_context"
+  ) {
+    return "";
+  }
+
   const url = input.productionSettingsUrl?.trim() ?? "";
   return /^https?:\/\//i.test(url) ? url : "";
+}
+
+export function shouldAutostartStandaloneShopifyConnect(
+  searchParams: URLSearchParams
+): boolean {
+  return searchParams.get(SHOPIFY_STANDALONE_CONNECT_PARAM) === "1";
+}
+
+export function getStandaloneShopifyConnectDomain(
+  searchParams: URLSearchParams
+): string {
+  return safeNormalizeShopifyDomain(
+    searchParams.get(SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM) ?? ""
+  );
 }

@@ -1,6 +1,8 @@
 import crypto from "node:crypto";
 import {
   SHOPIFY_OAUTH_ERROR_MESSAGES,
+  SHOPIFY_STANDALONE_CONNECT_PARAM,
+  SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM,
   type ShopifyOauthErrorCode,
   SHOPIFY_OAUTH_SCOPE_PARAM,
   normalizeShopifyDomain,
@@ -32,14 +34,28 @@ export function getAuthoritativeAppUrl(): string {
   return appUrl.replace(/\/$/, "");
 }
 
+/**
+ * FlowCart runs Shopify OAuth only as a standalone SaaS app on NEXT_PUBLIC_APP_URL.
+ * It is not implemented as an embedded Shopify admin app.
+ */
 export function buildShopifyCallbackUrl(): string {
   return `${getAuthoritativeAppUrl()}/api/shopify/callback`;
 }
 
-export function buildShopifySettingsUrl(errorCode?: ShopifyOauthErrorCode): string {
+export function buildShopifySettingsUrl(input?: {
+  errorCode?: ShopifyOauthErrorCode;
+  shopDomain?: string;
+  autostartConnect?: boolean;
+}): string {
   const redirectUrl = new URL("/settings", getAuthoritativeAppUrl());
-  if (errorCode) {
-    redirectUrl.searchParams.set("shopify_error", errorCode);
+  if (input?.errorCode) {
+    redirectUrl.searchParams.set("shopify_error", input.errorCode);
+  }
+  if (input?.autostartConnect) {
+    redirectUrl.searchParams.set(SHOPIFY_STANDALONE_CONNECT_PARAM, "1");
+  }
+  if (input?.shopDomain) {
+    redirectUrl.searchParams.set(SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM, input.shopDomain);
   }
   return redirectUrl.toString();
 }
@@ -62,6 +78,58 @@ export function isAuthoritativeAppRequest(request: Request): boolean {
   const requestHost = getRequestHost(request);
   const authoritativeHost = new URL(getAuthoritativeAppUrl()).host.toLowerCase();
   return requestHost === authoritativeHost;
+}
+
+function refererIsShopifyAdmin(request: Request): boolean {
+  const referer = request.headers.get("referer")?.trim().toLowerCase() ?? "";
+  return referer.includes("admin.shopify.com") || referer.includes(".myshopify.com/admin");
+}
+
+export function isUnsupportedShopifyAdminContext(request: Request): boolean {
+  const url = new URL(request.url);
+  const embedded = url.searchParams.get("embedded")?.trim() === "1";
+  const hostParamPresent = Boolean(url.searchParams.get("host")?.trim());
+  const fetchDest = request.headers.get("sec-fetch-dest")?.trim().toLowerCase() ?? "";
+  const iframeRequest = fetchDest === "iframe";
+
+  return embedded || hostParamPresent || iframeRequest || refererIsShopifyAdmin(request);
+}
+
+export function buildStandaloneShopifyConnectUrl(shopDomain: string): string {
+  const url = new URL("/api/shopify/connect", getAuthoritativeAppUrl());
+  if (shopDomain.trim()) {
+    url.searchParams.set(SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM, shopDomain.trim());
+  }
+  return url.toString();
+}
+
+export function buildShopifyIframeEscapePage(targetUrl: string, message: string): string {
+  const safeTarget = JSON.stringify(targetUrl);
+  const safeMessage = JSON.stringify(message);
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Redirecting to FlowCart</title>
+  </head>
+  <body>
+    <p id="message"></p>
+    <script>
+      const target = ${safeTarget};
+      const message = ${safeMessage};
+      document.getElementById("message").textContent = message;
+      if (window.top && window.top !== window.self) {
+        window.top.location.href = target;
+      } else {
+        window.location.href = target;
+      }
+    </script>
+    <noscript>
+      <p><a href="${targetUrl}">Continue to FlowCart</a></p>
+    </noscript>
+  </body>
+</html>`;
 }
 
 export function generateShopifyOauthState(): string {

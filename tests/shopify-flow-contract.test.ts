@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConnectionSettings, ProductBucket } from "@/src/lib/types";
+import { shouldAutostartStandaloneShopifyConnect } from "@/src/lib/shopify";
 
 vi.mock("@/src/lib/server/auth", () => ({
   extractUserId: vi.fn(),
@@ -113,7 +114,7 @@ vi.mock("@/src/lib/server/adapters/shopify", () => ({
     return {
       shopifyCreated: true,
       shopifyProductId: "gid://shopify/Product/1",
-      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+      shopifyProductUrl: "https://smbauto.myshopify.com/products/flowcart-hat",
       adapterMode: "live" as const,
       errorMessage: "",
       shopifyImageUrl: "https://cdn.example/hat.jpg",
@@ -206,7 +207,7 @@ describe("shopify production flow contract", () => {
     };
   });
 
-  it("verifies the production settings -> connect -> callback -> readiness -> launch flow", async () => {
+  it("verifies the production settings -> standalone connect -> callback -> readiness -> launch flow", async () => {
     const { extractUserId } = await import("@/src/lib/server/auth");
     const { verifyShopifyAdminToken } = await import("@/src/lib/server/shopify");
     const { createShopifyProductArtifact } = await import("@/src/lib/server/adapters/shopify");
@@ -225,7 +226,7 @@ describe("shopify production flow contract", () => {
         method: "POST",
         headers: { "Content-Type": "application/json", host: "flowcart.example" },
         body: JSON.stringify({
-          shopifyStoreDomain: "demo.myshopify.com",
+          shopifyStoreDomain: "smbauto.myshopify.com",
           instagramAccessToken: "ig-token",
           instagramBusinessAccountId: "1789",
         }),
@@ -239,43 +240,45 @@ describe("shopify production flow contract", () => {
       readyForLaunch: false,
     });
 
-    const { POST: connectShopify } = await import("@/app/api/shopify/connect/route");
+    const { GET: connectShopify } = await import("@/app/api/shopify/connect/route");
     const connectResponse = await connectShopify(
-      new Request("https://flowcart.example/api/shopify/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", host: "flowcart.example" },
-        body: JSON.stringify({ shopDomain: "demo.myshopify.com" }),
+      new Request("https://flowcart.example/api/shopify/connect?shopDomain=smbauto", {
+        method: "GET",
+        headers: { host: "flowcart.example" },
       })
     );
-    const connectPayload = await connectResponse.json();
-    expect(connectResponse.status).toBe(200);
-    expect(connectPayload.data.installUrl).toContain(
-      "https://demo.myshopify.com/admin/oauth/authorize"
-    );
+    expect(connectResponse.status).toBe(307);
+    const installLocation = connectResponse.headers.get("location") ?? "";
+    expect(installLocation).toContain("https://smbauto.myshopify.com/admin/oauth/authorize");
 
-    const installUrl = new URL(connectPayload.data.installUrl);
+    const installUrl = new URL(installLocation);
     const state = installUrl.searchParams.get("state") ?? "";
     expect(state).not.toBe("");
-    expect(oauthStateStore.get(state)?.shop_domain).toBe("demo.myshopify.com");
+    expect(oauthStateStore.get(state)?.shop_domain).toBe("smbauto.myshopify.com");
+
+    const appLaunchParams = new URLSearchParams({
+      host: "YWRtaW4uc2hvcGlmeS5jb20vc3RvcmUvc21iYXV0bw==",
+      hmac: "launch-hmac",
+      embedded: "1",
+      shop: "smbauto.myshopify.com",
+    });
+    expect(shouldAutostartStandaloneShopifyConnect(appLaunchParams)).toBe(false);
+    expect(settingsStore.shopifyAdminToken).toBe("");
 
     const { GET: handleCallback } = await import("@/app/api/shopify/callback/route");
     const callbackResponse = await handleCallback(
       new Request(
         buildSignedCallbackUrl({
           code: "auth-code",
-          shop: "demo.myshopify.com",
+          shop: "smbauto.myshopify.com",
           state,
           timestamp: "1712345678",
-        }),
-        {
-          headers: {
-            cookie: `flowcart-shopify-oauth-state=${state}`,
-          },
-        }
+        })
       )
     );
     expect(callbackResponse.headers.get("location")).toContain("shopify_connected=true");
     expect(settingsStore.shopifyAdminToken).toBe("verified-token");
+    expect(callbackResponse.headers.get("location")).not.toContain("store_domain_mismatch");
     expect(oauthStateStore.has(state)).toBe(false);
 
     const { GET: getSettings } = await import("@/app/api/settings/route");

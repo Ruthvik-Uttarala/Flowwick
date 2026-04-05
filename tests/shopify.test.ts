@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  canonicalizeShopifyShopDomain,
+  getStandaloneShopifyConnectDomain,
   SHOPIFY_OAUTH_ERROR_MESSAGES,
+  SHOPIFY_STANDALONE_CONNECT_PARAM,
+  SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM,
   getShopifyConnectRedirectUrl,
   SHOPIFY_OAUTH_SCOPE_PARAM,
   normalizeShopifyDomain,
+  shouldAutostartStandaloneShopifyConnect,
+  shopifyDomainsMatch,
 } from "@/src/lib/shopify";
 
 describe("shopify shared helpers", () => {
@@ -15,6 +21,20 @@ describe("shopify shared helpers", () => {
     expect(normalizeShopifyDomain("https://demo-shop.myshopify.com/admin")).toBe(
       "demo-shop.myshopify.com"
     );
+  });
+
+  it("canonicalizes all accepted forms of the same shop domain identically", () => {
+    expect(canonicalizeShopifyShopDomain("smbauto")).toBe("smbauto.myshopify.com");
+    expect(canonicalizeShopifyShopDomain("smbauto.myshopify.com")).toBe(
+      "smbauto.myshopify.com"
+    );
+    expect(canonicalizeShopifyShopDomain("https://smbauto.myshopify.com/admin")).toBe(
+      "smbauto.myshopify.com"
+    );
+    expect(shopifyDomainsMatch("smbauto", "smbauto.myshopify.com")).toBe(true);
+    expect(
+      shopifyDomainsMatch("smbauto.myshopify.com", "https://smbauto.myshopify.com/admin")
+    ).toBe(true);
   });
 
   it("rejects non-shopify hostnames", () => {
@@ -53,5 +73,22 @@ describe("shopify shared helpers", () => {
         productionSettingsUrl: "https://flowcart.example/settings",
       })
     ).toBe("");
+  });
+
+  it("autostarts standalone reconnect only for explicit FlowCart handoff params", () => {
+    const launchParams = new URLSearchParams({
+      host: "YWRtaW4uc2hvcGlmeS5jb20vc3RvcmUvc21iYXV0bw==",
+      hmac: "launch-hmac",
+      embedded: "1",
+      shop: "smbauto.myshopify.com",
+    });
+    expect(shouldAutostartStandaloneShopifyConnect(launchParams)).toBe(false);
+
+    const handoffParams = new URLSearchParams({
+      [SHOPIFY_STANDALONE_CONNECT_PARAM]: "1",
+      [SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM]: "smbauto",
+    });
+    expect(shouldAutostartStandaloneShopifyConnect(handoffParams)).toBe(true);
+    expect(getStandaloneShopifyConnectDomain(handoffParams)).toBe("smbauto.myshopify.com");
   });
 });
