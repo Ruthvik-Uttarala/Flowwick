@@ -41,9 +41,6 @@ describe("shopify adapter", () => {
     const { fetchShopifyAdminGraphQL } = await import("@/src/lib/server/shopify");
     vi.mocked(fetchShopifyAdminGraphQL)
       .mockResolvedValueOnce({
-        locations: { nodes: [{ id: "gid://shopify/Location/1", name: "Primary" }] },
-      })
-      .mockResolvedValueOnce({
         productSet: {
           product: { id: "gid://shopify/Product/1" },
           userErrors: [],
@@ -99,8 +96,12 @@ describe("shopify adapter", () => {
       shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
       shopifyImageUrl: "https://cdn.example/image.jpg",
     });
+    expect(fetchShopifyAdminGraphQL).toHaveBeenCalledTimes(4);
+    for (const [request] of vi.mocked(fetchShopifyAdminGraphQL).mock.calls) {
+      expect(request.query).not.toContain("locations(");
+    }
     expect(fetchShopifyAdminGraphQL).toHaveBeenNthCalledWith(
-      2,
+      1,
       expect.objectContaining({
         shopDomain: "demo.myshopify.com",
         adminToken: "shpca_live",
@@ -113,18 +114,27 @@ describe("shopify adapter", () => {
                 originalSource: "https://public.example/hat.jpg",
               }),
             ],
+            variants: [
+              expect.not.objectContaining({
+                inventoryPolicy: expect.anything(),
+                inventoryQuantities: expect.anything(),
+              }),
+            ],
           }),
         }),
       })
     );
+    const createCall = vi.mocked(fetchShopifyAdminGraphQL).mock.calls[0]?.[0];
+    const serializedVariables = JSON.stringify(createCall?.variables ?? {});
+    expect(createCall?.variables).not.toHaveProperty("input.variants.0.inventoryPolicy");
+    expect(createCall?.variables).not.toHaveProperty("input.variants.0.inventoryQuantities");
+    expect(serializedVariables).not.toContain("inventoryPolicy");
+    expect(serializedVariables).not.toContain("inventoryQuantities");
   });
 
   it("normalizes Shopify userErrors into a single failure message", async () => {
     const { fetchShopifyAdminGraphQL } = await import("@/src/lib/server/shopify");
     vi.mocked(fetchShopifyAdminGraphQL)
-      .mockResolvedValueOnce({
-        locations: { nodes: [{ id: "gid://shopify/Location/1", name: "Primary" }] },
-      })
       .mockResolvedValueOnce({
         productSet: {
           product: null,
@@ -155,5 +165,11 @@ describe("shopify adapter", () => {
 
     expect(result.shopifyCreated).toBe(false);
     expect(result.errorMessage).toContain("input.variants.0.price: Price is invalid");
+    expect(fetchShopifyAdminGraphQL).toHaveBeenCalledTimes(1);
+    const firstCall = vi.mocked(fetchShopifyAdminGraphQL).mock.calls[0]?.[0];
+    expect(firstCall?.query).not.toContain("locations(");
+    const serializedVariables = JSON.stringify(firstCall?.variables ?? {});
+    expect(serializedVariables).not.toContain("inventoryPolicy");
+    expect(serializedVariables).not.toContain("inventoryQuantities");
   });
 });

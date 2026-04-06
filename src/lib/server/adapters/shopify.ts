@@ -16,12 +16,6 @@ interface ShopifyUserError {
   message?: string | null;
 }
 
-interface ShopifyLocationQuery {
-  locations?: {
-    nodes?: Array<{ id?: string | null; name?: string | null }>;
-  };
-}
-
 interface ShopifyProductSetMutation {
   productSet?: {
     product?: {
@@ -60,17 +54,6 @@ interface ShopifyProductQuery {
     } | null;
   } | null;
 }
-
-const GET_PRIMARY_LOCATION_QUERY = `
-  query GetPrimaryLocation {
-    locations(first: 1) {
-      nodes {
-        id
-        name
-      }
-    }
-  }
-`;
 
 const CREATE_PRODUCT_MUTATION = `
   mutation CreateFlowCartProduct($input: ProductSetInput!, $synchronous: Boolean!) {
@@ -218,17 +201,6 @@ export async function createShopifyProductArtifact(input: {
   }
 
   try {
-    const locationData = await fetchShopifyAdminGraphQL<ShopifyLocationQuery>({
-      shopDomain: storeDomain,
-      adminToken,
-      query: GET_PRIMARY_LOCATION_QUERY,
-    });
-
-    const locationId = locationData.locations?.nodes?.[0]?.id?.trim() ?? "";
-    if (!locationId) {
-      return buildFailure("Shopify did not return an inventory location for this store.");
-    }
-
     const createData = await fetchShopifyAdminGraphQL<ShopifyProductSetMutation>({
       shopDomain: storeDomain,
       adminToken,
@@ -262,14 +234,6 @@ export async function createShopifyProductArtifact(input: {
                 },
               ],
               price: Number(price.toFixed(2)),
-              inventoryPolicy: "DENY",
-              inventoryQuantities: [
-                {
-                  locationId,
-                  name: "available",
-                  quantity,
-                },
-              ],
             },
           ],
         },

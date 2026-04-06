@@ -47,7 +47,7 @@ describe("shopify shared helpers", () => {
 
   it("exports a stable shared OAuth scope string", () => {
     expect(SHOPIFY_OAUTH_SCOPE_PARAM).toBe(
-      "write_products,read_locations,read_inventory,read_publications,write_publications"
+      "write_products,read_publications,write_publications"
     );
   });
 
