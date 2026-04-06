@@ -8,10 +8,10 @@ import {
   supabaseAuthConfigured,
 } from "@/src/lib/supabase/server";
 
-export async function extractUserId(request: Request): Promise<string | null> {
+export async function extractUserIdFromCookieHeader(
+  cookieHeader: string
+): Promise<string | null> {
   if (!supabaseAuthConfigured) return null;
-
-  const cookieHeader = request.headers.get("cookie") ?? "";
 
   const accessToken = cookieHeader.match(
     new RegExp(`${SUPABASE_ACCESS_COOKIE}=([^;]+)`)
@@ -34,4 +34,8 @@ export async function extractUserId(request: Request): Promise<string | null> {
   }
 
   return null;
+}
+
+export async function extractUserId(request: Request): Promise<string | null> {
+  return extractUserIdFromCookieHeader(request.headers.get("cookie") ?? "");
 }

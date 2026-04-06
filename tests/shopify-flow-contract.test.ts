@@ -1,7 +1,10 @@
 import crypto from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConnectionSettings, ProductBucket } from "@/src/lib/types";
-import { shouldAutostartStandaloneShopifyConnect } from "@/src/lib/shopify";
+import {
+  isShopifyAppLaunch,
+  shouldAutostartStandaloneShopifyConnect,
+} from "@/src/lib/shopify";
 
 vi.mock("@/src/lib/server/auth", () => ({
   extractUserId: vi.fn(),
@@ -262,6 +265,7 @@ describe("shopify production flow contract", () => {
       embedded: "1",
       shop: "smbauto.myshopify.com",
     });
+    expect(isShopifyAppLaunch(appLaunchParams)).toBe(true);
     expect(shouldAutostartStandaloneShopifyConnect(appLaunchParams)).toBe(false);
     expect(settingsStore.shopifyAdminToken).toBe("");
 

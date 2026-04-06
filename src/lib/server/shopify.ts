@@ -60,6 +60,16 @@ export function buildShopifySettingsUrl(input?: {
   return redirectUrl.toString();
 }
 
+export function buildShopifyLaunchUrl(searchParams?: URLSearchParams): string {
+  const launchUrl = new URL("/shopify/launch", getAuthoritativeAppUrl());
+  if (searchParams) {
+    for (const [key, value] of searchParams.entries()) {
+      launchUrl.searchParams.append(key, value);
+    }
+  }
+  return launchUrl.toString();
+}
+
 export function getRequestHost(request: Request): string {
   const forwardedHost = request.headers.get("x-forwarded-host")?.trim();
   if (forwardedHost) {

@@ -118,3 +118,18 @@ export function getStandaloneShopifyConnectDomain(
     searchParams.get(SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM) ?? ""
   );
 }
+
+export function isShopifyAppLaunch(searchParams: URLSearchParams): boolean {
+  const host = searchParams.get("host")?.trim() ?? "";
+  const hmac = searchParams.get("hmac")?.trim() ?? "";
+  const shop = searchParams.get("shop")?.trim() ?? "";
+  const embedded = searchParams.get("embedded")?.trim() === "1";
+
+  return Boolean(host || embedded || (hmac && shop));
+}
+
+export function getShopifyLaunchShopDomain(
+  searchParams: URLSearchParams
+): string {
+  return safeNormalizeShopifyDomain(searchParams.get("shop") ?? "");
+}

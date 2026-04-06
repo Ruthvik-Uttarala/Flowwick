@@ -30,12 +30,16 @@ interface ShopifyTokenResponse {
 }
 
 interface DomainDiagnostics {
+  statePrefix: string;
   callbackShopRaw: string;
   callbackShopNormalized: string;
   oauthStateShopRaw: string;
   oauthStateShopNormalized: string;
   savedSettingsShopRaw: string;
   savedSettingsShopNormalized: string;
+  tokenExchangeReached: boolean;
+  tokenVerificationReached: boolean;
+  tokenSaveReached: boolean;
 }
 
 function settingsRedirect(
@@ -59,10 +63,13 @@ function settingsRedirect(
 }
 
 function logShopifyDomainDiagnostics(
+  stage: "failure" | "success",
   reason: string,
   diagnostics: DomainDiagnostics
 ): void {
-  console.warn("[flowcart:shopify:callback:domain-check]", {
+  const logger = stage === "failure" ? console.warn : console.info;
+  logger("[flowcart:shopify:callback:trace]", {
+    stage,
     reason,
     ...diagnostics,
   });
@@ -83,6 +90,18 @@ export async function GET(request: Request) {
   try {
     callbackShopNormalized = normalizeShopifyDomain(callbackShopRaw);
   } catch {
+    logShopifyDomainDiagnostics("failure", "invalid_callback_shop", {
+      statePrefix: state.slice(0, 8),
+      callbackShopRaw,
+      callbackShopNormalized: "",
+      oauthStateShopRaw: "",
+      oauthStateShopNormalized: "",
+      savedSettingsShopRaw: "",
+      savedSettingsShopNormalized: "",
+      tokenExchangeReached: false,
+      tokenVerificationReached: false,
+      tokenSaveReached: false,
+    });
     return settingsRedirect("store_domain_mismatch");
   }
 
@@ -108,21 +127,23 @@ export async function GET(request: Request) {
   );
 
   const diagnostics: DomainDiagnostics = {
+    statePrefix: state.slice(0, 8),
     callbackShopRaw,
     callbackShopNormalized,
     oauthStateShopRaw: storedState.shop_domain ?? "",
     oauthStateShopNormalized,
     savedSettingsShopRaw: currentSettings?.shopifyStoreDomain ?? "",
     savedSettingsShopNormalized,
+    tokenExchangeReached: false,
+    tokenVerificationReached: false,
+    tokenSaveReached: false,
   };
 
   const finalizeFailure = async (
     errorCode: ShopifyCallbackErrorCode,
     reason: string
   ) => {
-    if (errorCode === "store_domain_mismatch") {
-      logShopifyDomainDiagnostics(reason, diagnostics);
-    }
+    logShopifyDomainDiagnostics("failure", reason, diagnostics);
 
     try {
       await deleteShopifyOauthState(state);
@@ -158,6 +179,7 @@ export async function GET(request: Request) {
   }
 
   try {
+    diagnostics.tokenExchangeReached = true;
     const tokenResponse = await fetch(
       `https://${callbackShopNormalized}/admin/oauth/access_token`,
       {
@@ -180,6 +202,7 @@ export async function GET(request: Request) {
       return finalizeFailure("token_exchange_failed", "token_exchange_failed");
     }
 
+    diagnostics.tokenVerificationReached = true;
     const verified = await verifyShopifyAdminToken({
       shopDomain: callbackShopNormalized,
       adminToken: accessToken,
@@ -189,8 +212,10 @@ export async function GET(request: Request) {
       return finalizeFailure("token_verification_failed", "token_verification_failed");
     }
 
+    diagnostics.tokenSaveReached = true;
     await saveShopifyAdminToken(storedState.user_id, callbackShopNormalized, accessToken);
     await deleteShopifyOauthState(state);
+    logShopifyDomainDiagnostics("success", "callback_completed", diagnostics);
     return settingsRedirect();
   } catch {
     return finalizeFailure("token_exchange_failed", "unexpected_callback_error");

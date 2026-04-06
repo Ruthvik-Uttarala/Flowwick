@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   canonicalizeShopifyShopDomain,
+  getShopifyLaunchShopDomain,
   getStandaloneShopifyConnectDomain,
+  isShopifyAppLaunch,
   SHOPIFY_OAUTH_ERROR_MESSAGES,
   SHOPIFY_STANDALONE_CONNECT_PARAM,
   SHOPIFY_STANDALONE_CONNECT_SHOP_PARAM,
@@ -90,5 +92,17 @@ describe("shopify shared helpers", () => {
     });
     expect(shouldAutostartStandaloneShopifyConnect(handoffParams)).toBe(true);
     expect(getStandaloneShopifyConnectDomain(handoffParams)).toBe("smbauto.myshopify.com");
+  });
+
+  it("detects Shopify app launch params without confusing them for OAuth reconnect", () => {
+    const launchParams = new URLSearchParams({
+      host: "YWRtaW4uc2hvcGlmeS5jb20vc3RvcmUvc21iYXV0bw==",
+      hmac: "launch-hmac",
+      shop: "smbauto",
+    });
+
+    expect(isShopifyAppLaunch(launchParams)).toBe(true);
+    expect(getShopifyLaunchShopDomain(launchParams)).toBe("smbauto.myshopify.com");
+    expect(shouldAutostartStandaloneShopifyConnect(launchParams)).toBe(false);
   });
 });

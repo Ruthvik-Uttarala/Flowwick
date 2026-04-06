@@ -9,6 +9,7 @@ import {
   buildShopifyIframeEscapePage,
   buildShopifySettingsUrl,
   generateShopifyOauthState,
+  getRequestHost,
   getShopifyClientId,
   getShopifyClientSecret,
   isAuthoritativeAppRequest,
@@ -29,7 +30,25 @@ export const dynamic = "force-dynamic";
 
 interface PreparedShopifyConnect {
   installUrl: string;
+  normalizedShopDomain: string;
+  savedSettingsShopNormalized: string;
   state: string;
+}
+
+function logShopifyConnectTrace(
+  stage: string,
+  input: {
+    host: string;
+    requestedShopDomain: string;
+    normalizedShopDomain?: string;
+    savedSettingsShopNormalized?: string;
+    statePrefix?: string;
+  }
+): void {
+  console.info("[flowcart:shopify:connect]", {
+    stage,
+    ...input,
+  });
 }
 
 function normalizeRequestedShopDomain(value: string): string {
@@ -124,6 +143,8 @@ async function prepareShopifyConnect(
   return {
     state,
     installUrl: buildShopifyAuthorizeUrl(normalizedShopDomain, state),
+    normalizedShopDomain,
+    savedSettingsShopNormalized: savedDomain,
   };
 }
 
@@ -148,8 +169,13 @@ export async function GET(request: Request) {
     const requestedShopDomain = normalizeRequestedShopDomain(
       new URL(request.url).searchParams.get("shopDomain") ?? ""
     );
+    const requestHost = getRequestHost(request);
 
     if (!isAuthoritativeAppRequest(request)) {
+      logShopifyConnectTrace("app_url_mismatch", {
+        host: requestHost,
+        requestedShopDomain,
+      });
       return buildStandaloneSettingsResponse(request, {
         errorCode: "app_url_mismatch",
         shopDomain: requestedShopDomain,
@@ -158,6 +184,10 @@ export async function GET(request: Request) {
     }
 
     if (isUnsupportedShopifyAdminContext(request)) {
+      logShopifyConnectTrace("unsupported_shopify_context", {
+        host: requestHost,
+        requestedShopDomain,
+      });
       return buildStandaloneSettingsResponse(request, {
         errorCode: "unsupported_shopify_context",
         shopDomain: requestedShopDomain,
@@ -166,6 +196,13 @@ export async function GET(request: Request) {
     }
 
     const prepared = await prepareShopifyConnect(userId, requestedShopDomain);
+    logShopifyConnectTrace("redirect_to_shopify", {
+      host: requestHost,
+      requestedShopDomain,
+      normalizedShopDomain: prepared.normalizedShopDomain,
+      savedSettingsShopNormalized: prepared.savedSettingsShopNormalized,
+      statePrefix: prepared.state.slice(0, 8),
+    });
     return withOauthStateCookie(NextResponse.redirect(prepared.installUrl), prepared.state);
   } catch (error) {
     if (error instanceof ShopifyOauthStatePersistenceError) {
@@ -197,8 +234,13 @@ export async function POST(request: Request) {
     }
 
     const requestedShopDomain = normalizeRequestedShopDomain(await extractRequestShopDomain(request));
+    const requestHost = getRequestHost(request);
 
     if (!isAuthoritativeAppRequest(request)) {
+      logShopifyConnectTrace("post_app_url_mismatch", {
+        host: requestHost,
+        requestedShopDomain,
+      });
       return errorResponse(SHOPIFY_OAUTH_ERROR_MESSAGES.app_url_mismatch, {
         status: 409,
         data: {
@@ -213,6 +255,10 @@ export async function POST(request: Request) {
     }
 
     if (isUnsupportedShopifyAdminContext(request)) {
+      logShopifyConnectTrace("post_unsupported_shopify_context", {
+        host: requestHost,
+        requestedShopDomain,
+      });
       return errorResponse(SHOPIFY_OAUTH_ERROR_MESSAGES.unsupported_shopify_context, {
         status: 409,
         data: {
@@ -227,6 +273,13 @@ export async function POST(request: Request) {
     }
 
     const prepared = await prepareShopifyConnect(userId, requestedShopDomain);
+    logShopifyConnectTrace("post_redirect_to_shopify", {
+      host: requestHost,
+      requestedShopDomain,
+      normalizedShopDomain: prepared.normalizedShopDomain,
+      savedSettingsShopNormalized: prepared.savedSettingsShopNormalized,
+      statePrefix: prepared.state.slice(0, 8),
+    });
     return withOauthStateCookie(
       NextResponse.json({ ok: true, data: { installUrl: prepared.installUrl } }),
       prepared.state
