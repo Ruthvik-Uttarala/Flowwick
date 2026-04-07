@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       instagramBusinessAccountId: creds.instagramBusinessAccountId,
     };
 
-    const summary = await goAllSequentially(userId, settings);
+    const summary = await goAllSequentially(userId, settings, creds.instagramCredentials);
     const buckets = await getBuckets(userId);
     return okResponse({ summary, buckets, message: "Sequential Go(All) completed." });
   } catch (error) {

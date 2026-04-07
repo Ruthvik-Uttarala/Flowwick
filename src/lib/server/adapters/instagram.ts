@@ -1,4 +1,4 @@
-import { LaunchPayload, ConnectionSettings } from "@/src/lib/types";
+import { ActiveInstagramCredentials, LaunchPayload } from "@/src/lib/types";
 import { isInstagramEnabled } from "@/src/lib/server/runtime";
 
 export interface InstagramLaunchArtifact {
@@ -84,7 +84,7 @@ function buildCaption(payload: LaunchPayload, shopifyProductUrl?: string): strin
 
 export async function publishInstagramPostArtifact(input: {
   payload: LaunchPayload;
-  settings: ConnectionSettings;
+  instagramCredentials: ActiveInstagramCredentials | null;
   shopifyProductUrl?: string;
   shopifyImageUrl?: string;
 }): Promise<InstagramLaunchArtifact> {
@@ -92,8 +92,8 @@ export async function publishInstagramPostArtifact(input: {
     return buildFailure("Instagram execution is disabled (INSTAGRAM_ENABLED=false).");
   }
 
-  const accessToken = input.settings.instagramAccessToken.trim();
-  const businessAccountId = input.settings.instagramBusinessAccountId.trim();
+  const accessToken = input.instagramCredentials?.publishAccessToken.trim() ?? "";
+  const businessAccountId = input.instagramCredentials?.instagramBusinessAccountId.trim() ?? "";
   if (!accessToken || !businessAccountId) {
     return buildFailure("Instagram credentials are missing.");
   }

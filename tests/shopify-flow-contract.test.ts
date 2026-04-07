@@ -184,8 +184,8 @@ describe("shopify production flow contract", () => {
     settingsStore = {
       shopifyStoreDomain: "",
       shopifyAdminToken: "",
-      instagramAccessToken: "",
-      instagramBusinessAccountId: "",
+      instagramAccessToken: "legacy-ig-token",
+      instagramBusinessAccountId: "1789",
     };
     oauthStateStore = new Map();
     bucketStore = {
@@ -230,8 +230,6 @@ describe("shopify production flow contract", () => {
         headers: { "Content-Type": "application/json", host: "flowcart.example" },
         body: JSON.stringify({
           shopifyStoreDomain: "smbauto.myshopify.com",
-          instagramAccessToken: "ig-token",
-          instagramBusinessAccountId: "1789",
         }),
       })
     );

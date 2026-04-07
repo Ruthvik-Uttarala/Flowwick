@@ -8,6 +8,8 @@ import {
 } from "@/src/lib/server/settings";
 import { getRuntimeConfigSnapshot } from "@/src/lib/server/config";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
+import { isInstagramDebugFieldModeEnabled } from "@/src/lib/instagram";
+import { getStoredInstagramConnectionSummary } from "@/src/lib/server/instagram-connection-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,14 +22,34 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const parsed = settingsSchema.parse(body);
+    const debugInstagramFieldsEnabled = isInstagramDebugFieldModeEnabled();
+    const rawInstagramKeysPresent =
+      typeof body?.instagramAccessToken === "string" ||
+      typeof body?.instagramBusinessAccountId === "string";
 
-    const saved = await saveDbSettings(userId, parsed);
+    if (rawInstagramKeysPresent && !debugInstagramFieldsEnabled) {
+      return errorResponse(
+        "Instagram credentials are managed through Connect Instagram in production.",
+        { status: 400 }
+      );
+    }
+
+    const parsed = settingsSchema.parse(body);
+    const payload = debugInstagramFieldsEnabled
+      ? parsed
+      : {
+          shopifyStoreDomain: parsed.shopifyStoreDomain,
+        };
+
+    const saved = await saveDbSettings(userId, payload);
+    const instagramConnection = getStoredInstagramConnectionSummary(saved);
 
     return okResponse({
       settings: redactSettingsForClient(saved),
       status: getSettingsStatus(saved),
       runtime: getRuntimeConfigSnapshot(saved),
+      instagramConnection,
+      instagramDebugFieldModeEnabled: debugInstagramFieldsEnabled,
       message: saved.shopifyStoreDomain && !saved.shopifyAdminToken
         ? "Settings saved. Shopify authorization is required before launch."
         : "Settings saved.",

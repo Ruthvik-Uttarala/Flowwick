@@ -10,12 +10,14 @@ describe("settings merge and readiness", () => {
         shopifyAdminToken: "shpca_123",
         instagramAccessToken: "ig-token",
         instagramBusinessAccountId: "1789",
+        instagramUserAccessToken: "ig-user-token",
       })
     ).toEqual({
       shopifyStoreDomain: "demo.myshopify.com",
       shopifyAdminToken: SECRET_MASK,
       instagramAccessToken: SECRET_MASK,
       instagramBusinessAccountId: "1789",
+      instagramUserAccessToken: SECRET_MASK,
     });
   });
 
@@ -27,17 +29,20 @@ describe("settings merge and readiness", () => {
           shopifyAdminToken: "shpca_old",
           instagramAccessToken: "ig-old",
           instagramBusinessAccountId: "1789",
+          instagramUserAccessToken: "ig-user-old",
         },
         {
           shopifyStoreDomain: "new-store",
           instagramAccessToken: SECRET_MASK,
+          instagramUserAccessToken: SECRET_MASK,
         }
       )
-    ).toEqual({
+    ).toMatchObject({
       shopifyStoreDomain: "new-store.myshopify.com",
       shopifyAdminToken: "",
       instagramAccessToken: "ig-old",
       instagramBusinessAccountId: "1789",
+      instagramUserAccessToken: "ig-user-old",
     });
   });
 

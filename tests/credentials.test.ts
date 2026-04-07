@@ -29,6 +29,7 @@ describe("merchant credential resolution", () => {
       shopifyAdminToken: "",
       instagramAccessToken: "",
       instagramBusinessAccountId: "",
+      instagramCredentials: null,
     });
   });
 });

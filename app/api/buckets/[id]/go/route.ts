@@ -27,7 +27,7 @@ export async function POST(request: Request, context: ParamsContext) {
     };
 
     const { id } = await context.params;
-    const result = await launchBucket(id, userId, settings);
+    const result = await launchBucket(id, userId, settings, creds.instagramCredentials);
 
     if (!result.bucket) {
       const fallback = await getBucketById(id, userId);

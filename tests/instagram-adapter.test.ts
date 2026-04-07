@@ -1,4 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ActiveInstagramCredentials } from "@/src/lib/types";
+
+const resolvedInstagramCredentials: ActiveInstagramCredentials = {
+  status: "connected",
+  source: "oauth_cached_page_token",
+  publishAccessToken: "ig-token",
+  instagramBusinessAccountId: "1789",
+  pageId: "page-1",
+  pageName: "FlowCart Page",
+  hasLongLivedUserToken: true,
+};
 
 describe("instagram adapter", () => {
   beforeEach(() => {
@@ -20,12 +31,7 @@ describe("instagram adapter", () => {
         quantity: 8,
         imageUrls: ["/uploads/internal-only.jpg"],
       },
-      settings: {
-        shopifyStoreDomain: "demo.myshopify.com",
-        shopifyAdminToken: "shpca_live",
-        instagramAccessToken: "ig-token",
-        instagramBusinessAccountId: "1789",
-      },
+      instagramCredentials: resolvedInstagramCredentials,
       shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
     });
 
@@ -68,12 +74,7 @@ describe("instagram adapter", () => {
         quantity: 8,
         imageUrls: ["https://public.example/hat.jpg"],
       },
-      settings: {
-        shopifyStoreDomain: "demo.myshopify.com",
-        shopifyAdminToken: "shpca_live",
-        instagramAccessToken: "ig-token",
-        instagramBusinessAccountId: "1789",
-      },
+      instagramCredentials: resolvedInstagramCredentials,
       shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
     });
 

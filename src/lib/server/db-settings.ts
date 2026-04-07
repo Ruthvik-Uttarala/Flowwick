@@ -1,5 +1,9 @@
+import {
+  ConnectionSettings,
+  InstagramCandidateAccount,
+  InstagramConnectionStatus,
+} from "@/src/lib/types";
 import { getSupabaseServiceClient } from "@/src/lib/supabase/server-client";
-import { ConnectionSettings } from "@/src/lib/types";
 import { normalizeStoreDomain } from "@/src/lib/server/runtime";
 import { SECRET_MASK } from "@/src/lib/server/settings";
 
@@ -10,6 +14,14 @@ const DEFAULT_SETTINGS: ConnectionSettings = {
   shopifyAdminToken: "",
   instagramAccessToken: "",
   instagramBusinessAccountId: "",
+  instagramUserAccessToken: "",
+  instagramPageId: "",
+  instagramPageName: "",
+  instagramConnectionStatus: "disconnected",
+  instagramConnectionErrorCode: "",
+  instagramLastValidatedAt: "",
+  instagramTokenExpiresAt: "",
+  instagramCandidateAccounts: [],
 };
 
 interface DbSettingsRow {
@@ -21,8 +33,71 @@ interface DbSettingsRow {
   shopify_client_secret?: string;
   instagram_access_token: string;
   instagram_business_account_id: string;
+  instagram_user_access_token?: string;
+  instagram_page_id?: string;
+  instagram_page_name?: string;
+  instagram_connection_status?: string;
+  instagram_connection_error_code?: string;
+  instagram_last_validated_at?: string | null;
+  instagram_token_expires_at?: string | null;
+  instagram_candidate_accounts?: unknown;
   created_at: string;
   updated_at: string;
+}
+
+export interface InstagramConnectionStatePatch {
+  instagramAccessToken?: string;
+  instagramBusinessAccountId?: string;
+  instagramUserAccessToken?: string;
+  instagramPageId?: string;
+  instagramPageName?: string;
+  instagramConnectionStatus?: InstagramConnectionStatus;
+  instagramConnectionErrorCode?: string;
+  instagramLastValidatedAt?: string;
+  instagramTokenExpiresAt?: string;
+  instagramCandidateAccounts?: InstagramCandidateAccount[];
+}
+
+function normalizeInstagramCandidateAccounts(value: unknown): InstagramCandidateAccount[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object") return [];
+    const record = candidate as Record<string, unknown>;
+    const pageId = typeof record.pageId === "string" ? record.pageId.trim() : "";
+    const pageName = typeof record.pageName === "string" ? record.pageName.trim() : "";
+    const instagramBusinessAccountId =
+      typeof record.instagramBusinessAccountId === "string"
+        ? record.instagramBusinessAccountId.trim()
+        : "";
+
+    if (!pageId || !instagramBusinessAccountId) {
+      return [];
+    }
+
+    return [
+      {
+        pageId,
+        pageName,
+        instagramBusinessAccountId,
+      },
+    ];
+  });
+}
+
+function normalizeInstagramConnectionStatus(value: string | undefined): InstagramConnectionStatus {
+  switch (value) {
+    case "connected":
+    case "needs_reconnect":
+    case "invalid_expired_token":
+    case "missing_page_linkage":
+    case "missing_instagram_business_account":
+    case "selection_required":
+    case "legacy_fallback":
+      return value;
+    default:
+      return "disconnected";
+  }
 }
 
 function rowToSettings(row: DbSettingsRow): ConnectionSettings {
@@ -31,6 +106,37 @@ function rowToSettings(row: DbSettingsRow): ConnectionSettings {
     shopifyAdminToken: row.shopify_admin_token ?? "",
     instagramAccessToken: row.instagram_access_token ?? "",
     instagramBusinessAccountId: row.instagram_business_account_id ?? "",
+    instagramUserAccessToken: row.instagram_user_access_token ?? "",
+    instagramPageId: row.instagram_page_id ?? "",
+    instagramPageName: row.instagram_page_name ?? "",
+    instagramConnectionStatus: normalizeInstagramConnectionStatus(
+      row.instagram_connection_status
+    ),
+    instagramConnectionErrorCode: row.instagram_connection_error_code ?? "",
+    instagramLastValidatedAt: row.instagram_last_validated_at ?? "",
+    instagramTokenExpiresAt: row.instagram_token_expires_at ?? "",
+    instagramCandidateAccounts: normalizeInstagramCandidateAccounts(
+      row.instagram_candidate_accounts
+    ),
+  };
+}
+
+function buildDbRow(userId: string, settings: ConnectionSettings) {
+  return {
+    user_id: userId,
+    shopify_store_domain: settings.shopifyStoreDomain,
+    shopify_admin_token: settings.shopifyAdminToken,
+    instagram_access_token: settings.instagramAccessToken,
+    instagram_business_account_id: settings.instagramBusinessAccountId,
+    instagram_user_access_token: settings.instagramUserAccessToken ?? "",
+    instagram_page_id: settings.instagramPageId ?? "",
+    instagram_page_name: settings.instagramPageName ?? "",
+    instagram_connection_status: settings.instagramConnectionStatus ?? "disconnected",
+    instagram_connection_error_code: settings.instagramConnectionErrorCode ?? "",
+    instagram_last_validated_at: settings.instagramLastValidatedAt?.trim() || null,
+    instagram_token_expires_at: settings.instagramTokenExpiresAt?.trim() || null,
+    instagram_candidate_accounts: settings.instagramCandidateAccounts ?? [],
+    updated_at: new Date().toISOString(),
   };
 }
 
@@ -42,11 +148,7 @@ export async function getDbSettings(userId: string): Promise<ConnectionSettings>
   }
 
   try {
-    const { data, error } = await client
-      .from(TABLE)
-      .select("*")
-      .eq("user_id", userId)
-      .single();
+    const { data, error } = await client.from(TABLE).select("*").eq("user_id", userId).single();
 
     if (error || !data) {
       return DEFAULT_SETTINGS;
@@ -69,16 +171,8 @@ export async function saveDbSettings(
   }
 
   const existing = await getDbSettings(userId);
-
   const merged = mergeConnectionSettings(existing, settings);
-  const row = {
-    user_id: userId,
-    shopify_store_domain: merged.shopifyStoreDomain,
-    shopify_admin_token: merged.shopifyAdminToken,
-    instagram_access_token: merged.instagramAccessToken,
-    instagram_business_account_id: merged.instagramBusinessAccountId,
-    updated_at: new Date().toISOString(),
-  };
+  const row = buildDbRow(userId, merged);
 
   const { data, error } = await client
     .from(TABLE)
@@ -127,6 +221,28 @@ export function mergeConnectionSettings(
       incoming.instagramBusinessAccountId,
       existing.instagramBusinessAccountId
     ),
+    instagramUserAccessToken: resolveSecret(
+      incoming.instagramUserAccessToken,
+      existing.instagramUserAccessToken ?? ""
+    ),
+    instagramPageId: resolveText(incoming.instagramPageId, existing.instagramPageId ?? ""),
+    instagramPageName: resolveText(incoming.instagramPageName, existing.instagramPageName ?? ""),
+    instagramConnectionStatus:
+      incoming.instagramConnectionStatus ?? existing.instagramConnectionStatus ?? "disconnected",
+    instagramConnectionErrorCode: resolveText(
+      incoming.instagramConnectionErrorCode,
+      existing.instagramConnectionErrorCode ?? ""
+    ),
+    instagramLastValidatedAt: resolveText(
+      incoming.instagramLastValidatedAt,
+      existing.instagramLastValidatedAt ?? ""
+    ),
+    instagramTokenExpiresAt: resolveText(
+      incoming.instagramTokenExpiresAt,
+      existing.instagramTokenExpiresAt ?? ""
+    ),
+    instagramCandidateAccounts:
+      incoming.instagramCandidateAccounts ?? existing.instagramCandidateAccounts ?? [],
   };
 }
 
@@ -140,12 +256,12 @@ export async function saveShopifyAdminToken(
     throw new Error("Supabase service client not configured.");
   }
 
-  const row = {
-    user_id: userId,
-    shopify_store_domain: normalizeStoreDomain(shopDomain),
-    shopify_admin_token: adminToken.trim(),
-    updated_at: new Date().toISOString(),
-  };
+  const existing = await getDbSettings(userId);
+  const row = buildDbRow(userId, {
+    ...existing,
+    shopifyStoreDomain: normalizeStoreDomain(shopDomain),
+    shopifyAdminToken: adminToken.trim(),
+  });
 
   const { data, error } = await client
     .from(TABLE)
@@ -183,4 +299,48 @@ export async function clearShopifyAdminToken(userId: string): Promise<Connection
   }
 
   return rowToSettings(data as DbSettingsRow);
+}
+
+export async function saveInstagramConnectionState(
+  userId: string,
+  patch: InstagramConnectionStatePatch
+): Promise<ConnectionSettings> {
+  const client = getSupabaseServiceClient();
+  if (!client) {
+    throw new Error("Supabase service client not configured.");
+  }
+
+  const existing = await getDbSettings(userId);
+  const merged = {
+    ...existing,
+    ...patch,
+  };
+  const row = buildDbRow(userId, merged);
+
+  const { data, error } = await client
+    .from(TABLE)
+    .upsert(row as never, { onConflict: "user_id" })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to store Instagram connection: ${error.message}`);
+  }
+
+  return rowToSettings(data as DbSettingsRow);
+}
+
+export async function clearInstagramConnectionState(userId: string): Promise<ConnectionSettings> {
+  return saveInstagramConnectionState(userId, {
+    instagramAccessToken: "",
+    instagramBusinessAccountId: "",
+    instagramUserAccessToken: "",
+    instagramPageId: "",
+    instagramPageName: "",
+    instagramConnectionStatus: "disconnected",
+    instagramConnectionErrorCode: "",
+    instagramLastValidatedAt: "",
+    instagramTokenExpiresAt: "",
+    instagramCandidateAccounts: [],
+  });
 }

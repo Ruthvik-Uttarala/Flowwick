@@ -1,4 +1,9 @@
-import { ConnectionSettings, GoAllSummary, ProductBucket } from "@/src/lib/types";
+import {
+  ActiveInstagramCredentials,
+  ConnectionSettings,
+  GoAllSummary,
+  ProductBucket,
+} from "@/src/lib/types";
 import {
   createBucket,
   getBucketById,
@@ -98,7 +103,8 @@ export async function enhanceBucket(
 export async function launchBucket(
   bucketId: string,
   userId: string,
-  settings: ConnectionSettings
+  settings: ConnectionSettings,
+  instagramCredentials: ActiveInstagramCredentials | null = null
 ): Promise<WorkflowResult> {
   const existingBucket =
     (await getBucketById(bucketId, userId)) ?? (await createBucket(userId));
@@ -177,7 +183,7 @@ export async function launchBucket(
         console.log("[flowcart:workflow] Triggering Instagram...");
         return publishInstagramPostArtifact({
           payload: launchPayload,
-          settings,
+          instagramCredentials,
           shopifyProductUrl: shopifyArtifact.shopifyProductUrl,
           shopifyImageUrl: shopifyArtifact.shopifyImageUrl,
         });
@@ -226,7 +232,8 @@ export async function launchBucket(
 
 export async function goAllSequentially(
   userId: string,
-  settings: ConnectionSettings
+  settings: ConnectionSettings,
+  instagramCredentials: ActiveInstagramCredentials | null = null
 ): Promise<GoAllSummary> {
   const buckets = await getBuckets(userId);
   const readyBucketIds = buckets
@@ -240,7 +247,7 @@ export async function goAllSequentially(
 
   for (const bucketId of readyBucketIds) {
     console.info(`[flowcart:workflow] go-all processing bucketId=${bucketId}`);
-    const result = await launchBucket(bucketId, userId, settings);
+    const result = await launchBucket(bucketId, userId, settings, instagramCredentials);
     if (result.bucket?.status === "DONE") {
       succeeded += 1;
     } else {

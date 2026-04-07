@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ConnectionSettings } from "@/src/lib/types";
 import { describeExecutionReadiness, getExecutionReadiness } from "@/src/lib/server/runtime";
 import { normalizeShopifyDomain } from "@/src/lib/shopify";
+import { getStoredInstagramConnectionSummary } from "@/src/lib/server/instagram-connection-summary";
 
 export const SECRET_MASK = "••••••••";
 
@@ -37,18 +38,19 @@ export function redactSettingsForClient(settings: ConnectionSettings): Connectio
     ...settings,
     shopifyAdminToken: settings.shopifyAdminToken ? SECRET_MASK : "",
     instagramAccessToken: settings.instagramAccessToken ? SECRET_MASK : "",
+    instagramUserAccessToken: settings.instagramUserAccessToken ? SECRET_MASK : "",
   };
 }
 
 export function getSettingsStatus(settings: ConnectionSettings) {
   const readiness = describeExecutionReadiness(settings);
-  const instagramAccessTokenPresent = settings.instagramAccessToken.trim().length > 0;
+  const instagramConnection = getStoredInstagramConnectionSummary(settings);
+  const instagramAccessTokenPresent = instagramConnection.hasPublishCredential;
   const instagramBusinessAccountIdPresent =
-    settings.instagramBusinessAccountId.trim().length > 0;
+    instagramConnection.selectedInstagramBusinessAccountId.trim().length > 0;
   const configured =
     settings.shopifyStoreDomain.trim().length > 0 &&
-    (!readiness.instagramEnabled ||
-      (instagramAccessTokenPresent && instagramBusinessAccountIdPresent));
+    (!instagramConnection.enabled || instagramConnection.canPublish);
 
   return {
     shopifyStoreDomainPresent: settings.shopifyStoreDomain.trim().length > 0,
@@ -64,13 +66,10 @@ export function getSettingsStatus(settings: ConnectionSettings) {
 
 export function areSettingsConfigured(settings: ConnectionSettings): boolean {
   const readiness = getExecutionReadiness(settings);
-  const instagramAccessTokenPresent = settings.instagramAccessToken.trim().length > 0;
-  const instagramBusinessAccountIdPresent =
-    settings.instagramBusinessAccountId.trim().length > 0;
+  const instagramConnection = getStoredInstagramConnectionSummary(settings);
 
   return (
     settings.shopifyStoreDomain.trim().length > 0 &&
-    (!readiness.instagramEnabled ||
-      (instagramAccessTokenPresent && instagramBusinessAccountIdPresent))
+    (!readiness.instagramEnabled || instagramConnection.canPublish)
   );
 }

@@ -6,6 +6,8 @@ import {
 } from "@/src/lib/server/settings";
 import { getRuntimeConfigSnapshot } from "@/src/lib/server/config";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
+import { getInstagramConnection } from "@/src/lib/server/instagram-credentials";
+import { isInstagramDebugFieldModeEnabled } from "@/src/lib/instagram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,10 +20,13 @@ export async function GET(request: Request) {
     }
 
     const settings = await getDbSettings(userId);
+    const instagramConnection = await getInstagramConnection(userId);
     return okResponse({
       settings: redactSettingsForClient(settings),
       status: getSettingsStatus(settings),
       runtime: getRuntimeConfigSnapshot(settings),
+      instagramConnection,
+      instagramDebugFieldModeEnabled: isInstagramDebugFieldModeEnabled(),
     });
   } catch (error) {
     const message =

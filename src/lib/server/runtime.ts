@@ -1,5 +1,6 @@
 import { ConnectionSettings } from "@/src/lib/types";
 import { safeNormalizeShopifyDomain } from "@/src/lib/shopify";
+import { getStoredInstagramConnectionSummary } from "@/src/lib/server/instagram-connection-summary";
 
 function parseBooleanEnv(value: string | undefined, defaultValue = false): boolean {
   const normalized = value?.trim().toLowerCase();
@@ -26,18 +27,19 @@ export function getExecutionReadiness(settings: ConnectionSettings) {
   const shopifyReauthorizationRequired = shopifyStoreDomainReady && !shopifyAdminTokenReady;
 
   const instagramEnabled = isInstagramEnabled();
-  const instagramConfigured =
-    !instagramEnabled ||
-    (settings.instagramAccessToken.trim().length > 0 &&
-      settings.instagramBusinessAccountId.trim().length > 0);
+  const instagramConnection = getStoredInstagramConnectionSummary(settings);
+  const instagramConfigured = !instagramEnabled || instagramConnection.canPublish;
 
   const missingRequirements: string[] = [];
   if (!shopifyStoreDomainReady) missingRequirements.push("shopifyStoreDomain");
   if (!shopifyAdminTokenReady) missingRequirements.push("shopifyAdminToken");
-  if (instagramEnabled && settings.instagramAccessToken.trim().length === 0) {
+  if (instagramEnabled && !instagramConnection.hasPublishCredential) {
     missingRequirements.push("instagramAccessToken");
   }
-  if (instagramEnabled && settings.instagramBusinessAccountId.trim().length === 0) {
+  if (
+    instagramEnabled &&
+    instagramConnection.selectedInstagramBusinessAccountId.trim().length === 0
+  ) {
     missingRequirements.push("instagramBusinessAccountId");
   }
 

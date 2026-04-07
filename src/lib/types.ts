@@ -9,11 +9,69 @@ export const BUCKET_STATUSES = [
 
 export type BucketStatus = (typeof BUCKET_STATUSES)[number];
 
+export type InstagramConnectionStatus =
+  | "disconnected"
+  | "connected"
+  | "needs_reconnect"
+  | "invalid_expired_token"
+  | "missing_page_linkage"
+  | "missing_instagram_business_account"
+  | "selection_required"
+  | "legacy_fallback";
+
+export type InstagramConnectionSource =
+  | "none"
+  | "oauth_cached_page_token"
+  | "oauth_derived_page_token"
+  | "legacy_fallback";
+
+export interface InstagramCandidateAccount {
+  pageId: string;
+  pageName: string;
+  instagramBusinessAccountId: string;
+}
+
+export interface InstagramConnectionSummary {
+  enabled: boolean;
+  status: InstagramConnectionStatus;
+  statusLabel: string;
+  source: InstagramConnectionSource;
+  selectedPageId: string;
+  selectedPageName: string;
+  selectedInstagramBusinessAccountId: string;
+  hasLongLivedUserToken: boolean;
+  hasPublishCredential: boolean;
+  canPublish: boolean;
+  needsReconnect: boolean;
+  errorCode: string;
+  lastValidatedAt: string;
+  tokenExpiresAt: string;
+  candidates: InstagramCandidateAccount[];
+}
+
+export interface ActiveInstagramCredentials {
+  status: InstagramConnectionStatus;
+  source: Exclude<InstagramConnectionSource, "none">;
+  pageId: string;
+  pageName: string;
+  instagramBusinessAccountId: string;
+  publishAccessToken: string;
+  hasLongLivedUserToken: boolean;
+}
+
 export interface ConnectionSettings {
   shopifyStoreDomain: string;
   shopifyAdminToken: string;
   instagramAccessToken: string;
   instagramBusinessAccountId: string;
+  instagramUserAccessToken?: string;
+  instagramPageId?: string;
+  instagramPageName?: string;
+  instagramConnectionStatus?: InstagramConnectionStatus;
+  instagramConnectionErrorCode?: string;
+  instagramLastValidatedAt?: string;
+  instagramTokenExpiresAt?: string;
+  instagramCandidateAccounts?: InstagramCandidateAccount[];
 }
 
 export interface ProductBucket {
