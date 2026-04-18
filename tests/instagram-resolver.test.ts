@@ -3,6 +3,11 @@ import type { ConnectionSettings } from "@/src/lib/types";
 
 let settingsStore: ConnectionSettings;
 
+interface MockGraphResponse {
+  body: unknown;
+  status?: number;
+}
+
 function createEmptySettings(): ConnectionSettings {
   return {
     shopifyStoreDomain: "",
@@ -18,6 +23,39 @@ function createEmptySettings(): ConnectionSettings {
     instagramTokenExpiresAt: "",
     instagramCandidateAccounts: [],
   };
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function installMetaFetchMock(input: {
+  accounts: MockGraphResponse;
+  pages?: Record<string, MockGraphResponse>;
+}) {
+  vi.mocked(global.fetch).mockImplementation(async (request) => {
+    const url =
+      typeof request === "string"
+        ? new URL(request)
+        : request instanceof URL
+          ? request
+          : new URL(request.url);
+
+    if (url.pathname.endsWith("/me/accounts")) {
+      return jsonResponse(input.accounts.body, input.accounts.status ?? 200);
+    }
+
+    const pageId = url.pathname.split("/").pop() ?? "";
+    const pageResponse = input.pages?.[pageId];
+    if (pageResponse) {
+      return jsonResponse(pageResponse.body, pageResponse.status ?? 200);
+    }
+
+    throw new Error(`Unexpected Meta fetch: ${url.toString()}`);
+  });
 }
 
 vi.mock("@/src/lib/server/db-settings", () => ({
@@ -57,27 +95,32 @@ describe("instagram credential resolver", () => {
     vi.stubEnv("META_TOKEN_ENCRYPTION_KEY", "flowcart-test-secret");
     settingsStore = createEmptySettings();
     vi.stubGlobal("fetch", vi.fn());
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
   it("discovers the linked page/account and persists encrypted OAuth credentials", async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
-      new Response(
-        JSON.stringify({
+    installMetaFetchMock({
+      accounts: {
+        body: {
           data: [
             {
               id: "page-1",
               name: "FlowCart Page",
               access_token: "page-token-1",
-              instagram_business_account: { id: "1789" },
             },
           ],
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
-      )
-    );
+        },
+      },
+      pages: {
+        "page-1": {
+          body: {
+            name: "FlowCart Page",
+            instagram_business_account: { id: "1789" },
+          },
+        },
+      },
+    });
 
     const { decryptInstagramToken } = await import("@/src/lib/server/instagram-crypto");
     const { completeInstagramOauthConnection } = await import(
@@ -104,30 +147,38 @@ describe("instagram credential resolver", () => {
   });
 
   it("stores pending candidates when multiple eligible page/account pairs are discovered", async () => {
-    vi.mocked(global.fetch).mockResolvedValue(
-      new Response(
-        JSON.stringify({
+    installMetaFetchMock({
+      accounts: {
+        body: {
           data: [
             {
               id: "page-1",
               name: "FlowCart Page",
               access_token: "page-token-1",
-              instagram_business_account: { id: "1789" },
             },
             {
               id: "page-2",
               name: "FlowCart Outlet",
               access_token: "page-token-2",
-              instagram_business_account: { id: "1790" },
             },
           ],
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
-      )
-    );
+        },
+      },
+      pages: {
+        "page-1": {
+          body: {
+            name: "FlowCart Page",
+            instagram_business_account: { id: "1789" },
+          },
+        },
+        "page-2": {
+          body: {
+            name: "FlowCart Outlet",
+            instagram_business_account: { id: "1790" },
+          },
+        },
+      },
+    });
 
     const { completeInstagramOauthConnection } = await import(
       "@/src/lib/server/instagram-credentials"
@@ -153,6 +204,102 @@ describe("instagram credential resolver", () => {
     ]);
     expect(settingsStore.instagramAccessToken).toBe("");
     expect(settingsStore.instagramPageId).toBe("");
+  });
+
+  it("supports connected_instagram_account discovery during connect and validate without regressing to missing_page_linkage", async () => {
+    installMetaFetchMock({
+      accounts: {
+        body: {
+          data: [
+            {
+              id: "page-1",
+              name: "SMB Automation Agent Test",
+              access_token: "page-token-1",
+            },
+          ],
+        },
+      },
+      pages: {
+        "page-1": {
+          body: {
+            name: "SMB Automation Agent Test",
+            connected_instagram_account: { id: "178900001" },
+          },
+        },
+      },
+    });
+
+    const { completeInstagramOauthConnection, validateInstagramConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+
+    const connected = await completeInstagramOauthConnection({
+      userId: "user-123",
+      longLivedUserToken: "user-token-1",
+      tokenExpiresAt: "2026-04-07T11:00:00.000Z",
+    });
+
+    expect(connected.selectionRequired).toBe(false);
+    expect(connected.connection.status).toBe("connected");
+    expect(settingsStore.instagramConnectionStatus).toBe("connected");
+    expect(settingsStore.instagramConnectionErrorCode).toBe("");
+    expect(settingsStore.instagramPageId).toBe("page-1");
+    expect(settingsStore.instagramBusinessAccountId).toBe("178900001");
+
+    const validated = await validateInstagramConnection("user-123");
+
+    expect(validated.status).toBe("connected");
+    expect(settingsStore.instagramConnectionStatus).toBe("connected");
+    expect(settingsStore.instagramConnectionErrorCode).toBe("");
+    expect(settingsStore.instagramBusinessAccountId).toBe("178900001");
+  });
+
+  it("tolerates one page lookup failure and still discovers another linked page", async () => {
+    installMetaFetchMock({
+      accounts: {
+        body: {
+          data: [
+            {
+              id: "page-1",
+              name: "FlowCart Page",
+              access_token: "page-token-1",
+            },
+            {
+              id: "page-2",
+              name: "SMB Automation Agent Test",
+              access_token: "page-token-2",
+            },
+          ],
+        },
+      },
+      pages: {
+        "page-1": {
+          status: 400,
+          body: {
+            error: { message: "Unsupported get request." },
+          },
+        },
+        "page-2": {
+          body: {
+            name: "SMB Automation Agent Test",
+            connected_instagram_account: { id: "178900002" },
+          },
+        },
+      },
+    });
+
+    const { completeInstagramOauthConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+    const result = await completeInstagramOauthConnection({
+      userId: "user-123",
+      longLivedUserToken: "user-token-1",
+    });
+
+    expect(result.selectionRequired).toBe(false);
+    expect(result.connection.status).toBe("connected");
+    expect(settingsStore.instagramPageId).toBe("page-2");
+    expect(settingsStore.instagramBusinessAccountId).toBe("178900002");
   });
 
   it("prefers OAuth-backed cached page credentials over legacy fallback", async () => {
@@ -210,24 +357,27 @@ describe("instagram credential resolver", () => {
       instagramBusinessAccountId: "1789",
       instagramConnectionStatus: "connected",
     };
-    vi.mocked(global.fetch).mockResolvedValue(
-      new Response(
-        JSON.stringify({
+    installMetaFetchMock({
+      accounts: {
+        body: {
           data: [
             {
               id: "page-1",
               name: "FlowCart Page",
               access_token: "fresh-page-token",
-              instagram_business_account: { id: "1789" },
             },
           ],
-        }),
-        {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }
-      )
-    );
+        },
+      },
+      pages: {
+        "page-1": {
+          body: {
+            name: "FlowCart Page",
+            instagram_business_account: { id: "1789" },
+          },
+        },
+      },
+    });
 
     const { validateInstagramConnection } = await import(
       "@/src/lib/server/instagram-credentials"
@@ -238,6 +388,124 @@ describe("instagram credential resolver", () => {
     expect(settingsStore.instagramAccessToken).toMatch(/^v1:/);
     expect(decryptInstagramToken(settingsStore.instagramAccessToken)).toBe("fresh-page-token");
     expect(settingsStore.instagramLastValidatedAt).toMatch(/^20/);
+  });
+
+  it("returns missing_page_linkage when no managed pages are returned", async () => {
+    installMetaFetchMock({
+      accounts: {
+        body: {
+          data: [],
+        },
+      },
+    });
+
+    const { completeInstagramOauthConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+    const result = await completeInstagramOauthConnection({
+      userId: "user-123",
+      longLivedUserToken: "user-token-1",
+    });
+
+    expect(result.selectionRequired).toBe(false);
+    expect(result.connection.status).toBe("missing_page_linkage");
+    expect(settingsStore.instagramConnectionErrorCode).toBe("missing_page_linkage");
+  });
+
+  it("returns missing_page_linkage when pages exist but no direct lookup yields an IG link", async () => {
+    installMetaFetchMock({
+      accounts: {
+        body: {
+          data: [
+            {
+              id: "page-1",
+              name: "FlowCart Page",
+              access_token: "page-token-1",
+            },
+          ],
+        },
+      },
+      pages: {
+        "page-1": {
+          body: {
+            name: "FlowCart Page",
+          },
+        },
+      },
+    });
+
+    const { completeInstagramOauthConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+    const result = await completeInstagramOauthConnection({
+      userId: "user-123",
+      longLivedUserToken: "user-token-1",
+    });
+
+    expect(result.connection.status).toBe("missing_page_linkage");
+    expect(settingsStore.instagramConnectionErrorCode).toBe("missing_page_linkage");
+  });
+
+  it("returns missing_instagram_business_account when the selected page has no normalized IG link", async () => {
+    const { encryptInstagramToken } = await import("@/src/lib/server/instagram-crypto");
+    settingsStore = {
+      ...createEmptySettings(),
+      instagramUserAccessToken: encryptInstagramToken("user-token-1"),
+      instagramPageId: "page-1",
+      instagramPageName: "FlowCart Page",
+      instagramBusinessAccountId: "1789",
+      instagramConnectionStatus: "connected",
+    };
+    installMetaFetchMock({
+      accounts: {
+        body: {
+          data: [
+            {
+              id: "page-1",
+              name: "FlowCart Page",
+              access_token: "page-token-1",
+            },
+          ],
+        },
+      },
+      pages: {
+        "page-1": {
+          body: {
+            name: "FlowCart Page",
+          },
+        },
+      },
+    });
+
+    const { validateInstagramConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+    const result = await validateInstagramConnection("user-123");
+
+    expect(result.status).toBe("missing_instagram_business_account");
+    expect(settingsStore.instagramConnectionErrorCode).toBe("missing_instagram_business_account");
+  });
+
+  it("preserves the fatal discovery error path when /me/accounts fails before any pages are evaluated", async () => {
+    installMetaFetchMock({
+      accounts: {
+        status: 400,
+        body: {
+          error: { message: "Failed to discover managed pages." },
+        },
+      },
+    });
+
+    const { completeInstagramOauthConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+
+    await expect(
+      completeInstagramOauthConnection({
+        userId: "user-123",
+        longLivedUserToken: "user-token-1",
+      })
+    ).rejects.toThrow("Failed to discover managed pages.");
   });
 
   it("clears OAuth-backed fields, pending candidates, and legacy fallback fields on disconnect", async () => {
@@ -271,35 +539,47 @@ describe("instagram credential resolver", () => {
     expect(settingsStore.instagramCandidateAccounts).toEqual([]);
   });
 
-  it("never logs raw tokens when deriving a publish credential fails", async () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    const { encryptInstagramToken } = await import("@/src/lib/server/instagram-crypto");
-    settingsStore = {
-      ...createEmptySettings(),
-      instagramUserAccessToken: encryptInstagramToken("super-secret-user-token"),
-      instagramPageId: "page-1",
-      instagramPageName: "FlowCart Page",
-      instagramBusinessAccountId: "1789",
-      instagramConnectionStatus: "connected",
-    };
-    vi.mocked(global.fetch).mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          error: { message: "The access token is invalid.", code: 190 },
-        }),
-        {
-          status: 400,
-          headers: { "Content-Type": "application/json" },
-        }
-      )
-    );
+  it("logs the discovery link source without leaking raw tokens", async () => {
+    installMetaFetchMock({
+      accounts: {
+        body: {
+          data: [
+            {
+              id: "page-1",
+              name: "SMB Automation Agent Test",
+              access_token: "page-token-1",
+            },
+          ],
+        },
+      },
+      pages: {
+        "page-1": {
+          body: {
+            name: "SMB Automation Agent Test",
+            connected_instagram_account: { id: "178900001" },
+          },
+        },
+      },
+    });
 
-    const { getActiveInstagramCredentials } = await import(
+    const infoSpy = vi.spyOn(console, "info");
+    const warnSpy = vi.spyOn(console, "warn");
+    const { completeInstagramOauthConnection } = await import(
       "@/src/lib/server/instagram-credentials"
     );
-    await expect(getActiveInstagramCredentials("user-123")).resolves.toBeNull();
 
-    const loggedOutput = JSON.stringify(warnSpy.mock.calls);
+    await completeInstagramOauthConnection({
+      userId: "user-123",
+      longLivedUserToken: "super-secret-user-token",
+    });
+
+    const loggedOutput = [...infoSpy.mock.calls, ...warnSpy.mock.calls]
+      .flat()
+      .map((entry) => (typeof entry === "string" ? entry : JSON.stringify(entry)))
+      .join(" ");
+
+    expect(loggedOutput).toContain("page_link_found_connected_instagram_account");
     expect(loggedOutput).not.toContain("super-secret-user-token");
+    expect(loggedOutput).not.toContain("page-token-1");
   });
 });
