@@ -392,6 +392,12 @@ export async function completeInstagramOauthConnection(input: {
 }): Promise<{
   connection: InstagramConnectionSummary;
   selectionRequired: boolean;
+  discovery: {
+    pageCount: number;
+    pagesWithAccessToken: number;
+    pageIds: string[];
+    candidateCount: number;
+  };
 }> {
   const pages = await discoverManagedPages({
     longLivedUserToken: input.longLivedUserToken,
@@ -399,13 +405,19 @@ export async function completeInstagramOauthConnection(input: {
     statePrefix: input.statePrefix,
   });
   const candidates = pagesToCandidates(pages);
+  const discovery = {
+    pageCount: pages.length,
+    pagesWithAccessToken: pages.filter((page) => Boolean(page.pageAccessToken)).length,
+    pageIds: pages.map((page) => page.pageId),
+    candidateCount: candidates.length,
+  };
 
   logResolverInfo("oauth_connection_candidates_resolved", {
     userId: input.userId,
     statePrefix: input.statePrefix,
     details: {
-      pageCount: pages.length,
-      pageIds: pages.map((page) => page.pageId),
+      pageCount: discovery.pageCount,
+      pageIds: discovery.pageIds,
       candidatePairs: candidates.map((candidate) => ({
         pageId: candidate.pageId,
         instagramBusinessAccountId: candidate.instagramBusinessAccountId,
@@ -436,6 +448,7 @@ export async function completeInstagramOauthConnection(input: {
     return {
       connection,
       selectionRequired: false,
+      discovery,
     };
   }
 
@@ -462,6 +475,7 @@ export async function completeInstagramOauthConnection(input: {
     return {
       connection,
       selectionRequired: true,
+      discovery,
     };
   }
 
@@ -500,6 +514,7 @@ export async function completeInstagramOauthConnection(input: {
     return {
       connection,
       selectionRequired: false,
+      discovery,
     };
   }
 
@@ -523,6 +538,7 @@ export async function completeInstagramOauthConnection(input: {
   return {
     connection,
     selectionRequired: false,
+    discovery,
   };
 }
 

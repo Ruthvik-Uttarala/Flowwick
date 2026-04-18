@@ -177,6 +177,21 @@ export async function GET(request: Request) {
     }
 
     if (completed.connection.status !== "connected") {
+      console.error("[flowcart:instagram:callback]", {
+        stage: "callback_blocker",
+        statePrefix,
+        userIdPrefix,
+        finalStatus: completed.connection.status,
+        finalErrorCode: completed.connection.errorCode,
+        selectedPageId: completed.connection.selectedPageId,
+        selectedInstagramBusinessAccountId:
+          completed.connection.selectedInstagramBusinessAccountId,
+        pageCount: completed.discovery.pageCount,
+        pagesWithAccessToken: completed.discovery.pagesWithAccessToken,
+        pageIds: completed.discovery.pageIds,
+        candidateCount: completed.discovery.candidateCount,
+      });
+
       const resolverErrorCode = completed.connection.errorCode.trim();
       const errorCode: InstagramCallbackErrorCode = resolverErrorCode
         ? (resolverErrorCode as InstagramCallbackErrorCode)

@@ -111,6 +111,12 @@ describe("Instagram callback route", () => {
     });
     vi.mocked(completeInstagramOauthConnection).mockResolvedValue({
       selectionRequired: false,
+      discovery: {
+        pageCount: 1,
+        pagesWithAccessToken: 1,
+        pageIds: ["page-1"],
+        candidateCount: 1,
+      },
       connection: {
         enabled: true,
         status: "connected",
@@ -183,6 +189,12 @@ describe("Instagram callback route", () => {
     });
     vi.mocked(completeInstagramOauthConnection).mockResolvedValue({
       selectionRequired: true,
+      discovery: {
+        pageCount: 2,
+        pagesWithAccessToken: 2,
+        pageIds: ["page-1", "page-2"],
+        candidateCount: 2,
+      },
       connection: {
         enabled: true,
         status: "selection_required",
@@ -261,6 +273,7 @@ describe("Instagram callback route", () => {
 
   it("preserves the resolver error code instead of flattening to no_eligible_account", async () => {
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { getInstagramOauthState, deleteInstagramOauthState } = await import(
       "@/src/lib/server/instagram-oauth-state"
     );
@@ -284,6 +297,12 @@ describe("Instagram callback route", () => {
     });
     vi.mocked(completeInstagramOauthConnection).mockResolvedValue({
       selectionRequired: false,
+      discovery: {
+        pageCount: 0,
+        pagesWithAccessToken: 0,
+        pageIds: [],
+        candidateCount: 0,
+      },
       connection: {
         enabled: true,
         status: "missing_page_linkage",
@@ -322,7 +341,12 @@ describe("Instagram callback route", () => {
     const loggedOutput = JSON.stringify(infoSpy.mock.calls);
     expect(loggedOutput).toContain("redirect_decision");
     expect(loggedOutput).toContain("missing_page_linkage");
+    const errorOutput = JSON.stringify(errorSpy.mock.calls);
+    expect(errorOutput).toContain("callback_blocker");
+    expect(errorOutput).toContain("\"pageCount\":0");
     expect(loggedOutput).not.toContain("short-lived-token");
     expect(loggedOutput).not.toContain("long-lived-token");
+    expect(errorOutput).not.toContain("short-lived-token");
+    expect(errorOutput).not.toContain("long-lived-token");
   });
 });
