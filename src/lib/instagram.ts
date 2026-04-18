@@ -23,6 +23,12 @@ export const INSTAGRAM_OAUTH_ERROR_MESSAGES = {
     "Instagram connection failed while discovering the connected Page and Instagram account.",
   no_eligible_account:
     "No eligible Facebook Page with a linked Instagram Business or Creator account was found.",
+  missing_page_linkage:
+    "No eligible Facebook Page with a linked Instagram Business or Creator account was found.",
+  missing_instagram_business_account:
+    "The selected Facebook Page is not currently linked to an Instagram Business or Creator account.",
+  missing_page_access_token:
+    "Instagram connection needs to be reconnected because FlowCart could not obtain a Page publishing token.",
   invalid_selection:
     "The selected Instagram account is no longer available. Please reconnect and try again.",
   oauth_state_persist_failed:
@@ -39,6 +45,9 @@ export type InstagramCallbackErrorCode = Extract<
   | "expired_state"
   | "token_exchange_failed"
   | "account_discovery_failed"
+  | "missing_page_linkage"
+  | "missing_instagram_business_account"
+  | "missing_page_access_token"
   | "no_eligible_account"
   | "invalid_selection"
 >;

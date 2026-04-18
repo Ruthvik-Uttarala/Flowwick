@@ -145,8 +145,18 @@ describe("Instagram callback route", () => {
       "https://flowcart.example/settings?instagram_connected=true"
     );
     expect(deleteInstagramOauthState).toHaveBeenCalledWith("state-123");
+    expect(completeInstagramOauthConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-123",
+        longLivedUserToken: "long-lived-raw-token",
+        tokenExpiresAt: expect.any(String),
+        statePrefix: "state-12",
+      })
+    );
 
     const loggedOutput = JSON.stringify(infoSpy.mock.calls);
+    expect(loggedOutput).toContain("token_exchange_succeeded");
+    expect(loggedOutput).toContain("redirect_decision");
     expect(loggedOutput).not.toContain("short-lived-raw-token");
     expect(loggedOutput).not.toContain("long-lived-raw-token");
   });
@@ -247,5 +257,72 @@ describe("Instagram callback route", () => {
       "https://flowcart.example/settings?instagram_error=token_exchange_failed"
     );
     expect(deleteInstagramOauthState).toHaveBeenCalledWith("state-123");
+  });
+
+  it("preserves the resolver error code instead of flattening to no_eligible_account", async () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const { getInstagramOauthState, deleteInstagramOauthState } = await import(
+      "@/src/lib/server/instagram-oauth-state"
+    );
+    const { exchangeInstagramCodeForLongLivedUserToken } = await import(
+      "@/src/lib/server/instagram"
+    );
+    const { completeInstagramOauthConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+
+    vi.mocked(getInstagramOauthState).mockResolvedValue({
+      state: "state-123",
+      user_id: "user-123",
+      created_at: "2026-04-07T10:00:00.000Z",
+      expires_at: "2999-04-07T10:10:00.000Z",
+    });
+    vi.mocked(exchangeInstagramCodeForLongLivedUserToken).mockResolvedValue({
+      shortLivedUserToken: "short-lived-token",
+      longLivedUserToken: "long-lived-token",
+      expiresIn: 3600,
+    });
+    vi.mocked(completeInstagramOauthConnection).mockResolvedValue({
+      selectionRequired: false,
+      connection: {
+        enabled: true,
+        status: "missing_page_linkage",
+        statusLabel: "Missing page linkage",
+        source: "none",
+        selectedPageId: "",
+        selectedPageName: "",
+        selectedInstagramBusinessAccountId: "",
+        hasLongLivedUserToken: true,
+        hasPublishCredential: false,
+        canPublish: false,
+        needsReconnect: false,
+        errorCode: "missing_page_linkage",
+        lastValidatedAt: "",
+        tokenExpiresAt: "",
+        candidates: [],
+      },
+    });
+
+    const { GET } = await import("@/app/api/instagram/callback/route");
+    const response = await GET(
+      new Request("https://flowcart.example/api/instagram/callback?code=abc&state=state-123", {
+        headers: {
+          host: "flowcart.example",
+          cookie: "flowcart-instagram-oauth-state=state-123",
+        },
+      })
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://flowcart.example/settings?instagram_error=missing_page_linkage"
+    );
+    expect(deleteInstagramOauthState).toHaveBeenCalledWith("state-123");
+
+    const loggedOutput = JSON.stringify(infoSpy.mock.calls);
+    expect(loggedOutput).toContain("redirect_decision");
+    expect(loggedOutput).toContain("missing_page_linkage");
+    expect(loggedOutput).not.toContain("short-lived-token");
+    expect(loggedOutput).not.toContain("long-lived-token");
   });
 });

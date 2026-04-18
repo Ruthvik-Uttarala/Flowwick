@@ -255,6 +255,7 @@ describe("instagram credential resolver", () => {
   });
 
   it("tolerates one page lookup failure and still discovers another linked page", async () => {
+    const warnSpy = vi.spyOn(console, "warn");
     installMetaFetchMock({
       accounts: {
         body: {
@@ -300,6 +301,11 @@ describe("instagram credential resolver", () => {
     expect(result.connection.status).toBe("connected");
     expect(settingsStore.instagramPageId).toBe("page-2");
     expect(settingsStore.instagramBusinessAccountId).toBe("178900002");
+
+    const loggedOutput = JSON.stringify(warnSpy.mock.calls);
+    expect(loggedOutput).toContain("managed_page_lookup_failed");
+    expect(loggedOutput).toContain("\"pageId\":\"page-1\"");
+    expect(loggedOutput).toContain("Unsupported get request.");
   });
 
   it("prefers OAuth-backed cached page credentials over legacy fallback", async () => {
@@ -349,6 +355,7 @@ describe("instagram credential resolver", () => {
     const { encryptInstagramToken, decryptInstagramToken } = await import(
       "@/src/lib/server/instagram-crypto"
     );
+    const infoSpy = vi.spyOn(console, "info");
     settingsStore = {
       ...createEmptySettings(),
       instagramUserAccessToken: encryptInstagramToken("user-token-1"),
@@ -388,9 +395,16 @@ describe("instagram credential resolver", () => {
     expect(settingsStore.instagramAccessToken).toMatch(/^v1:/);
     expect(decryptInstagramToken(settingsStore.instagramAccessToken)).toBe("fresh-page-token");
     expect(settingsStore.instagramLastValidatedAt).toMatch(/^20/);
+
+    const loggedOutput = JSON.stringify(infoSpy.mock.calls);
+    expect(loggedOutput).toContain("validation_started");
+    expect(loggedOutput).toContain("validation_persisted");
+    expect(loggedOutput).toContain("\"status\":\"connected\"");
+    expect(loggedOutput).toContain("\"selectedPageId\":\"page-1\"");
   });
 
   it("returns missing_page_linkage when no managed pages are returned", async () => {
+    const infoSpy = vi.spyOn(console, "info");
     installMetaFetchMock({
       accounts: {
         body: {
@@ -410,6 +424,10 @@ describe("instagram credential resolver", () => {
     expect(result.selectionRequired).toBe(false);
     expect(result.connection.status).toBe("missing_page_linkage");
     expect(settingsStore.instagramConnectionErrorCode).toBe("missing_page_linkage");
+
+    const loggedOutput = JSON.stringify(infoSpy.mock.calls);
+    expect(loggedOutput).toContain("managed_pages_empty");
+    expect(loggedOutput).toContain("oauth_connection_persisted");
   });
 
   it("returns missing_page_linkage when pages exist but no direct lookup yields an IG link", async () => {
@@ -571,6 +589,7 @@ describe("instagram credential resolver", () => {
     await completeInstagramOauthConnection({
       userId: "user-123",
       longLivedUserToken: "super-secret-user-token",
+      statePrefix: "state-123",
     });
 
     const loggedOutput = [...infoSpy.mock.calls, ...warnSpy.mock.calls]
@@ -578,7 +597,14 @@ describe("instagram credential resolver", () => {
       .map((entry) => (typeof entry === "string" ? entry : JSON.stringify(entry)))
       .join(" ");
 
+    expect(loggedOutput).toContain("managed_pages_fetched");
+    expect(loggedOutput).toContain("managed_page_lookup_result");
+    expect(loggedOutput).toContain("oauth_connection_candidates_resolved");
+    expect(loggedOutput).toContain("oauth_connection_persisted");
     expect(loggedOutput).toContain("page_link_found_connected_instagram_account");
+    expect(loggedOutput).toContain("\"statePrefix\":\"state-123\"");
+    expect(loggedOutput).toContain("\"normalizedInstagramBusinessAccountId\":\"178900001\"");
+    expect(loggedOutput).toContain("\"status\":\"connected\"");
     expect(loggedOutput).not.toContain("super-secret-user-token");
     expect(loggedOutput).not.toContain("page-token-1");
   });
