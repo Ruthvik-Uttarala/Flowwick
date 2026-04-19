@@ -15,7 +15,11 @@ import {
   hasInstagramTokenEncryptionConfigured,
   isEncryptedInstagramToken,
 } from "@/src/lib/server/instagram-crypto";
-import { fetchMetaJson } from "@/src/lib/server/instagram";
+import {
+  fetchMetaJson,
+  getMetaAppId,
+  getMetaAppSecret,
+} from "@/src/lib/server/instagram";
 import {
   getStoredInstagramConnectionSummary,
   sanitizeCandidateAccounts,
@@ -48,10 +52,35 @@ interface MetaManagedPagesResponse {
   data?: MetaManagedPage[];
 }
 
+interface MetaDebugGranularScope {
+  scope?: string;
+  target_ids?: string[];
+}
+
+interface MetaDebugTokenResponse {
+  data?: {
+    granular_scopes?: MetaDebugGranularScope[];
+  };
+}
+
 interface MetaInstagramAccountsEdgeResponse {
   data?: Array<{
     id?: string;
     username?: string;
+  }>;
+}
+
+interface MetaInstagramAccountProfile {
+  id?: string;
+  username?: string;
+}
+
+interface MetaInstagramPublishingLimitResponse {
+  data?: Array<{
+    quota_usage?: number;
+    config?: {
+      quota_total?: number;
+    };
   }>;
 }
 
@@ -67,6 +96,34 @@ interface DiscoveredManagedPage {
   pageAccessToken: string;
   instagramBusinessAccountId: string;
   linkSource: InstagramLinkSource;
+}
+
+interface DirectInstagramAssetSelection {
+  pageId: string;
+  pageName: string;
+  instagramBusinessAccountId: string;
+}
+
+function asUniqueIds(values: Iterable<string>): string[] {
+  const unique = new Set<string>();
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (trimmed) {
+      unique.add(trimmed);
+    }
+  }
+  return [...unique];
+}
+
+function extractDebugTargetIds(payload: MetaDebugTokenResponse): string[] {
+  const granularScopes = Array.isArray(payload.data?.granular_scopes)
+    ? payload.data?.granular_scopes
+    : [];
+  return asUniqueIds(
+    granularScopes.flatMap((scope) =>
+      Array.isArray(scope?.target_ids) ? scope.target_ids : []
+    )
+  );
 }
 
 function buildResolverLogContext(input: {
@@ -173,6 +230,49 @@ async function fetchPageInstagramAccounts(
     path: `${pageId}/instagram_accounts`,
     searchParams: new URLSearchParams({
       fields: "id,username",
+      access_token: accessToken,
+    }),
+  });
+}
+
+async function fetchDebugTargetIds(longLivedUserToken: string): Promise<string[]> {
+  const appId = getMetaAppId();
+  const appSecret = getMetaAppSecret();
+  if (!appId || !appSecret) {
+    return [];
+  }
+
+  const response = await fetchMetaJson<MetaDebugTokenResponse>({
+    path: "debug_token",
+    searchParams: new URLSearchParams({
+      input_token: longLivedUserToken,
+      access_token: `${appId}|${appSecret}`,
+    }),
+  });
+
+  return extractDebugTargetIds(response);
+}
+
+async function fetchInstagramAccountProfile(
+  instagramBusinessAccountId: string,
+  accessToken: string
+): Promise<MetaInstagramAccountProfile> {
+  return fetchMetaJson<MetaInstagramAccountProfile>({
+    path: instagramBusinessAccountId,
+    searchParams: new URLSearchParams({
+      fields: "id,username",
+      access_token: accessToken,
+    }),
+  });
+}
+
+async function fetchInstagramPublishingLimit(
+  instagramBusinessAccountId: string,
+  accessToken: string
+): Promise<MetaInstagramPublishingLimitResponse> {
+  return fetchMetaJson<MetaInstagramPublishingLimitResponse>({
+    path: `${instagramBusinessAccountId}/content_publishing_limit`,
+    searchParams: new URLSearchParams({
       access_token: accessToken,
     }),
   });
@@ -552,18 +652,18 @@ function buildOauthCredentials(
   };
 }
 
-async function persistConnectedPageSelection(input: {
+async function persistConnectedSelection(input: {
   userId: string;
   longLivedUserToken: string;
   pageId: string;
   pageName: string;
-  pageAccessToken: string;
+  publishAccessToken: string;
   instagramBusinessAccountId: string;
   tokenExpiresAt?: string;
 }): Promise<InstagramConnectionSummary> {
   const saved = await saveInstagramConnectionState(input.userId, {
     instagramUserAccessToken: encryptInstagramToken(input.longLivedUserToken),
-    instagramAccessToken: encryptInstagramToken(input.pageAccessToken),
+    instagramAccessToken: encryptInstagramToken(input.publishAccessToken),
     instagramBusinessAccountId: input.instagramBusinessAccountId,
     instagramPageId: input.pageId,
     instagramPageName: input.pageName,
@@ -575,6 +675,121 @@ async function persistConnectedPageSelection(input: {
   });
 
   return getStoredInstagramConnectionSummary(saved);
+}
+
+async function resolveDirectInstagramAssetSelection(input: {
+  longLivedUserToken: string;
+  pages?: DiscoveredManagedPage[];
+  selectedPageId?: string;
+  selectedPageName?: string;
+  selectedInstagramBusinessAccountId?: string;
+  userId?: string;
+  statePrefix?: string;
+}): Promise<DirectInstagramAssetSelection | null> {
+  let debugTargetIds: string[] = [];
+
+  try {
+    debugTargetIds = await fetchDebugTargetIds(input.longLivedUserToken);
+  } catch (error) {
+    logResolverWarn("debug_token_lookup_failed", {
+      userId: input.userId,
+      statePrefix: input.statePrefix,
+      details: {
+        reason: error instanceof Error ? error.message : "unknown",
+      },
+    });
+  }
+
+  logResolverInfo("debug_token_targets_resolved", {
+    userId: input.userId,
+    statePrefix: input.statePrefix,
+    details: {
+      targetIds: debugTargetIds,
+      targetCount: debugTargetIds.length,
+    },
+  });
+
+  const candidateInstagramIds = asUniqueIds([
+    input.selectedInstagramBusinessAccountId?.trim() ?? "",
+    ...debugTargetIds,
+  ]);
+
+  let resolvedInstagramBusinessAccountId = "";
+  for (const instagramBusinessAccountId of candidateInstagramIds) {
+    try {
+      const profile = await fetchInstagramAccountProfile(
+        instagramBusinessAccountId,
+        input.longLivedUserToken
+      );
+      const reachableInstagramBusinessAccountId = profile.id?.trim() ?? "";
+      if (!reachableInstagramBusinessAccountId) {
+        continue;
+      }
+
+      await fetchInstagramPublishingLimit(
+        reachableInstagramBusinessAccountId,
+        input.longLivedUserToken
+      );
+      resolvedInstagramBusinessAccountId = reachableInstagramBusinessAccountId;
+
+      logResolverInfo("direct_instagram_asset_reachable", {
+        userId: input.userId,
+        statePrefix: input.statePrefix,
+        details: {
+          instagramBusinessAccountId: resolvedInstagramBusinessAccountId,
+          username: profile.username?.trim() ?? "",
+          publishableWithUserToken: true,
+        },
+      });
+      break;
+    } catch (error) {
+      logResolverWarn("direct_instagram_asset_unreachable", {
+        userId: input.userId,
+        statePrefix: input.statePrefix,
+        details: {
+          instagramBusinessAccountId,
+          reason: error instanceof Error ? error.message : "unknown",
+        },
+      });
+    }
+  }
+
+  if (!resolvedInstagramBusinessAccountId) {
+    return null;
+  }
+
+  const pages = input.pages ?? [];
+  const resolvedPageFromDiscovery =
+    pages.find((page) => page.instagramBusinessAccountId === resolvedInstagramBusinessAccountId) ??
+    null;
+  const discoveredInstagramIds = asUniqueIds(pages.map((page) => page.instagramBusinessAccountId));
+  const pageIdCandidate =
+    input.selectedPageId?.trim() ||
+    resolvedPageFromDiscovery?.pageId ||
+    debugTargetIds.find(
+      (targetId) =>
+        targetId !== resolvedInstagramBusinessAccountId &&
+        !discoveredInstagramIds.includes(targetId)
+    ) ||
+    "";
+  const pageNameCandidate =
+    resolvedPageFromDiscovery?.pageName || input.selectedPageName?.trim() || "";
+
+  logResolverInfo("direct_instagram_asset_selected", {
+    userId: input.userId,
+    statePrefix: input.statePrefix,
+    details: {
+      pageId: pageIdCandidate,
+      pageName: pageNameCandidate,
+      instagramBusinessAccountId: resolvedInstagramBusinessAccountId,
+    },
+  });
+
+  return {
+    pageId: pageIdCandidate,
+    pageName: pageNameCandidate,
+    instagramBusinessAccountId: resolvedInstagramBusinessAccountId,
+  };
 }
 
 async function markInstagramConnectionState(
@@ -634,6 +849,36 @@ export async function completeInstagramOauthConnection(input: {
   });
 
   if (linkedPages.length === 0) {
+    const directSelection = await resolveDirectInstagramAssetSelection({
+      longLivedUserToken: input.longLivedUserToken,
+      pages,
+      userId: input.userId,
+      statePrefix: input.statePrefix,
+    });
+    if (directSelection) {
+      const connection = await persistConnectedSelection({
+        userId: input.userId,
+        longLivedUserToken: input.longLivedUserToken,
+        pageId: directSelection.pageId,
+        pageName: directSelection.pageName,
+        publishAccessToken: input.longLivedUserToken,
+        instagramBusinessAccountId: directSelection.instagramBusinessAccountId,
+        tokenExpiresAt: input.tokenExpiresAt ?? "",
+      });
+      logPersistedConnection({
+        stage: "oauth_connection_persisted",
+        userId: input.userId,
+        statePrefix: input.statePrefix,
+        selectionRequired: false,
+        connection,
+      });
+      return {
+        connection,
+        selectionRequired: false,
+        discovery,
+      };
+    }
+
     const connection = await markInstagramConnectionState(input.userId, {
       instagramUserAccessToken: encryptInstagramToken(input.longLivedUserToken),
       instagramAccessToken: "",
@@ -713,12 +958,12 @@ export async function completeInstagramOauthConnection(input: {
   const selectedPage = pages.find((page) => page.pageId === candidate.pageId);
   const pageAccessToken = selectedPage?.pageAccessToken ?? "";
 
-  const connection = await persistConnectedPageSelection({
+  const connection = await persistConnectedSelection({
     userId: input.userId,
     longLivedUserToken: input.longLivedUserToken,
     pageId: candidate.pageId,
     pageName: candidate.pageName,
-    pageAccessToken,
+    publishAccessToken: pageAccessToken,
     instagramBusinessAccountId: candidate.instagramBusinessAccountId,
     tokenExpiresAt: input.tokenExpiresAt ?? "",
   });
@@ -769,7 +1014,7 @@ export async function getActiveInstagramCredentials(
     };
   }
 
-  if (!summary.selectedPageId || !summary.selectedInstagramBusinessAccountId) {
+  if (!summary.selectedInstagramBusinessAccountId) {
     return null;
   }
 
@@ -860,6 +1105,34 @@ export async function getActiveInstagramCredentials(
           ...buildSelectedPagePatch(reconnectPage),
         });
         return null;
+      }
+
+      const directSelection = await resolveDirectInstagramAssetSelection({
+        longLivedUserToken,
+        pages,
+        selectedPageId: summary.selectedPageId,
+        selectedPageName: summary.selectedPageName,
+        selectedInstagramBusinessAccountId: summary.selectedInstagramBusinessAccountId,
+        userId,
+      });
+      if (directSelection) {
+        const connection = await persistConnectedSelection({
+          userId,
+          longLivedUserToken,
+          pageId: directSelection.pageId,
+          pageName: directSelection.pageName || summary.selectedPageName,
+          publishAccessToken: longLivedUserToken,
+          instagramBusinessAccountId: directSelection.instagramBusinessAccountId,
+          tokenExpiresAt: settings.instagramTokenExpiresAt ?? "",
+        });
+        return buildOauthCredentials({
+          source: "oauth_derived_page_token",
+          pageId: connection.selectedPageId,
+          pageName: connection.selectedPageName,
+          instagramBusinessAccountId: connection.selectedInstagramBusinessAccountId,
+          publishAccessToken: longLivedUserToken,
+          hasLongLivedUserToken: true,
+        });
       }
 
       await markInstagramConnectionState(userId, {
@@ -1008,6 +1281,32 @@ export async function validateInstagramConnection(
     const candidates = pagesToCandidates(pages);
 
     if (!linkedPages.length) {
+      const directSelection = await resolveDirectInstagramAssetSelection({
+        longLivedUserToken,
+        pages,
+        selectedPageId: summary.selectedPageId,
+        selectedPageName: summary.selectedPageName,
+        selectedInstagramBusinessAccountId: summary.selectedInstagramBusinessAccountId,
+        userId,
+      });
+      if (directSelection) {
+        const connection = await persistConnectedSelection({
+          userId,
+          longLivedUserToken,
+          pageId: directSelection.pageId,
+          pageName: directSelection.pageName || summary.selectedPageName,
+          publishAccessToken: longLivedUserToken,
+          instagramBusinessAccountId: directSelection.instagramBusinessAccountId,
+          tokenExpiresAt: settings.instagramTokenExpiresAt ?? "",
+        });
+        logPersistedConnection({
+          stage: "validation_persisted",
+          userId,
+          connection,
+        });
+        return connection;
+      }
+
       const connection = await markInstagramConnectionState(userId, {
         instagramConnectionStatus: "missing_page_linkage",
         instagramConnectionErrorCode: "missing_page_linkage",
@@ -1128,13 +1427,13 @@ export async function validateInstagramConnection(
       return connection;
     }
 
-    const connection = await persistConnectedPageSelection({
+    const connection = await persistConnectedSelection({
       userId,
       longLivedUserToken,
       pageId: selectedPageId,
       pageName:
         selectedCandidate.pageName || selectedPage?.pageName || summary.selectedPageName,
-      pageAccessToken: selectedPage?.pageAccessToken ?? "",
+      publishAccessToken: selectedPage?.pageAccessToken ?? "",
       instagramBusinessAccountId: selectedCandidate.instagramBusinessAccountId,
       tokenExpiresAt: settings.instagramTokenExpiresAt ?? "",
     });
@@ -1215,12 +1514,12 @@ export async function selectInstagramCandidate(input: {
     throw new Error("The selected Instagram account is no longer available.");
   }
 
-  return persistConnectedPageSelection({
+  return persistConnectedSelection({
     userId: input.userId,
     longLivedUserToken,
     pageId: candidate.pageId,
     pageName: selectedPage.pageName || candidate.pageName,
-    pageAccessToken: selectedPage.pageAccessToken,
+    publishAccessToken: selectedPage.pageAccessToken,
     instagramBusinessAccountId: businessAccountId,
     tokenExpiresAt: settings.instagramTokenExpiresAt ?? "",
   });

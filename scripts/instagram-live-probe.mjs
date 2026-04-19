@@ -195,6 +195,24 @@ function extractInstagramAccountLookupState(payload) {
   };
 }
 
+async function detectInstagramTargetId({ targetIds, userAccessToken }) {
+  for (const targetId of normalizeUniqueIds(targetIds)) {
+    const lookup = await probeGraphJson({
+      path: targetId,
+      searchParams: new URLSearchParams({
+        fields: "id,username",
+        access_token: userAccessToken,
+      }),
+    });
+    const lookupState = extractInstagramAccountLookupState(lookup.body);
+    if (lookup.status === 200 && lookupState.instagramIds.includes(targetId)) {
+      return targetId;
+    }
+  }
+
+  return "";
+}
+
 function buildProbeSummary({
   probe,
   path,
@@ -207,24 +225,27 @@ function buildProbeSummary({
   hasAnyPageAccessToken = false,
   hasInstagramBusinessAccount = false,
   hasConnectedInstagramAccount = false,
+  useTargetIdsForReachability = false,
 }) {
   const normalizedTargetIds = normalizeUniqueIds(targetIds);
   const normalizedPageIds = normalizeUniqueIds(pageIds);
   const normalizedInstagramIds = normalizeUniqueIds(instagramIds);
+  const pageReachabilityIds = useTargetIdsForReachability
+    ? normalizeUniqueIds([...normalizedPageIds, ...normalizedTargetIds])
+    : normalizedPageIds;
+  const instagramReachabilityIds = useTargetIdsForReachability
+    ? normalizeUniqueIds([...normalizedInstagramIds, ...normalizedTargetIds])
+    : normalizedInstagramIds;
 
   return {
     probe,
     path,
     status,
     selectedPageReachable: Boolean(
-      selectedPageId &&
-        (normalizedPageIds.includes(selectedPageId) ||
-          normalizedTargetIds.includes(selectedPageId))
+      selectedPageId && pageReachabilityIds.includes(selectedPageId)
     ),
     selectedInstagramReachable: Boolean(
-      selectedInstagramId &&
-        (normalizedInstagramIds.includes(selectedInstagramId) ||
-          normalizedTargetIds.includes(selectedInstagramId))
+      selectedInstagramId && instagramReachabilityIds.includes(selectedInstagramId)
     ),
     hasAnyPageAccessToken: Boolean(hasAnyPageAccessToken),
     hasInstagramBusinessAccount: Boolean(hasInstagramBusinessAccount),
@@ -303,12 +324,6 @@ async function runProbe({ userAccessToken, appId, appSecret, selectedPageId, sel
   });
   const accountsState = extractAccountsState(meAccounts.body);
 
-  let effectiveSelectedPageId = selectedPageId;
-  if (!effectiveSelectedPageId) {
-    effectiveSelectedPageId =
-      accountsState.accounts.find((entry) => debugTargetIds.includes(entry.pageId))?.pageId ?? "";
-  }
-
   let effectiveSelectedInstagramId = selectedInstagramId;
   if (!effectiveSelectedInstagramId) {
     const matchingAccount = accountsState.accounts.find(
@@ -319,6 +334,23 @@ async function runProbe({ userAccessToken, appId, appSecret, selectedPageId, sel
     effectiveSelectedInstagramId =
       matchingAccount?.instagramBusinessAccountId ||
       matchingAccount?.connectedInstagramAccountId ||
+      "";
+  }
+
+  if (!effectiveSelectedInstagramId && debugTargetIds.length > 0) {
+    effectiveSelectedInstagramId = await detectInstagramTargetId({
+      targetIds: debugTargetIds,
+      userAccessToken,
+    });
+  }
+
+  let effectiveSelectedPageId = selectedPageId;
+  if (!effectiveSelectedPageId) {
+    effectiveSelectedPageId =
+      accountsState.accounts.find((entry) => debugTargetIds.includes(entry.pageId))?.pageId ??
+      normalizeUniqueIds(debugTargetIds).find(
+        (targetId) => targetId !== effectiveSelectedInstagramId
+      ) ??
       "";
   }
 
@@ -424,6 +456,25 @@ async function runProbe({ userAccessToken, appId, appSecret, selectedPageId, sel
         selectedInstagramId: effectiveSelectedInstagramId,
         targetIds: debugTargetIds,
         instagramIds: instagramLookupState.instagramIds,
+      })
+    );
+
+    const contentPublishingLimit = await probeGraphJson({
+      path: `${effectiveSelectedInstagramId}/content_publishing_limit`,
+      searchParams: new URLSearchParams({
+        access_token: userAccessToken,
+      }),
+    });
+    probes.push(
+      buildProbeSummary({
+        probe: "content_publishing_limit",
+        path: `/${effectiveSelectedInstagramId}/content_publishing_limit`,
+        status: contentPublishingLimit.status,
+        selectedPageId: effectiveSelectedPageId,
+        selectedInstagramId: effectiveSelectedInstagramId,
+        targetIds: debugTargetIds,
+        instagramIds:
+          contentPublishingLimit.status === 200 ? [effectiveSelectedInstagramId] : [],
       })
     );
 

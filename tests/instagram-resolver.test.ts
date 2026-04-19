@@ -34,8 +34,11 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 function installMetaFetchMock(input: {
   accounts: MockGraphResponse;
+  debugToken?: MockGraphResponse;
   pages?: Record<string, MockGraphResponse>;
   pageInstagramAccounts?: Record<string, MockGraphResponse>;
+  instagramAccounts?: Record<string, MockGraphResponse>;
+  contentPublishingLimits?: Record<string, MockGraphResponse>;
 }) {
   vi.mocked(global.fetch).mockImplementation(async (request) => {
     const url =
@@ -45,11 +48,26 @@ function installMetaFetchMock(input: {
           ? request
           : new URL(request.url);
 
+    if (url.pathname.endsWith("/debug_token")) {
+      if (!input.debugToken) {
+        throw new Error(`Unexpected Meta fetch: ${url.toString()}`);
+      }
+      return jsonResponse(input.debugToken.body, input.debugToken.status ?? 200);
+    }
+
     if (url.pathname.endsWith("/me/accounts")) {
       return jsonResponse(input.accounts.body, input.accounts.status ?? 200);
     }
 
     const pathParts = url.pathname.split("/").filter(Boolean);
+    if (pathParts.at(-1) === "content_publishing_limit") {
+      const instagramAccountId = pathParts.at(-2) ?? "";
+      const response = input.contentPublishingLimits?.[instagramAccountId];
+      if (response) {
+        return jsonResponse(response.body, response.status ?? 200);
+      }
+    }
+
     if (pathParts.at(-1) === "instagram_accounts") {
       const pageId = pathParts.at(-2) ?? "";
       const pageInstagramAccountsResponse = input.pageInstagramAccounts?.[pageId];
@@ -61,8 +79,13 @@ function installMetaFetchMock(input: {
       }
     }
 
-    const pageId = pathParts.at(-1) ?? "";
-    const pageResponse = input.pages?.[pageId];
+    const nodeId = pathParts.at(-1) ?? "";
+    const instagramAccountResponse = input.instagramAccounts?.[nodeId];
+    if (instagramAccountResponse) {
+      return jsonResponse(instagramAccountResponse.body, instagramAccountResponse.status ?? 200);
+    }
+
+    const pageResponse = input.pages?.[nodeId];
     if (pageResponse) {
       return jsonResponse(pageResponse.body, pageResponse.status ?? 200);
     }
@@ -105,6 +128,8 @@ describe("instagram credential resolver", () => {
     vi.resetModules();
     vi.clearAllMocks();
     vi.stubEnv("INSTAGRAM_ENABLED", "true");
+    vi.stubEnv("META_APP_ID", "meta-app-id");
+    vi.stubEnv("META_APP_SECRET", "meta-app-secret");
     vi.stubEnv("META_TOKEN_ENCRYPTION_KEY", "flowcart-test-secret");
     settingsStore = createEmptySettings();
     vi.stubGlobal("fetch", vi.fn());
@@ -458,6 +483,71 @@ describe("instagram credential resolver", () => {
     expect(loggedOutput).toContain("\"selectedPageId\":\"page-1\"");
   });
 
+  it("validates an asset-scoped user-token connection without downgrading to missing_page_linkage", async () => {
+    const { encryptInstagramToken, decryptInstagramToken } = await import(
+      "@/src/lib/server/instagram-crypto"
+    );
+    settingsStore = {
+      ...createEmptySettings(),
+      instagramUserAccessToken: encryptInstagramToken("user-token-1"),
+      instagramPageId: "918544081353456",
+      instagramBusinessAccountId: "17841480668974657",
+      instagramConnectionStatus: "connected",
+    };
+    installMetaFetchMock({
+      debugToken: {
+        body: {
+          data: {
+            granular_scopes: [
+              {
+                scope: "instagram_business_basic",
+                target_ids: ["918544081353456", "17841480668974657"],
+              },
+            ],
+          },
+        },
+      },
+      accounts: {
+        body: {
+          data: [],
+        },
+      },
+      instagramAccounts: {
+        "17841480668974657": {
+          body: {
+            id: "17841480668974657",
+            username: "flowcartdemo",
+          },
+        },
+      },
+      contentPublishingLimits: {
+        "17841480668974657": {
+          body: {
+            data: [{ quota_usage: 0, config: { quota_total: 25 } }],
+          },
+        },
+      },
+    });
+
+    const { validateInstagramConnection, getActiveInstagramCredentials } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+    const validated = await validateInstagramConnection("user-123");
+    const credentials = await getActiveInstagramCredentials("user-123");
+
+    expect(validated.status).toBe("connected");
+    expect(settingsStore.instagramConnectionStatus).toBe("connected");
+    expect(settingsStore.instagramConnectionErrorCode).toBe("");
+    expect(settingsStore.instagramPageId).toBe("918544081353456");
+    expect(settingsStore.instagramBusinessAccountId).toBe("17841480668974657");
+    expect(decryptInstagramToken(settingsStore.instagramAccessToken)).toBe("user-token-1");
+    expect(credentials).toMatchObject({
+      instagramBusinessAccountId: "17841480668974657",
+      publishAccessToken: "user-token-1",
+      hasLongLivedUserToken: true,
+    });
+  });
+
   it("returns missing_page_linkage when no managed pages are returned", async () => {
     const infoSpy = vi.spyOn(console, "info");
     installMetaFetchMock({
@@ -483,6 +573,62 @@ describe("instagram credential resolver", () => {
     const loggedOutput = JSON.stringify(infoSpy.mock.calls);
     expect(loggedOutput).toContain("managed_pages_empty");
     expect(loggedOutput).toContain("oauth_connection_persisted");
+  });
+
+  it("connects when Meta returns an asset-scoped user token and /me/accounts is empty", async () => {
+    const { decryptInstagramToken } = await import("@/src/lib/server/instagram-crypto");
+    installMetaFetchMock({
+      debugToken: {
+        body: {
+          data: {
+            granular_scopes: [
+              {
+                scope: "instagram_business_basic",
+                target_ids: ["918544081353456", "17841480668974657"],
+              },
+            ],
+          },
+        },
+      },
+      accounts: {
+        body: {
+          data: [],
+        },
+      },
+      instagramAccounts: {
+        "17841480668974657": {
+          body: {
+            id: "17841480668974657",
+            username: "flowcartdemo",
+          },
+        },
+      },
+      contentPublishingLimits: {
+        "17841480668974657": {
+          body: {
+            data: [{ quota_usage: 0, config: { quota_total: 25 } }],
+          },
+        },
+      },
+    });
+
+    const { completeInstagramOauthConnection } = await import(
+      "@/src/lib/server/instagram-credentials"
+    );
+    const result = await completeInstagramOauthConnection({
+      userId: "user-123",
+      longLivedUserToken: "user-token-1",
+      tokenExpiresAt: "2026-04-07T11:00:00.000Z",
+    });
+
+    expect(result.selectionRequired).toBe(false);
+    expect(result.connection.status).toBe("connected");
+    expect(settingsStore.instagramPageId).toBe("918544081353456");
+    expect(settingsStore.instagramBusinessAccountId).toBe("17841480668974657");
+    expect(decryptInstagramToken(settingsStore.instagramUserAccessToken ?? "")).toBe(
+      "user-token-1"
+    );
+    expect(decryptInstagramToken(settingsStore.instagramAccessToken)).toBe("user-token-1");
   });
 
   it("returns missing_page_linkage when pages exist but no direct lookup yields an IG link", async () => {
