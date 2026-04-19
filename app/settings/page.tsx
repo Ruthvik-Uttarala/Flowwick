@@ -576,7 +576,19 @@ function SettingsContent() {
             {instagramConnection?.status === "legacy_fallback" ? (
               <p>Legacy manual Instagram credentials are still active. Reconnect to upgrade this connection.</p>
             ) : null}
-            {instagramConnection?.errorCode ? (
+            {instagramConnection?.status === "missing_page_linkage" ? (
+              <p>
+                FlowCart could not find an Instagram professional account linked to a Facebook
+                Page you control. In Meta, connect that Instagram professional account to a
+                Facebook Page you manage, then reconnect Instagram here.
+              </p>
+            ) : instagramConnection?.status === "needs_reconnect" ? (
+              <p>
+                FlowCart found your linked Page and Instagram account, but Meta did not return a
+                Page publishing token. Reconnect Instagram and choose the Page you want FlowCart
+                to publish from.
+              </p>
+            ) : instagramConnection?.errorCode ? (
               <p>{instagramConnection.statusLabel}. Error code: {instagramConnection.errorCode}</p>
             ) : (
               <p>
@@ -593,7 +605,7 @@ function SettingsContent() {
               <div>
                 <p className="text-sm font-semibold text-[#2B1B12]">Choose the Instagram account to use</p>
                 <p className="text-xs text-[#2B1B12]/55">
-                  Meta returned more than one eligible Page. Select the account FlowCart should publish to.
+                  Select the Page and Instagram account FlowCart should publish to for this user.
                 </p>
               </div>
               <div className="space-y-2">

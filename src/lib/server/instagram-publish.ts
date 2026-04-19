@@ -310,6 +310,24 @@ export function selectInstagramImageUrl(
   return null;
 }
 
+export function selectInstagramCarouselImageUrls(payload: LaunchPayload): string[] {
+  const selected: string[] = [];
+
+  for (const imageUrl of payload.imageUrls) {
+    const candidate = imageUrl.trim();
+    if (!isValidInstagramPublishImageUrl(candidate)) {
+      continue;
+    }
+
+    selected.push(candidate);
+    if (selected.length >= 10) {
+      break;
+    }
+  }
+
+  return selected;
+}
+
 export function buildInstagramCaption(
   payload: LaunchPayload,
   shopifyProductUrl?: string

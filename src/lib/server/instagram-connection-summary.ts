@@ -66,7 +66,7 @@ function buildOauthSummary(settings: ConnectionSettings): InstagramConnectionSum
   const selectedInstagramBusinessAccountId = settings.instagramBusinessAccountId.trim();
   const storedStatus = settings.instagramConnectionStatus ?? "disconnected";
 
-  if (candidates.length > 1 && !selectedPageId) {
+  if (storedStatus === "selection_required" && candidates.length > 0 && !selectedPageId) {
     return buildConnectionSummary({
       enabled: isInstagramEnabledForSummary(),
       status: "selection_required",

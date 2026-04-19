@@ -42,7 +42,7 @@ describe("instagram adapter", () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
   });
 
-  it("publishes successfully with the final media id and permalink", async () => {
+  it("publishes a single image successfully with the final media id and permalink", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(jsonResponse({ id: "creation-1" }))
@@ -68,6 +68,58 @@ describe("instagram adapter", () => {
       encodeURIComponent("https://cdn.shopify.com/s/files/1/hat.png")
     );
     expect(fetchMock.mock.calls[2]?.[0]).toContain("/media_publish");
+  });
+
+  it("publishes multiple valid bucket images as one carousel post", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ id: "child-1" }))
+      .mockResolvedValueOnce(jsonResponse({ status_code: "FINISHED" }))
+      .mockResolvedValueOnce(jsonResponse({ id: "child-2" }))
+      .mockResolvedValueOnce(jsonResponse({ status_code: "FINISHED" }))
+      .mockResolvedValueOnce(jsonResponse({ id: "parent-1" }))
+      .mockResolvedValueOnce(jsonResponse({ status_code: "FINISHED" }))
+      .mockResolvedValueOnce(jsonResponse({ id: "media-1" }))
+      .mockResolvedValueOnce(jsonResponse({ permalink: "https://instagram.com/p/carousel-1/" }));
+
+    const { publishInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await publishInstagramPostArtifact({
+      payload: makePayload({
+        imageUrls: [
+          "https://public.example/look-1.jpg",
+          "https://public.example/look-2.jpg",
+          "https://localhost:3000/not-public.jpg",
+        ],
+      }),
+      instagramCredentials: resolvedInstagramCredentials,
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+      shopifyImageUrl: "https://cdn.shopify.com/s/files/1/unused-shopify.png",
+    });
+
+    expect(result).toMatchObject({
+      instagramPublished: true,
+      instagramPostId: "media-1",
+      instagramPostUrl: "https://instagram.com/p/carousel-1/",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain(
+      encodeURIComponent("https://public.example/look-1.jpg")
+    );
+    expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain("is_carousel_item=true");
+    expect(String(fetchMock.mock.calls[2]?.[1]?.body)).toContain(
+      encodeURIComponent("https://public.example/look-2.jpg")
+    );
+    const parentBody = String(fetchMock.mock.calls[4]?.[1]?.body);
+    const parentParams = new URLSearchParams(parentBody);
+    expect(parentBody).toContain("media_type=CAROUSEL");
+    expect(parentBody).toContain(encodeURIComponent("child-1,child-2"));
+    expect(parentParams.get("caption")).toContain("Price: $49.99");
+    expect(parentParams.get("caption")).toContain(
+      "Shop now: https://demo.myshopify.com/products/flowcart-hat"
+    );
+    expect(parentBody).not.toContain(
+      encodeURIComponent("https://cdn.shopify.com/s/files/1/unused-shopify.png")
+    );
   });
 
   it("keeps success when permalink lookup fails after publish", async () => {
@@ -179,6 +231,26 @@ describe("instagram adapter", () => {
     expect(result.errorMessage).toBe("Instagram media container creation failed: Container create failed");
   });
 
+  it("fails when a carousel child container cannot finish processing", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ id: "child-1" }))
+      .mockResolvedValueOnce(jsonResponse({ status_code: "ERROR" }));
+
+    const { publishInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await publishInstagramPostArtifact({
+      payload: makePayload({
+        imageUrls: [
+          "https://public.example/look-1.jpg",
+          "https://public.example/look-2.jpg",
+        ],
+      }),
+      instagramCredentials: resolvedInstagramCredentials,
+    });
+
+    expect(result.instagramPublished).toBe(false);
+    expect(result.errorMessage).toBe("Instagram media processing failed before publish (error).");
+  });
+
   it("times out when the media container never reaches a publishable status", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(jsonResponse({ id: "creation-1" }))
@@ -197,6 +269,41 @@ describe("instagram adapter", () => {
     expect(result.instagramPublished).toBe(false);
     expect(result.errorMessage).toBe(
       "Instagram media processing timed out before publish. Retry in a moment."
+    );
+  });
+
+  it("fails when the carousel parent container cannot be created", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ id: "child-1" }))
+      .mockResolvedValueOnce(jsonResponse({ status_code: "FINISHED" }))
+      .mockResolvedValueOnce(jsonResponse({ id: "child-2" }))
+      .mockResolvedValueOnce(jsonResponse({ status_code: "FINISHED" }))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              message: "Parent create failed",
+              code: 999,
+            },
+          },
+          500
+        )
+      );
+
+    const { publishInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await publishInstagramPostArtifact({
+      payload: makePayload({
+        imageUrls: [
+          "https://public.example/look-1.jpg",
+          "https://public.example/look-2.jpg",
+        ],
+      }),
+      instagramCredentials: resolvedInstagramCredentials,
+    });
+
+    expect(result.instagramPublished).toBe(false);
+    expect(result.errorMessage).toBe(
+      "Instagram media container creation failed: Parent create failed"
     );
   });
 

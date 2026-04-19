@@ -22,13 +22,13 @@ export const INSTAGRAM_OAUTH_ERROR_MESSAGES = {
   account_discovery_failed:
     "Instagram connection failed while discovering the connected Page and Instagram account.",
   no_eligible_account:
-    "No eligible Facebook Page with a linked Instagram Business or Creator account was found.",
+    "FlowCart could not find an Instagram professional account linked to a Facebook Page you control. Link your Instagram professional account to a Facebook Page you manage, then reconnect Instagram.",
   missing_page_linkage:
-    "No eligible Facebook Page with a linked Instagram Business or Creator account was found.",
+    "FlowCart could not find an Instagram professional account linked to a Facebook Page you control. Link your Instagram professional account to a Facebook Page you manage, then reconnect Instagram.",
   missing_instagram_business_account:
     "The selected Facebook Page is not currently linked to an Instagram Business or Creator account.",
   missing_page_access_token:
-    "Instagram connection needs to be reconnected because FlowCart could not obtain a Page publishing token.",
+    "FlowCart found your linked Page and Instagram account, but Meta did not return a Page publishing token. Reconnect Instagram and choose the Page you want FlowCart to publish from.",
   invalid_selection:
     "The selected Instagram account is no longer available. Please reconnect and try again.",
   oauth_state_persist_failed:

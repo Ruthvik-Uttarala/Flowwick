@@ -3,6 +3,7 @@ import {
   buildInstagramCaption,
   INSTAGRAM_CAPTION_MAX_LENGTH,
   isValidInstagramPublishImageUrl,
+  selectInstagramCarouselImageUrls,
   selectInstagramImageUrl,
 } from "@/src/lib/server/instagram-publish";
 import { LaunchPayload } from "@/src/lib/types";
@@ -125,5 +126,37 @@ describe("instagram publish helpers", () => {
       imageUrl: "https://cdn.supabase.example/storage/v1/object/public/product_images/fallback.jpg",
       source: "bucket",
     });
+  });
+
+  it("selects up to ten valid bucket images in stored order for carousels", () => {
+    const payload = makePayload({
+      imageUrls: [
+        "https://localhost:3000/not-public.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/1.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/2.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/3.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/4.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/5.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/6.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/7.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/8.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/9.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/10.jpg",
+        "https://cdn.supabase.example/storage/v1/object/public/product_images/11.jpg",
+      ],
+    });
+
+    expect(selectInstagramCarouselImageUrls(payload)).toEqual([
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/1.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/2.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/3.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/4.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/5.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/6.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/7.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/8.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/9.jpg",
+      "https://cdn.supabase.example/storage/v1/object/public/product_images/10.jpg",
+    ]);
   });
 });

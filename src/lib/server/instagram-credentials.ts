@@ -25,6 +25,13 @@ interface MetaManagedPage {
   id?: string;
   name?: string;
   access_token?: string;
+  tasks?: string[];
+  instagram_business_account?: {
+    id?: string;
+  };
+  connected_instagram_account?: {
+    id?: string;
+  };
 }
 
 interface MetaPageInstagramLink {
@@ -41,7 +48,18 @@ interface MetaManagedPagesResponse {
   data?: MetaManagedPage[];
 }
 
-type InstagramLinkSource = "instagram_business_account" | "connected_instagram_account" | "none";
+interface MetaInstagramAccountsEdgeResponse {
+  data?: Array<{
+    id?: string;
+    username?: string;
+  }>;
+}
+
+type InstagramLinkSource =
+  | "instagram_business_account"
+  | "connected_instagram_account"
+  | "instagram_accounts_edge"
+  | "none";
 
 interface DiscoveredManagedPage {
   pageId: string;
@@ -125,7 +143,8 @@ async function fetchManagedPages(longLivedUserToken: string): Promise<MetaManage
   const response = await fetchMetaJson<MetaManagedPagesResponse>({
     path: "me/accounts",
     searchParams: new URLSearchParams({
-      fields: "id,name,access_token",
+      fields:
+        "id,name,access_token,tasks,instagram_business_account{id},connected_instagram_account{id}",
       access_token: longLivedUserToken,
     }),
   });
@@ -135,13 +154,26 @@ async function fetchManagedPages(longLivedUserToken: string): Promise<MetaManage
 
 async function fetchPageInstagramLink(
   pageId: string,
-  pageAccessToken: string
+  accessToken: string
 ): Promise<MetaPageInstagramLink> {
   return fetchMetaJson<MetaPageInstagramLink>({
     path: pageId,
     searchParams: new URLSearchParams({
       fields: "instagram_business_account{id},connected_instagram_account{id},name",
-      access_token: pageAccessToken,
+      access_token: accessToken,
+    }),
+  });
+}
+
+async function fetchPageInstagramAccounts(
+  pageId: string,
+  accessToken: string
+): Promise<MetaInstagramAccountsEdgeResponse> {
+  return fetchMetaJson<MetaInstagramAccountsEdgeResponse>({
+    path: `${pageId}/instagram_accounts`,
+    searchParams: new URLSearchParams({
+      fields: "id,username",
+      access_token: accessToken,
     }),
   });
 }
@@ -164,6 +196,22 @@ function normalizeInstagramBusinessAccount(input: MetaPageInstagramLink): {
   }
 
   return { instagramBusinessAccountId: "", linkSource: "none" };
+}
+
+function normalizeInstagramAccountsEdge(input: MetaInstagramAccountsEdgeResponse): {
+  instagramBusinessAccountId: string;
+  linkSource: InstagramLinkSource;
+} {
+  const instagramBusinessAccountId =
+    input.data?.find((account) => account.id?.trim())?.id?.trim() ?? "";
+  if (!instagramBusinessAccountId) {
+    return { instagramBusinessAccountId: "", linkSource: "none" };
+  }
+
+  return {
+    instagramBusinessAccountId,
+    linkSource: "instagram_accounts_edge",
+  };
 }
 
 async function discoverManagedPages(input: {
@@ -206,49 +254,133 @@ async function discoverManagedPages(input: {
         const pageId = page.id?.trim() ?? "";
         const pageName = page.name?.trim() ?? "";
         const pageAccessToken = page.access_token?.trim() ?? "";
+        const managedPageNormalized = normalizeInstagramBusinessAccount(page);
+        const hasInstagramBusinessAccount = Boolean(page.instagram_business_account?.id?.trim());
+        const hasConnectedInstagramAccount = Boolean(
+          page.connected_instagram_account?.id?.trim()
+        );
 
         if (!pageId) {
           return null;
         }
 
-        if (!pageAccessToken) {
+        if (managedPageNormalized.instagramBusinessAccountId) {
+          const discoveredPage: DiscoveredManagedPage = {
+            pageId,
+            pageName,
+            pageAccessToken,
+            instagramBusinessAccountId: managedPageNormalized.instagramBusinessAccountId,
+            linkSource: managedPageNormalized.linkSource,
+          };
+
           logResolverInfo("managed_page_lookup_result", {
             userId: input.userId,
             statePrefix: input.statePrefix,
             details: {
               pageId,
               pageName,
-              hasPageAccessToken: false,
-              hasInstagramBusinessAccount: false,
-              hasConnectedInstagramAccount: false,
-              normalizedInstagramBusinessAccountId: "",
-              linkSource: "none",
+              hasPageAccessToken: Boolean(pageAccessToken),
+              hasInstagramBusinessAccount,
+              hasConnectedInstagramAccount,
+              hasInstagramAccountsEdge: false,
+              normalizedInstagramBusinessAccountId:
+                managedPageNormalized.instagramBusinessAccountId,
+              linkSource: managedPageNormalized.linkSource,
             },
           });
-          return {
-            pageId,
-            pageName,
-            pageAccessToken,
-            instagramBusinessAccountId: "",
-            linkSource: "none" as const,
-          };
+
+          if (managedPageNormalized.linkSource === "instagram_business_account") {
+            logResolverInfo("page_link_found_instagram_business_account", {
+              userId: input.userId,
+              statePrefix: input.statePrefix,
+              details: {
+                pageId,
+                pageName,
+              },
+            });
+          } else if (managedPageNormalized.linkSource === "connected_instagram_account") {
+            logResolverInfo("page_link_found_connected_instagram_account", {
+              userId: input.userId,
+              statePrefix: input.statePrefix,
+              details: {
+                pageId,
+                pageName,
+              },
+            });
+          }
+
+          return discoveredPage;
         }
 
+        let resolvedPageName = pageName;
+
         try {
-          const lookup = await fetchPageInstagramLink(pageId, pageAccessToken);
+          const lookup = await fetchPageInstagramLink(pageId, input.longLivedUserToken);
           const normalized = normalizeInstagramBusinessAccount(lookup);
-          const hasInstagramBusinessAccount = Boolean(
+          const lookupHasInstagramBusinessAccount = Boolean(
             lookup.instagram_business_account?.id?.trim()
           );
-          const hasConnectedInstagramAccount = Boolean(
+          const lookupHasConnectedInstagramAccount = Boolean(
             lookup.connected_instagram_account?.id?.trim()
           );
+          resolvedPageName = lookup.name?.trim() ?? pageName;
+
+          if (normalized.instagramBusinessAccountId) {
+            const discoveredPage: DiscoveredManagedPage = {
+              pageId,
+              pageName: resolvedPageName,
+              pageAccessToken,
+              instagramBusinessAccountId: normalized.instagramBusinessAccountId,
+              linkSource: normalized.linkSource,
+            };
+
+            logResolverInfo("managed_page_lookup_result", {
+              userId: input.userId,
+              statePrefix: input.statePrefix,
+              details: {
+                pageId,
+                pageName: discoveredPage.pageName,
+                hasPageAccessToken: Boolean(pageAccessToken),
+                hasInstagramBusinessAccount: lookupHasInstagramBusinessAccount,
+                hasConnectedInstagramAccount: lookupHasConnectedInstagramAccount,
+                hasInstagramAccountsEdge: false,
+                normalizedInstagramBusinessAccountId:
+                  normalized.instagramBusinessAccountId,
+                linkSource: normalized.linkSource,
+              },
+            });
+
+            if (normalized.linkSource === "instagram_business_account") {
+              logResolverInfo("page_link_found_instagram_business_account", {
+                userId: input.userId,
+                statePrefix: input.statePrefix,
+                details: {
+                  pageId,
+                  pageName: discoveredPage.pageName,
+                },
+              });
+            } else if (normalized.linkSource === "connected_instagram_account") {
+              logResolverInfo("page_link_found_connected_instagram_account", {
+                userId: input.userId,
+                statePrefix: input.statePrefix,
+                details: {
+                  pageId,
+                  pageName: discoveredPage.pageName,
+                },
+              });
+            }
+
+            return discoveredPage;
+          }
+
+          const edgeLookup = await fetchPageInstagramAccounts(pageId, input.longLivedUserToken);
+          const edgeNormalized = normalizeInstagramAccountsEdge(edgeLookup);
           const discoveredPage: DiscoveredManagedPage = {
             pageId,
-            pageName: lookup.name?.trim() ?? pageName,
+            pageName: resolvedPageName,
             pageAccessToken,
-            instagramBusinessAccountId: normalized.instagramBusinessAccountId,
-            linkSource: normalized.linkSource,
+            instagramBusinessAccountId: edgeNormalized.instagramBusinessAccountId,
+            linkSource: edgeNormalized.linkSource,
           };
 
           logResolverInfo("managed_page_lookup_result", {
@@ -257,26 +389,18 @@ async function discoverManagedPages(input: {
             details: {
               pageId,
               pageName: discoveredPage.pageName,
-              hasPageAccessToken: true,
-              hasInstagramBusinessAccount,
-              hasConnectedInstagramAccount,
+              hasPageAccessToken: Boolean(pageAccessToken),
+              hasInstagramBusinessAccount: lookupHasInstagramBusinessAccount,
+              hasConnectedInstagramAccount: lookupHasConnectedInstagramAccount,
+              hasInstagramAccountsEdge: Boolean(edgeNormalized.instagramBusinessAccountId),
               normalizedInstagramBusinessAccountId:
-                normalized.instagramBusinessAccountId,
-              linkSource: normalized.linkSource,
+                edgeNormalized.instagramBusinessAccountId,
+              linkSource: edgeNormalized.linkSource,
             },
           });
 
-          if (normalized.linkSource === "instagram_business_account") {
-            logResolverInfo("page_link_found_instagram_business_account", {
-              userId: input.userId,
-              statePrefix: input.statePrefix,
-              details: {
-                pageId,
-                pageName: discoveredPage.pageName,
-              },
-            });
-          } else if (normalized.linkSource === "connected_instagram_account") {
-            logResolverInfo("page_link_found_connected_instagram_account", {
+          if (edgeNormalized.linkSource === "instagram_accounts_edge") {
+            logResolverInfo("page_link_found_instagram_accounts_edge", {
               userId: input.userId,
               statePrefix: input.statePrefix,
               details: {
@@ -294,10 +418,63 @@ async function discoverManagedPages(input: {
             details: {
               pageId,
               pageName,
-              hasPageAccessToken: true,
+              hasPageAccessToken: Boolean(pageAccessToken),
               reason: error instanceof Error ? error.message : "unknown",
             },
           });
+
+          try {
+            const edgeLookup = await fetchPageInstagramAccounts(pageId, input.longLivedUserToken);
+            const edgeNormalized = normalizeInstagramAccountsEdge(edgeLookup);
+            const discoveredPage: DiscoveredManagedPage = {
+              pageId,
+              pageName: resolvedPageName,
+              pageAccessToken,
+              instagramBusinessAccountId: edgeNormalized.instagramBusinessAccountId,
+              linkSource: edgeNormalized.linkSource,
+            };
+
+            logResolverInfo("managed_page_lookup_result", {
+              userId: input.userId,
+              statePrefix: input.statePrefix,
+              details: {
+                pageId,
+                pageName: discoveredPage.pageName,
+                hasPageAccessToken: Boolean(pageAccessToken),
+                hasInstagramBusinessAccount: false,
+                hasConnectedInstagramAccount: false,
+                hasInstagramAccountsEdge: Boolean(edgeNormalized.instagramBusinessAccountId),
+                normalizedInstagramBusinessAccountId:
+                  edgeNormalized.instagramBusinessAccountId,
+                linkSource: edgeNormalized.linkSource,
+              },
+            });
+
+            if (edgeNormalized.linkSource === "instagram_accounts_edge") {
+              logResolverInfo("page_link_found_instagram_accounts_edge", {
+                userId: input.userId,
+                statePrefix: input.statePrefix,
+                details: {
+                  pageId,
+                  pageName: discoveredPage.pageName,
+                },
+              });
+            }
+
+            return discoveredPage;
+          } catch (edgeError) {
+            logResolverWarn("managed_page_instagram_accounts_failed", {
+              userId: input.userId,
+              statePrefix: input.statePrefix,
+              details: {
+                pageId,
+                pageName,
+                hasPageAccessToken: Boolean(pageAccessToken),
+                reason: edgeError instanceof Error ? edgeError.message : "unknown",
+              },
+            });
+          }
+
           return {
             pageId,
             pageName,
@@ -323,12 +500,16 @@ async function discoverManagedPages(input: {
   return discoveredPages;
 }
 
+function hasInstagramLink(page: DiscoveredManagedPage): boolean {
+  return Boolean(page.pageId && page.instagramBusinessAccountId);
+}
+
 function pagesToCandidates(pages: DiscoveredManagedPage[]): InstagramCandidateAccount[] {
   return pages.flatMap((page) => {
     const pageId = page.pageId;
     const instagramBusinessAccountId = page.instagramBusinessAccountId;
 
-    if (!pageId || !instagramBusinessAccountId) {
+    if (!pageId || !instagramBusinessAccountId || !page.pageAccessToken) {
       return [];
     }
 
@@ -340,6 +521,26 @@ function pagesToCandidates(pages: DiscoveredManagedPage[]): InstagramCandidateAc
       },
     ];
   });
+}
+
+function getLinkedPages(pages: DiscoveredManagedPage[]): DiscoveredManagedPage[] {
+  return pages.filter(hasInstagramLink);
+}
+
+function buildSelectedPagePatch(
+  page: Pick<
+    DiscoveredManagedPage,
+    "pageId" | "pageName" | "instagramBusinessAccountId"
+  > | null
+): Pick<
+  ConnectionSettings,
+  "instagramPageId" | "instagramPageName" | "instagramBusinessAccountId"
+> {
+  return {
+    instagramPageId: page?.pageId ?? "",
+    instagramPageName: page?.pageName ?? "",
+    instagramBusinessAccountId: page?.instagramBusinessAccountId ?? "",
+  };
 }
 
 function buildOauthCredentials(
@@ -404,6 +605,7 @@ export async function completeInstagramOauthConnection(input: {
     userId: input.userId,
     statePrefix: input.statePrefix,
   });
+  const linkedPages = getLinkedPages(pages);
   const candidates = pagesToCandidates(pages);
   const discovery = {
     pageCount: pages.length,
@@ -418,6 +620,12 @@ export async function completeInstagramOauthConnection(input: {
     details: {
       pageCount: discovery.pageCount,
       pageIds: discovery.pageIds,
+      linkedPairs: linkedPages.map((page) => ({
+        pageId: page.pageId,
+        instagramBusinessAccountId: page.instagramBusinessAccountId,
+        hasPageAccessToken: Boolean(page.pageAccessToken),
+        linkSource: page.linkSource,
+      })),
       candidatePairs: candidates.map((candidate) => ({
         pageId: candidate.pageId,
         instagramBusinessAccountId: candidate.instagramBusinessAccountId,
@@ -425,15 +633,39 @@ export async function completeInstagramOauthConnection(input: {
     },
   });
 
-  if (candidates.length === 0) {
+  if (linkedPages.length === 0) {
     const connection = await markInstagramConnectionState(input.userId, {
       instagramUserAccessToken: encryptInstagramToken(input.longLivedUserToken),
       instagramAccessToken: "",
-      instagramBusinessAccountId: "",
-      instagramPageId: "",
-      instagramPageName: "",
+      ...buildSelectedPagePatch(null),
       instagramConnectionStatus: "missing_page_linkage",
       instagramConnectionErrorCode: "missing_page_linkage",
+      instagramLastValidatedAt: "",
+      instagramTokenExpiresAt: input.tokenExpiresAt ?? "",
+      instagramCandidateAccounts: [],
+    });
+    logPersistedConnection({
+      stage: "oauth_connection_persisted",
+      userId: input.userId,
+      statePrefix: input.statePrefix,
+      selectionRequired: false,
+      connection,
+    });
+    return {
+      connection,
+      selectionRequired: false,
+      discovery,
+    };
+  }
+
+  if (candidates.length === 0) {
+    const reconnectPage = linkedPages.length === 1 ? linkedPages[0] : null;
+    const connection = await markInstagramConnectionState(input.userId, {
+      instagramUserAccessToken: encryptInstagramToken(input.longLivedUserToken),
+      instagramAccessToken: "",
+      ...buildSelectedPagePatch(reconnectPage),
+      instagramConnectionStatus: "needs_reconnect",
+      instagramConnectionErrorCode: "missing_page_access_token",
       instagramLastValidatedAt: "",
       instagramTokenExpiresAt: input.tokenExpiresAt ?? "",
       instagramCandidateAccounts: [],
@@ -456,9 +688,7 @@ export async function completeInstagramOauthConnection(input: {
     const connection = await markInstagramConnectionState(input.userId, {
       instagramUserAccessToken: encryptInstagramToken(input.longLivedUserToken),
       instagramAccessToken: "",
-      instagramBusinessAccountId: "",
-      instagramPageId: "",
-      instagramPageName: "",
+      ...buildSelectedPagePatch(null),
       instagramConnectionStatus: "selection_required",
       instagramConnectionErrorCode: "",
       instagramLastValidatedAt: "",
@@ -482,41 +712,6 @@ export async function completeInstagramOauthConnection(input: {
   const candidate = candidates[0];
   const selectedPage = pages.find((page) => page.pageId === candidate.pageId);
   const pageAccessToken = selectedPage?.pageAccessToken ?? "";
-
-  if (!pageAccessToken) {
-    logResolverWarn("selected_page_missing_access_token", {
-      userId: input.userId,
-      statePrefix: input.statePrefix,
-      details: {
-        pageId: candidate.pageId,
-        pageName: candidate.pageName,
-      },
-    });
-    const connection = await markInstagramConnectionState(input.userId, {
-      instagramUserAccessToken: encryptInstagramToken(input.longLivedUserToken),
-      instagramAccessToken: "",
-      instagramBusinessAccountId: "",
-      instagramPageId: "",
-      instagramPageName: "",
-      instagramConnectionStatus: "needs_reconnect",
-      instagramConnectionErrorCode: "missing_page_access_token",
-      instagramLastValidatedAt: "",
-      instagramTokenExpiresAt: input.tokenExpiresAt ?? "",
-      instagramCandidateAccounts: [],
-    });
-    logPersistedConnection({
-      stage: "oauth_connection_persisted",
-      userId: input.userId,
-      statePrefix: input.statePrefix,
-      selectionRequired: false,
-      connection,
-    });
-    return {
-      connection,
-      selectionRequired: false,
-      discovery,
-    };
-  }
 
   const connection = await persistConnectedPageSelection({
     userId: input.userId,
@@ -624,34 +819,62 @@ export async function getActiveInstagramCredentials(
       longLivedUserToken,
       userId,
     });
+    const linkedPages = getLinkedPages(pages);
+    const candidates = pagesToCandidates(pages);
     const selectedPage = pages.find((page) => page.pageId === summary.selectedPageId);
-    const pageAccessToken = selectedPage?.pageAccessToken ?? "";
-    const businessAccountId = selectedPage?.instagramBusinessAccountId ?? "";
+    const selectedCandidate = candidates.find(
+      (candidate) => candidate.pageId === summary.selectedPageId
+    );
 
-    if (!selectedPage) {
+    if (!selectedCandidate) {
+      const alternativeCandidates = candidates.filter(
+        (candidate) => candidate.pageId !== summary.selectedPageId
+      );
+      const fallbackLinkedPages = linkedPages.filter(
+        (page) => page.pageId !== summary.selectedPageId
+      );
+
+      if (alternativeCandidates.length > 0) {
+        await markInstagramConnectionState(userId, {
+          instagramConnectionStatus: "selection_required",
+          instagramConnectionErrorCode: "",
+          instagramCandidateAccounts: alternativeCandidates,
+          instagramAccessToken: "",
+          ...buildSelectedPagePatch(null),
+        });
+        return null;
+      }
+
+      if (selectedPage?.instagramBusinessAccountId || fallbackLinkedPages.length > 0) {
+        const reconnectPage =
+          selectedPage?.instagramBusinessAccountId
+            ? selectedPage
+            : fallbackLinkedPages.length === 1
+              ? fallbackLinkedPages[0]
+              : null;
+        await markInstagramConnectionState(userId, {
+          instagramConnectionStatus: "needs_reconnect",
+          instagramConnectionErrorCode: "missing_page_access_token",
+          instagramCandidateAccounts: [],
+          instagramAccessToken: "",
+          ...buildSelectedPagePatch(reconnectPage),
+        });
+        return null;
+      }
+
       await markInstagramConnectionState(userId, {
         instagramConnectionStatus: "missing_page_linkage",
         instagramConnectionErrorCode: "missing_page_linkage",
         instagramAccessToken: "",
+        instagramCandidateAccounts: [],
+        ...buildSelectedPagePatch(null),
       });
       return null;
     }
 
-    if (!businessAccountId) {
-      console.warn("[flowcart:instagram:resolver]", {
-        stage: "selected_page_missing_ig_link",
-        userIdPrefix: userId.slice(0, 8),
-        pageId: summary.selectedPageId,
-      });
-      await markInstagramConnectionState(userId, {
-        instagramConnectionStatus: "missing_instagram_business_account",
-        instagramConnectionErrorCode: "missing_instagram_business_account",
-        instagramAccessToken: "",
-      });
-      return null;
-    }
-
-    if (!pageAccessToken) {
+    const selectedPageResolved =
+      selectedPage ?? pages.find((page) => page.pageId === selectedCandidate.pageId);
+    if (!selectedPageResolved?.pageAccessToken) {
       console.warn("[flowcart:instagram:resolver]", {
         stage: "selected_page_missing_access_token",
         userIdPrefix: userId.slice(0, 8),
@@ -661,25 +884,28 @@ export async function getActiveInstagramCredentials(
         instagramConnectionStatus: "needs_reconnect",
         instagramConnectionErrorCode: "missing_page_access_token",
         instagramAccessToken: "",
+        instagramCandidateAccounts: [],
+        ...buildSelectedPagePatch(selectedPageResolved ?? null),
       });
       return null;
     }
 
     await saveInstagramConnectionState(userId, {
-      instagramAccessToken: encryptInstagramToken(pageAccessToken),
-      instagramBusinessAccountId: businessAccountId,
-      instagramPageName: selectedPage.pageName || summary.selectedPageName,
+      instagramAccessToken: encryptInstagramToken(selectedPageResolved.pageAccessToken),
+      instagramBusinessAccountId: selectedCandidate.instagramBusinessAccountId,
+      instagramPageName: selectedPageResolved.pageName || summary.selectedPageName,
       instagramConnectionStatus: "connected",
       instagramConnectionErrorCode: "",
       instagramLastValidatedAt: new Date().toISOString(),
+      instagramCandidateAccounts: [],
     });
 
     return buildOauthCredentials({
       source: "oauth_derived_page_token",
-      pageId: summary.selectedPageId,
-      pageName: selectedPage.pageName || summary.selectedPageName,
-      instagramBusinessAccountId: businessAccountId,
-      publishAccessToken: pageAccessToken,
+      pageId: selectedCandidate.pageId,
+      pageName: selectedPageResolved.pageName || summary.selectedPageName,
+      instagramBusinessAccountId: selectedCandidate.instagramBusinessAccountId,
+      publishAccessToken: selectedPageResolved.pageAccessToken,
       hasLongLivedUserToken: true,
     });
   } catch (error) {
@@ -778,13 +1004,15 @@ export async function validateInstagramConnection(
       longLivedUserToken,
       userId,
     });
+    const linkedPages = getLinkedPages(pages);
     const candidates = pagesToCandidates(pages);
 
-    if (!pages.length) {
+    if (!linkedPages.length) {
       const connection = await markInstagramConnectionState(userId, {
         instagramConnectionStatus: "missing_page_linkage",
         instagramConnectionErrorCode: "missing_page_linkage",
         instagramAccessToken: "",
+        ...buildSelectedPagePatch(null),
         instagramCandidateAccounts: [],
       });
       logPersistedConnection({
@@ -795,20 +1023,39 @@ export async function validateInstagramConnection(
       return connection;
     }
 
-    if (candidates.length > 1 && !summary.selectedPageId) {
-      const connection = await markInstagramConnectionState(userId, {
-        instagramConnectionStatus: "selection_required",
-        instagramConnectionErrorCode: "",
-        instagramCandidateAccounts: candidates,
-        instagramAccessToken: "",
-        instagramBusinessAccountId: "",
-      });
-      logPersistedConnection({
-        stage: "validation_persisted",
-        userId,
-        connection,
-      });
-      return connection;
+    if (!summary.selectedPageId) {
+      if ((summary.status === "selection_required" && candidates.length > 0) || candidates.length > 1) {
+        const connection = await markInstagramConnectionState(userId, {
+          instagramConnectionStatus: "selection_required",
+          instagramConnectionErrorCode: "",
+          instagramCandidateAccounts: candidates,
+          instagramAccessToken: "",
+          ...buildSelectedPagePatch(null),
+        });
+        logPersistedConnection({
+          stage: "validation_persisted",
+          userId,
+          connection,
+        });
+        return connection;
+      }
+
+      if (!candidates.length) {
+        const reconnectPage = linkedPages.length === 1 ? linkedPages[0] : null;
+        const connection = await markInstagramConnectionState(userId, {
+          instagramConnectionStatus: "needs_reconnect",
+          instagramConnectionErrorCode: "missing_page_access_token",
+          instagramCandidateAccounts: [],
+          instagramAccessToken: "",
+          ...buildSelectedPagePatch(reconnectPage),
+        });
+        logPersistedConnection({
+          stage: "validation_persisted",
+          userId,
+          connection,
+        });
+        return connection;
+      }
     }
 
     const selectedPageId =
@@ -816,55 +1063,62 @@ export async function validateInstagramConnection(
     const selectedPage = pages.find((page) => page.pageId === selectedPageId);
     const selectedCandidate = candidates.find((candidate) => candidate.pageId === selectedPageId);
 
-    if (!selectedPage) {
+    if (!selectedCandidate) {
+      const alternativeCandidates = candidates.filter(
+        (candidate) => candidate.pageId !== selectedPageId
+      );
+      const fallbackLinkedPages = linkedPages.filter((page) => page.pageId !== selectedPageId);
+
+      if (alternativeCandidates.length > 0) {
+        const connection = await markInstagramConnectionState(userId, {
+          instagramConnectionStatus: "selection_required",
+          instagramConnectionErrorCode: "",
+          instagramCandidateAccounts: alternativeCandidates,
+          instagramAccessToken: "",
+          ...buildSelectedPagePatch(null),
+        });
+        logPersistedConnection({
+          stage: "validation_persisted",
+          userId,
+          connection,
+        });
+        return connection;
+      }
+
+      if (selectedPage?.instagramBusinessAccountId || fallbackLinkedPages.length > 0) {
+        logResolverWarn("selected_page_missing_access_token", {
+          userId,
+          details: {
+            pageId: selectedPageId,
+          },
+        });
+        const reconnectPage =
+          selectedPage?.instagramBusinessAccountId
+            ? selectedPage
+            : fallbackLinkedPages.length === 1
+              ? fallbackLinkedPages[0]
+              : null;
+        const connection = await markInstagramConnectionState(userId, {
+          instagramConnectionStatus: "needs_reconnect",
+          instagramConnectionErrorCode: "missing_page_access_token",
+          instagramCandidateAccounts: [],
+          instagramAccessToken: "",
+          ...buildSelectedPagePatch(reconnectPage),
+        });
+        logPersistedConnection({
+          stage: "validation_persisted",
+          userId,
+          connection,
+        });
+        return connection;
+      }
+
       const connection = await markInstagramConnectionState(userId, {
         instagramConnectionStatus: "missing_page_linkage",
         instagramConnectionErrorCode: "missing_page_linkage",
-        instagramCandidateAccounts: candidates,
+        instagramCandidateAccounts: [],
         instagramAccessToken: "",
-      });
-      logPersistedConnection({
-        stage: "validation_persisted",
-        userId,
-        connection,
-      });
-      return connection;
-    }
-
-    if (!selectedPage.instagramBusinessAccountId) {
-      logResolverWarn("selected_page_missing_ig_link", {
-        userId,
-        details: {
-          pageId: selectedPageId,
-        },
-      });
-      const connection = await markInstagramConnectionState(userId, {
-        instagramConnectionStatus: "missing_instagram_business_account",
-        instagramConnectionErrorCode: "missing_instagram_business_account",
-        instagramCandidateAccounts: candidates,
-        instagramAccessToken: "",
-      });
-      logPersistedConnection({
-        stage: "validation_persisted",
-        userId,
-        connection,
-      });
-      return connection;
-    }
-
-    const pageAccessToken = selectedPage.pageAccessToken;
-    if (!pageAccessToken) {
-      logResolverWarn("selected_page_missing_access_token", {
-        userId,
-        details: {
-          pageId: selectedPageId,
-        },
-      });
-      const connection = await markInstagramConnectionState(userId, {
-        instagramConnectionStatus: "needs_reconnect",
-        instagramConnectionErrorCode: "missing_page_access_token",
-        instagramCandidateAccounts: candidates,
-        instagramAccessToken: "",
+        ...buildSelectedPagePatch(null),
       });
       logPersistedConnection({
         stage: "validation_persisted",
@@ -878,10 +1132,10 @@ export async function validateInstagramConnection(
       userId,
       longLivedUserToken,
       pageId: selectedPageId,
-      pageName: selectedCandidate?.pageName || selectedPage.pageName || summary.selectedPageName,
-      pageAccessToken,
-      instagramBusinessAccountId:
-        selectedCandidate?.instagramBusinessAccountId || selectedPage.instagramBusinessAccountId,
+      pageName:
+        selectedCandidate.pageName || selectedPage?.pageName || summary.selectedPageName,
+      pageAccessToken: selectedPage?.pageAccessToken ?? "",
+      instagramBusinessAccountId: selectedCandidate.instagramBusinessAccountId,
       tokenExpiresAt: settings.instagramTokenExpiresAt ?? "",
     });
     logPersistedConnection({
