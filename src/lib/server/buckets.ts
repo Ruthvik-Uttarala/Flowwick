@@ -75,7 +75,9 @@ function isMissingTrashColumnError(message: string | undefined): boolean {
   const normalized = (message ?? "").toLowerCase();
   return (
     normalized.includes("could not find the 'trashed_at' column") ||
-    normalized.includes("could not find the 'delete_after_at' column")
+    normalized.includes("could not find the 'delete_after_at' column") ||
+    normalized.includes("column buckets.trashed_at does not exist") ||
+    normalized.includes("column buckets.delete_after_at does not exist")
   );
 }
 
