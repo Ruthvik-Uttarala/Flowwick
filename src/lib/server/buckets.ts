@@ -204,6 +204,14 @@ function bucketToRow(bucket: ProductBucket, userId: string) {
   };
 }
 
+function bucketToLegacyRow(bucket: ProductBucket, userId: string) {
+  const row = bucketToRow(bucket, userId);
+  const { trashed_at: _trashedAt, delete_after_at: _deleteAfterAt, ...legacyRow } = row;
+  void _trashedAt;
+  void _deleteAfterAt;
+  return legacyRow;
+}
+
 function createEmptyBucketRecord(): ProductBucket {
   const now = new Date().toISOString();
   const bucket: ProductBucket = {
@@ -386,6 +394,22 @@ export async function createBucket(userId: string): Promise<ProductBucket> {
     .select()
     .single();
 
+  if (error && isMissingTrashColumnError(error.message)) {
+    const legacyRow = bucketToLegacyRow(created, userId);
+    const { data: legacyData, error: legacyError } = await getSupabaseAdmin()
+      .from("buckets")
+      .insert({ ...legacyRow, created_at: created.createdAt })
+      .select()
+      .single();
+
+    if (legacyError) {
+      console.error("[merchflow:buckets] Failed to create legacy bucket:", legacyError.message);
+      throw new Error(`Failed to create bucket: ${legacyError.message}`);
+    }
+
+    return mapDbBucketRowToBucket(legacyData as DbBucketRow);
+  }
+
   if (error) {
     console.error("[merchflow:buckets] Failed to create bucket:", error.message);
     throw new Error(`Failed to create bucket: ${error.message}`);
@@ -465,6 +489,29 @@ export async function updateBucket(
     .is("trashed_at", null)
     .select()
     .single();
+
+  if (error && isMissingTrashColumnError(error.message)) {
+    const legacyRow = bucketToLegacyRow(updated, userId);
+    const { data: legacyData, error: legacyError } = await getSupabaseAdmin()
+      .from("buckets")
+      .update(legacyRow)
+      .eq("id", bucketId)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (legacyError) {
+      console.error("[merchflow:buckets] Failed to update legacy bucket:", legacyError.message);
+      throw new Error(`Failed to update bucket: ${legacyError.message}`);
+    }
+
+    const legacyBucket = mapDbBucketRowToBucket(legacyData as DbBucketRow);
+    if (legacyBucket.trashedAt) {
+      return null;
+    }
+
+    return legacyBucket;
+  }
 
   if (error) {
     console.error("[merchflow:buckets] Failed to update bucket:", error.message);
