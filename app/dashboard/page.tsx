@@ -746,6 +746,7 @@ export default function DashboardPage() {
               return (
                 <div
                   key={`trash-${bucket.id}`}
+                  data-trash-bucket-id={bucket.id}
                   className="rounded-2xl border border-[#2B1B12]/10 bg-white/70 p-4"
                 >
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -759,6 +760,7 @@ export default function DashboardPage() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
+                        data-testid={`trash-restore-${bucket.id}`}
                         onClick={() => restoreBucketAction(bucket.id)}
                         disabled={actionsByBucket[bucket.id]?.restoring || isRunningGoAll}
                         className="inline-flex items-center gap-2 rounded-xl border border-green-600/25 bg-green-600/10 px-3 py-2 text-sm font-semibold text-green-700 transition hover:bg-green-600/20 disabled:cursor-not-allowed disabled:opacity-60"
@@ -772,6 +774,7 @@ export default function DashboardPage() {
                       </button>
                       <button
                         type="button"
+                        data-testid={`trash-delete-${bucket.id}`}
                         onClick={() => permanentlyDeleteBucketAction(bucket.id)}
                         disabled={actionsByBucket[bucket.id]?.deleting || isRunningGoAll}
                         className="inline-flex items-center gap-2 rounded-xl border border-red-500/35 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"

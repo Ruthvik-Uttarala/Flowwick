@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/src/lib/server/supabase-admin";
 
 export const bucketStatusSchema = z.enum(BUCKET_STATUSES);
 export const TRASH_RETENTION_DAYS = 30;
+const LEGACY_TRASH_PREFIX = "[flowcart-trash:";
 
 export const bucketSchema = z.object({
   id: z.string().min(1),
@@ -70,12 +71,88 @@ function normalizeTimestamp(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
+function isMissingTrashColumnError(message: string | undefined): boolean {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("could not find the 'trashed_at' column") ||
+    normalized.includes("could not find the 'delete_after_at' column")
+  );
+}
+
+function parseLegacyTrashEnvelope(rawErrorMessage: string): {
+  trashedAt: string;
+  deleteAfterAt: string;
+  errorMessage: string;
+  isLegacyTrashed: boolean;
+} {
+  const message = rawErrorMessage ?? "";
+  if (!message.startsWith(LEGACY_TRASH_PREFIX)) {
+    return {
+      trashedAt: "",
+      deleteAfterAt: "",
+      errorMessage: message,
+      isLegacyTrashed: false,
+    };
+  }
+
+  const closeIndex = message.indexOf("]");
+  if (closeIndex < 0) {
+    return {
+      trashedAt: "",
+      deleteAfterAt: "",
+      errorMessage: message,
+      isLegacyTrashed: false,
+    };
+  }
+
+  const header = message.slice(LEGACY_TRASH_PREFIX.length, closeIndex);
+  const [trashedAtRaw, deleteAfterAtRaw] = header.split("|");
+  const trashedAt = normalizeTimestamp(trashedAtRaw);
+  const deleteAfterAt = normalizeTimestamp(deleteAfterAtRaw);
+  if (!trashedAt || !deleteAfterAt) {
+    return {
+      trashedAt: "",
+      deleteAfterAt: "",
+      errorMessage: message,
+      isLegacyTrashed: false,
+    };
+  }
+
+  const suffix = message.slice(closeIndex + 1);
+  const errorMessage = suffix.startsWith("\n") ? suffix.slice(1) : suffix;
+
+  return {
+    trashedAt,
+    deleteAfterAt,
+    errorMessage,
+    isLegacyTrashed: true,
+  };
+}
+
+function buildLegacyTrashEnvelope(
+  errorMessage: string,
+  trashedAt: string,
+  deleteAfterAt: string
+): string {
+  const cleanError = errorMessage.trim();
+  if (cleanError.length === 0) {
+    return `${LEGACY_TRASH_PREFIX}${trashedAt}|${deleteAfterAt}]`;
+  }
+  return `${LEGACY_TRASH_PREFIX}${trashedAt}|${deleteAfterAt}]\n${cleanError}`;
+}
+
 function asNullableTimestamp(value: string): string | null {
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : null;
 }
 
 export function mapDbBucketRowToBucket(row: DbBucketRow): ProductBucket {
+  const legacyTrash = parseLegacyTrashEnvelope(row.error_message ?? "");
+  const columnTrashedAt = normalizeTimestamp(row.trashed_at);
+  const columnDeleteAfterAt = normalizeTimestamp(row.delete_after_at);
+  const trashedAt = columnTrashedAt || legacyTrash.trashedAt;
+  const deleteAfterAt = columnDeleteAfterAt || legacyTrash.deleteAfterAt;
+
   return {
     id: row.id,
     titleRaw: row.title_raw ?? "",
@@ -94,9 +171,9 @@ export function mapDbBucketRowToBucket(row: DbBucketRow): ProductBucket {
     instagramPublished: row.instagram_published ?? false,
     instagramPostId: row.instagram_post_id ?? "",
     instagramPostUrl: row.instagram_post_url ?? "",
-    errorMessage: row.error_message ?? "",
-    trashedAt: normalizeTimestamp(row.trashed_at),
-    deleteAfterAt: normalizeTimestamp(row.delete_after_at),
+    errorMessage: legacyTrash.errorMessage,
+    trashedAt,
+    deleteAfterAt,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -176,6 +253,51 @@ async function cleanupExpiredTrashedBuckets(userId: string): Promise<void> {
     .not("delete_after_at", "is", null)
     .lte("delete_after_at", nowIso);
 
+  if (!error) {
+    return;
+  }
+
+  if (isMissingTrashColumnError(error.message)) {
+    const { data: legacyRows, error: legacyReadError } = await getSupabaseAdmin()
+      .from("buckets")
+      .select("id,error_message")
+      .eq("user_id", userId);
+
+    if (legacyReadError) {
+      console.error(
+        "[merchflow:buckets] Failed to cleanup legacy trashed buckets:",
+        legacyReadError.message
+      );
+      return;
+    }
+
+    const expiredIds = (legacyRows as Array<{ id: string; error_message: string }>)
+      .filter((row) => {
+        const legacyTrash = parseLegacyTrashEnvelope(row.error_message ?? "");
+        const deleteAfter = Date.parse(legacyTrash.deleteAfterAt);
+        return legacyTrash.isLegacyTrashed && Number.isFinite(deleteAfter) && deleteAfter <= Date.now();
+      })
+      .map((row) => row.id);
+
+    if (expiredIds.length === 0) {
+      return;
+    }
+
+    const { error: legacyDeleteError } = await getSupabaseAdmin()
+      .from("buckets")
+      .delete()
+      .eq("user_id", userId)
+      .in("id", expiredIds);
+
+    if (legacyDeleteError) {
+      console.error(
+        "[merchflow:buckets] Failed to delete expired legacy trashed buckets:",
+        legacyDeleteError.message
+      );
+    }
+    return;
+  }
+
   if (error) {
     console.error("[merchflow:buckets] Failed to cleanup trashed buckets:", error.message);
   }
@@ -190,6 +312,23 @@ export async function getBuckets(userId: string): Promise<ProductBucket[]> {
     .eq("user_id", userId)
     .is("trashed_at", null)
     .order("created_at", { ascending: true });
+
+  if (error && isMissingTrashColumnError(error.message)) {
+    const { data: legacyData, error: legacyError } = await getSupabaseAdmin()
+      .from("buckets")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (legacyError) {
+      console.error("[merchflow:buckets] Failed to load legacy buckets:", legacyError.message);
+      return [];
+    }
+
+    return (legacyData as DbBucketRow[])
+      .map(mapDbBucketRowToBucket)
+      .filter((bucket) => !bucket.trashedAt);
+  }
 
   if (error) {
     console.error("[merchflow:buckets] Failed to load buckets:", error.message);
@@ -208,6 +347,24 @@ export async function getTrashedBuckets(userId: string): Promise<ProductBucket[]
     .eq("user_id", userId)
     .not("trashed_at", "is", null)
     .order("trashed_at", { ascending: false });
+
+  if (error && isMissingTrashColumnError(error.message)) {
+    const { data: legacyData, error: legacyError } = await getSupabaseAdmin()
+      .from("buckets")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+    if (legacyError) {
+      console.error("[merchflow:buckets] Failed to load legacy trashed buckets:", legacyError.message);
+      return [];
+    }
+
+    return (legacyData as DbBucketRow[])
+      .map(mapDbBucketRowToBucket)
+      .filter((bucket) => Boolean(bucket.trashedAt))
+      .sort((left, right) => right.trashedAt.localeCompare(left.trashedAt));
+  }
 
   if (error) {
     console.error("[merchflow:buckets] Failed to load trashed buckets:", error.message);
@@ -259,6 +416,26 @@ export async function getBucketById(
   }
 
   const { data, error } = await query.single();
+
+  if (error && isMissingTrashColumnError(error.message)) {
+    const { data: legacyData, error: legacyError } = await getSupabaseAdmin()
+      .from("buckets")
+      .select("*")
+      .eq("id", bucketId)
+      .eq("user_id", userId)
+      .single();
+
+    if (legacyError || !legacyData) {
+      return null;
+    }
+
+    const bucket = mapDbBucketRowToBucket(legacyData as DbBucketRow);
+    if (!options?.includeTrashed && bucket.trashedAt) {
+      return null;
+    }
+
+    return bucket;
+  }
 
   if (error || !data) {
     return null;
@@ -354,6 +531,27 @@ export async function moveBucketToTrash(
     .select()
     .single();
 
+  if (error && isMissingTrashColumnError(error.message)) {
+    const { data: legacyData, error: legacyError } = await getSupabaseAdmin()
+      .from("buckets")
+      .update({
+        error_message: buildLegacyTrashEnvelope(current.errorMessage, trashedAt, deleteAfterAt),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", bucketId)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (legacyError || !legacyData) {
+      const legacyMessage = legacyError?.message ?? "Unknown legacy storage failure.";
+      console.error("[merchflow:buckets] Failed to move bucket to legacy trash:", legacyMessage);
+      throw new Error(`Failed to move bucket to trash: ${legacyMessage}`);
+    }
+
+    return mapDbBucketRowToBucket(legacyData as DbBucketRow);
+  }
+
   if (error || !data) {
     if (error) {
       console.error("[merchflow:buckets] Failed to move bucket to trash:", error.message);
@@ -388,6 +586,27 @@ export async function restoreBucketFromTrash(
     .not("trashed_at", "is", null)
     .select()
     .single();
+
+  if (error && isMissingTrashColumnError(error.message)) {
+    const { data: legacyData, error: legacyError } = await getSupabaseAdmin()
+      .from("buckets")
+      .update({
+        error_message: current.errorMessage,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", bucketId)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (legacyError || !legacyData) {
+      const legacyMessage = legacyError?.message ?? "Unknown legacy restore failure.";
+      console.error("[merchflow:buckets] Failed to restore legacy bucket:", legacyMessage);
+      throw new Error(`Failed to restore bucket: ${legacyMessage}`);
+    }
+
+    return mapDbBucketRowToBucket(legacyData as DbBucketRow);
+  }
 
   if (error || !data) {
     if (error) {
