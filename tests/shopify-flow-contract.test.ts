@@ -123,6 +123,14 @@ vi.mock("@/src/lib/server/adapters/shopify", () => ({
       shopifyImageUrl: "https://cdn.example/hat.jpg",
     };
   }),
+  updateShopifyProductArtifact: vi.fn(async () => ({
+    shopifyCreated: true,
+    shopifyProductId: "gid://shopify/Product/1",
+    shopifyProductUrl: "https://smbauto.myshopify.com/products/flowcart-hat",
+    adapterMode: "live" as const,
+    errorMessage: "",
+    shopifyImageUrl: "https://cdn.example/hat.jpg",
+  })),
 }));
 
 vi.mock("@/src/lib/server/adapters/instagram", () => ({
@@ -132,6 +140,14 @@ vi.mock("@/src/lib/server/adapters/instagram", () => ({
     instagramPostUrl: "https://instagram.example/p/1",
     adapterMode: "live" as const,
     errorMessage: "",
+  })),
+  updateInstagramPostArtifact: vi.fn(async () => ({
+    instagramUpdated: false,
+    instagramPostId: "ig-post-1",
+    instagramPostUrl: "https://instagram.example/p/1",
+    outcome: "unsupported" as const,
+    errorMessage:
+      "Instagram does not allow editing this published post in-place for the current media path. FlowCart kept the original post and did not create a duplicate.",
   })),
 }));
 

@@ -199,6 +199,64 @@ describe("bucket trash lifecycle server behavior", () => {
     vi.useRealTimers();
   });
 
+  it("moves empty buckets to trash with the same retention window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-20T12:00:00.000Z"));
+
+    const { getSupabaseAdmin } = await import("@/src/lib/server/supabase-admin");
+    const cleanup = createCleanupQuery();
+    const cleanupDuringLookup = createCleanupQuery();
+    const loadBucket = createGetBucketQuery(makeDbBucketRow({ status: "EMPTY", error_message: "" }));
+    const updatedRow = makeDbBucketRow({
+      status: "EMPTY",
+      error_message: "",
+      trashed_at: "2026-04-20T12:00:00.000Z",
+      delete_after_at: "2026-05-20T12:00:00.000Z",
+    });
+    const updateBucket = createUpdateWithIsQuery(updatedRow);
+
+    let callCount = 0;
+    vi.mocked(getSupabaseAdmin).mockReturnValue({
+      from: vi.fn(() => {
+        callCount += 1;
+        if (callCount === 1) return cleanup.query;
+        if (callCount === 2) return cleanupDuringLookup.query;
+        if (callCount === 3) return loadBucket.query;
+        return updateBucket.query;
+      }),
+    } as never);
+
+    const { moveBucketToTrash } = await import("@/src/lib/server/buckets");
+    const result = await moveBucketToTrash("bucket-1", "user-1");
+
+    expect(result?.status).toBe("EMPTY");
+    expect(result?.trashedAt).toBe("2026-04-20T12:00:00.000Z");
+    expect(result?.deleteAfterAt).toBe("2026-05-20T12:00:00.000Z");
+    vi.useRealTimers();
+  });
+
+  it("rejects processing buckets for trashing", async () => {
+    const { getSupabaseAdmin } = await import("@/src/lib/server/supabase-admin");
+    const cleanup = createCleanupQuery();
+    const cleanupDuringLookup = createCleanupQuery();
+    const loadBucket = createGetBucketQuery(makeDbBucketRow({ status: "PROCESSING" }));
+
+    let callCount = 0;
+    vi.mocked(getSupabaseAdmin).mockReturnValue({
+      from: vi.fn(() => {
+        callCount += 1;
+        if (callCount === 1) return cleanup.query;
+        if (callCount === 2) return cleanupDuringLookup.query;
+        return loadBucket.query;
+      }),
+    } as never);
+
+    const { moveBucketToTrash } = await import("@/src/lib/server/buckets");
+    await expect(moveBucketToTrash("bucket-1", "user-1")).rejects.toThrow(
+      "Only empty or failed buckets can be moved to trash."
+    );
+  });
+
   it("restores trashed buckets by clearing lifecycle timestamps", async () => {
     const { getSupabaseAdmin } = await import("@/src/lib/server/supabase-admin");
     const cleanup = createCleanupQuery();

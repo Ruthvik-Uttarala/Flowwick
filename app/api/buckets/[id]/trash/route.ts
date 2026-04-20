@@ -41,7 +41,7 @@ export async function POST(request: Request, context: ParamsContext) {
     const message =
       error instanceof Error ? error.message : "Failed to move bucket to trash.";
     return errorResponse(message, {
-      status: message.includes("Only failed buckets") ? 400 : 500,
+      status: message.includes("Only empty or failed buckets") ? 400 : 500,
     });
   }
 }

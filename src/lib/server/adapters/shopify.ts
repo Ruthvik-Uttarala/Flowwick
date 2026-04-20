@@ -55,6 +55,52 @@ interface ShopifyProductQuery {
   } | null;
 }
 
+interface ShopifyProductUpdateMutation {
+  productUpdate?: {
+    product?: {
+      id?: string | null;
+    } | null;
+    userErrors?: ShopifyUserError[] | null;
+  } | null;
+}
+
+interface ShopifyProductForUpdateQuery {
+  product?: {
+    id?: string | null;
+    handle?: string | null;
+    onlineStoreUrl?: string | null;
+    media?: {
+      nodes?: Array<{
+        image?: { url?: string | null } | null;
+      }>;
+    } | null;
+    variants?: {
+      nodes?: Array<{
+        id?: string | null;
+        inventoryItem?: { id?: string | null } | null;
+      }>;
+    } | null;
+  } | null;
+}
+
+interface ShopifyVariantBulkUpdateMutation {
+  productVariantsBulkUpdate?: {
+    userErrors?: ShopifyUserError[] | null;
+  } | null;
+}
+
+interface ShopifyLocationsQuery {
+  locations?: {
+    nodes?: Array<{ id?: string | null }>;
+  } | null;
+}
+
+interface ShopifyInventorySetQuantitiesMutation {
+  inventorySetQuantities?: {
+    userErrors?: ShopifyUserError[] | null;
+  } | null;
+}
+
 const CREATE_PRODUCT_MUTATION = `
   mutation CreateFlowCartProduct($input: ProductSetInput!, $synchronous: Boolean!) {
     productSet(input: $input, synchronous: $synchronous) {
@@ -115,6 +161,79 @@ const GET_PRODUCT_DETAILS_QUERY = `
   }
 `;
 
+const GET_PRODUCT_FOR_UPDATE_QUERY = `
+  query GetProductForUpdate($id: ID!) {
+    product(id: $id) {
+      id
+      handle
+      onlineStoreUrl
+      media(first: 1) {
+        nodes {
+          ... on MediaImage {
+            image {
+              url
+            }
+          }
+        }
+      }
+      variants(first: 1) {
+        nodes {
+          id
+          inventoryItem {
+            id
+          }
+        }
+      }
+    }
+  }
+`;
+
+const UPDATE_PRODUCT_MUTATION = `
+  mutation UpdateFlowCartProduct($input: ProductUpdateInput!) {
+    productUpdate(product: $input) {
+      product {
+        id
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const UPDATE_VARIANT_PRICE_MUTATION = `
+  mutation UpdateFlowCartVariantPrice($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+    productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const GET_LOCATIONS_QUERY = `
+  query GetLocationsForInventory {
+    locations(first: 1) {
+      nodes {
+        id
+      }
+    }
+  }
+`;
+
+const SET_INVENTORY_QUANTITY_MUTATION = `
+  mutation SetFlowCartInventoryQuantity($input: InventorySetQuantitiesInput!) {
+    inventorySetQuantities(input: $input) {
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
 function buildFailure(message: string): ShopifyLaunchArtifact {
   return {
     shopifyCreated: false,
@@ -143,6 +262,10 @@ function normalizeUserErrors(errors: ShopifyUserError[] | null | undefined): str
 
 function pickPrimaryImageUrl(imageUrls: string[]): string {
   return imageUrls.find((url) => hasPublicUrl(url))?.trim() ?? "";
+}
+
+function toShopifyPrice(price: number): number {
+  return Number(price.toFixed(2));
 }
 
 function pickOnlineStorePublication(
@@ -233,7 +356,7 @@ export async function createShopifyProductArtifact(input: {
                   name: "Default Title",
                 },
               ],
-              price: Number(price.toFixed(2)),
+              price: toShopifyPrice(price),
             },
           ],
         },
@@ -306,5 +429,190 @@ export async function createShopifyProductArtifact(input: {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error.";
     return buildFailure(`Shopify product creation failed: ${message}`);
+  }
+}
+
+export async function updateShopifyProductArtifact(input: {
+  payload: LaunchPayload;
+  settings: ConnectionSettings;
+  existingProductId: string;
+}): Promise<ShopifyLaunchArtifact> {
+  const storeDomain = normalizeStoreDomain(input.settings.shopifyStoreDomain);
+  if (!storeDomain) {
+    return buildFailure("Shopify store domain is missing.");
+  }
+
+  const adminToken = input.settings.shopifyAdminToken.trim();
+  if (!adminToken) {
+    return buildFailure("Shopify authorization is required before update.");
+  }
+
+  const existingProductId = input.existingProductId.trim();
+  if (!existingProductId) {
+    return buildFailure("Shopify product id is missing for update.");
+  }
+
+  const title = input.payload.title.trim();
+  const descriptionHtml = input.payload.description.trim().replace(/\n/g, "<br />");
+  const quantity = Number.isInteger(input.payload.quantity) ? input.payload.quantity : -1;
+  const price = Number.isFinite(input.payload.price) ? input.payload.price : NaN;
+  const imageUrl = pickPrimaryImageUrl(input.payload.imageUrls);
+
+  if (!title) {
+    return buildFailure("Shopify product title is required.");
+  }
+  if (!Number.isFinite(price) || price < 0) {
+    return buildFailure("Shopify product price must be a valid non-negative number.");
+  }
+  if (!Number.isInteger(quantity) || quantity <= 0) {
+    return buildFailure("Shopify product quantity must be a positive integer.");
+  }
+
+  try {
+    const beforeUpdate = await fetchShopifyAdminGraphQL<ShopifyProductForUpdateQuery>({
+      shopDomain: storeDomain,
+      adminToken,
+      query: GET_PRODUCT_FOR_UPDATE_QUERY,
+      variables: { id: existingProductId },
+    });
+    const existingProduct = beforeUpdate.product;
+    if (!existingProduct?.id?.trim()) {
+      return buildFailure("Shopify product for this bucket no longer exists.");
+    }
+
+    const updateProductData = await fetchShopifyAdminGraphQL<ShopifyProductUpdateMutation>({
+      shopDomain: storeDomain,
+      adminToken,
+      query: UPDATE_PRODUCT_MUTATION,
+      variables: {
+        input: {
+          id: existingProductId,
+          title,
+          descriptionHtml,
+        },
+      },
+    });
+
+    const productUpdateErrors = normalizeUserErrors(updateProductData.productUpdate?.userErrors);
+    if (productUpdateErrors) {
+      return buildFailure(productUpdateErrors);
+    }
+
+    const variantId = existingProduct.variants?.nodes?.[0]?.id?.trim() ?? "";
+    if (variantId) {
+      const variantUpdateData = await fetchShopifyAdminGraphQL<ShopifyVariantBulkUpdateMutation>({
+        shopDomain: storeDomain,
+        adminToken,
+        query: UPDATE_VARIANT_PRICE_MUTATION,
+        variables: {
+          productId: existingProductId,
+          variants: [
+            {
+              id: variantId,
+              price: toShopifyPrice(price),
+            },
+          ],
+        },
+      });
+
+      const variantErrors = normalizeUserErrors(
+        variantUpdateData.productVariantsBulkUpdate?.userErrors
+      );
+      if (variantErrors) {
+        return buildFailure(variantErrors);
+      }
+    }
+
+    const inventoryItemId = existingProduct.variants?.nodes?.[0]?.inventoryItem?.id?.trim() ?? "";
+    if (inventoryItemId) {
+      const locationsData = await fetchShopifyAdminGraphQL<ShopifyLocationsQuery>({
+        shopDomain: storeDomain,
+        adminToken,
+        query: GET_LOCATIONS_QUERY,
+      });
+      const locationId = locationsData.locations?.nodes?.[0]?.id?.trim() ?? "";
+
+      if (locationId) {
+        const inventoryData =
+          await fetchShopifyAdminGraphQL<ShopifyInventorySetQuantitiesMutation>({
+            shopDomain: storeDomain,
+            adminToken,
+            query: SET_INVENTORY_QUANTITY_MUTATION,
+            variables: {
+              input: {
+                name: "available",
+                reason: "correction",
+                quantities: [
+                  {
+                    inventoryItemId,
+                    locationId,
+                    quantity,
+                  },
+                ],
+              },
+            },
+          });
+
+        const inventoryErrors = normalizeUserErrors(
+          inventoryData.inventorySetQuantities?.userErrors
+        );
+        if (inventoryErrors) {
+          return buildFailure(inventoryErrors);
+        }
+      }
+    }
+
+    if (imageUrl) {
+      await fetchShopifyAdminGraphQL<ShopifyProductSetMutation>({
+        shopDomain: storeDomain,
+        adminToken,
+        query: CREATE_PRODUCT_MUTATION,
+        variables: {
+          synchronous: true,
+          input: {
+            identifier: { id: existingProductId },
+            files: [
+              {
+                originalSource: imageUrl,
+                contentType: "IMAGE",
+                alt: title.slice(0, 512),
+              },
+            ],
+          },
+        },
+      }).catch(() => null);
+    }
+
+    const detailsData = await fetchShopifyAdminGraphQL<ShopifyProductQuery>({
+      shopDomain: storeDomain,
+      adminToken,
+      query: GET_PRODUCT_DETAILS_QUERY,
+      variables: { id: existingProductId },
+    });
+
+    const product = detailsData.product;
+    const productId = product?.id?.trim() ?? existingProductId;
+    const handle = product?.handle?.trim() ?? "";
+    const productUrl =
+      product?.onlineStoreUrl?.trim() ||
+      (handle ? `https://${storeDomain}/products/${handle}` : "");
+    const primaryImageUrl =
+      product?.media?.nodes?.[0]?.image?.url?.trim() || imageUrl;
+
+    if (!productUrl) {
+      return buildFailure("Shopify product was updated but no storefront URL was returned.");
+    }
+
+    return {
+      shopifyCreated: true,
+      shopifyProductId: productId,
+      shopifyProductUrl: productUrl,
+      adapterMode: "live",
+      errorMessage: "",
+      shopifyImageUrl: primaryImageUrl || undefined,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error.";
+    return buildFailure(`Shopify product update failed: ${message}`);
   }
 }

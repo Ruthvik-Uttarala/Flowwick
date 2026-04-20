@@ -110,6 +110,22 @@ export interface BucketPatchPayload {
   price?: number | null;
 }
 
+export type DoneBucketSyncPayload = BucketPatchPayload;
+
+export type InstagramEditCapability =
+  | "updated"
+  | "unsupported"
+  | "failed"
+  | "skipped";
+
+export interface DoneBucketSyncResult {
+  bucket: ProductBucket;
+  shopifyUpdated: boolean;
+  shopifyProductId: string;
+  instagramOutcome: InstagramEditCapability;
+  message: string;
+}
+
 export interface ApiErrorShape {
   message: string;
 }

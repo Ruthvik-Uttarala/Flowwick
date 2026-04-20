@@ -18,6 +18,14 @@ export interface InstagramLaunchArtifact {
   errorMessage: string;
 }
 
+export interface InstagramEditArtifact {
+  instagramUpdated: boolean;
+  instagramPostId: string;
+  instagramPostUrl: string;
+  outcome: "updated" | "unsupported" | "failed" | "skipped";
+  errorMessage: string;
+}
+
 interface InstagramCreateMediaResponse {
   id?: string;
   error?: unknown;
@@ -55,6 +63,10 @@ function buildFailure(message: string): InstagramLaunchArtifact {
     adapterMode: "live",
     errorMessage: message,
   };
+}
+
+function buildEditResult(input: InstagramEditArtifact): InstagramEditArtifact {
+  return input;
 }
 
 function logInstagramPublish(
@@ -590,6 +602,137 @@ export async function publishInstagramPostArtifact(input: {
       graphCode: null,
       graphSubcode: null,
       transient: false,
+    });
+  }
+}
+
+function isUnsupportedInstagramEditFailure(graphMessage: string): boolean {
+  const lowered = graphMessage.toLowerCase();
+  return (
+    lowered.includes("unsupported post request") ||
+    lowered.includes("cannot be edited") ||
+    lowered.includes("not editable") ||
+    lowered.includes("editing this media is not supported") ||
+    lowered.includes("does not allow editing")
+  );
+}
+
+export async function updateInstagramPostArtifact(input: {
+  payload: LaunchPayload;
+  instagramCredentials: ActiveInstagramCredentials | null;
+  instagramPostId: string;
+  instagramPostUrl?: string;
+  shopifyProductUrl?: string;
+}): Promise<InstagramEditArtifact> {
+  const instagramPostId = input.instagramPostId.trim();
+  if (!instagramPostId) {
+    return buildEditResult({
+      instagramUpdated: false,
+      instagramPostId: "",
+      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      outcome: "skipped",
+      errorMessage: "Instagram post id is missing for update.",
+    });
+  }
+
+  if (!isInstagramEnabled()) {
+    return buildEditResult({
+      instagramUpdated: false,
+      instagramPostId,
+      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      outcome: "skipped",
+      errorMessage: "Instagram execution is disabled (INSTAGRAM_ENABLED=false).",
+    });
+  }
+
+  if (!input.instagramCredentials) {
+    return buildEditResult({
+      instagramUpdated: false,
+      instagramPostId,
+      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      outcome: "failed",
+      errorMessage: "Instagram credentials are missing.",
+    });
+  }
+
+  const accessToken = input.instagramCredentials.publishAccessToken.trim();
+  if (!accessToken) {
+    return buildEditResult({
+      instagramUpdated: false,
+      instagramPostId,
+      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      outcome: "failed",
+      errorMessage: "Instagram publish access token is missing.",
+    });
+  }
+
+  const caption = buildInstagramCaption(input.payload, input.shopifyProductUrl);
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/${INSTAGRAM_GRAPH_API_VERSION}/${instagramPostId}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          caption,
+          access_token: accessToken,
+        }).toString(),
+      }
+    );
+
+    const payload = await readInstagramJsonResponse<{ error?: unknown }>(response);
+    const hasGraphError = Boolean(payload && typeof payload === "object" && "error" in payload);
+
+    if (response.ok && !hasGraphError) {
+      console.info("[flowcart:instagram:update]", {
+        outcome: "updated",
+        instagramPostId,
+      });
+      return buildEditResult({
+        instagramUpdated: true,
+        instagramPostId,
+        instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+        outcome: "updated",
+        errorMessage: "",
+      });
+    }
+
+    const normalized = normalizeInstagramGraphError(payload, response.status, "publish");
+    const unsupported = isUnsupportedInstagramEditFailure(normalized.graphMessage);
+    if (unsupported) {
+      const message =
+        "Instagram does not allow editing this published post in-place for the current media path. FlowCart kept the original post and did not create a duplicate.";
+      console.warn("[flowcart:instagram:update]", {
+        outcome: "unsupported",
+        instagramPostId,
+        status: normalized.status,
+        code: normalized.code,
+        subcode: normalized.subcode,
+      });
+      return buildEditResult({
+        instagramUpdated: false,
+        instagramPostId,
+        instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+        outcome: "unsupported",
+        errorMessage: message,
+      });
+    }
+
+    return buildEditResult({
+      instagramUpdated: false,
+      instagramPostId,
+      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      outcome: "failed",
+      errorMessage: normalized.message,
+    });
+  } catch (error) {
+    return buildEditResult({
+      instagramUpdated: false,
+      instagramPostId,
+      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      outcome: "failed",
+      errorMessage: error instanceof Error ? error.message : "Instagram update failed.",
     });
   }
 }

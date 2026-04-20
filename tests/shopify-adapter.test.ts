@@ -172,4 +172,88 @@ describe("shopify adapter", () => {
     expect(serializedVariables).not.toContain("inventoryPolicy");
     expect(serializedVariables).not.toContain("inventoryQuantities");
   });
+
+  it("updates an existing Shopify product id in-place instead of creating a new product", async () => {
+    const { fetchShopifyAdminGraphQL } = await import("@/src/lib/server/shopify");
+    vi.mocked(fetchShopifyAdminGraphQL)
+      .mockResolvedValueOnce({
+        product: {
+          id: "gid://shopify/Product/42",
+          handle: "flowcart-hat",
+          onlineStoreUrl: "https://demo.myshopify.com/products/flowcart-hat",
+          media: { nodes: [{ image: { url: "https://cdn.example/image.jpg" } }] },
+          variants: {
+            nodes: [
+              {
+                id: "gid://shopify/ProductVariant/99",
+                inventoryItem: { id: "gid://shopify/InventoryItem/11" },
+              },
+            ],
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        productUpdate: {
+          product: { id: "gid://shopify/Product/42" },
+          userErrors: [],
+        },
+      })
+      .mockResolvedValueOnce({
+        productVariantsBulkUpdate: { userErrors: [] },
+      })
+      .mockResolvedValueOnce({
+        locations: { nodes: [{ id: "gid://shopify/Location/1" }] },
+      })
+      .mockResolvedValueOnce({
+        inventorySetQuantities: { userErrors: [] },
+      })
+      .mockResolvedValueOnce({
+        productSet: { product: { id: "gid://shopify/Product/42" }, userErrors: [] },
+      })
+      .mockResolvedValueOnce({
+        product: {
+          id: "gid://shopify/Product/42",
+          handle: "flowcart-hat",
+          onlineStoreUrl: "https://demo.myshopify.com/products/flowcart-hat",
+          media: { nodes: [{ image: { url: "https://cdn.example/image-updated.jpg" } }] },
+        },
+      });
+
+    const { updateShopifyProductArtifact } = await import("@/src/lib/server/adapters/shopify");
+    const result = await updateShopifyProductArtifact({
+      payload: {
+        storeDomain: "demo.myshopify.com",
+        shopifyAdminToken: "shpca_live",
+        instagramAccessToken: "ig-token",
+        instagramBusinessAccountId: "1789",
+        title: "FlowCart Hat Updated",
+        description: "Warm wool hat, updated",
+        price: 59.99,
+        quantity: 12,
+        imageUrls: ["https://public.example/hat-updated.jpg"],
+      },
+      settings: {
+        shopifyStoreDomain: "demo.myshopify.com",
+        shopifyAdminToken: "shpca_live",
+        instagramAccessToken: "ig-token",
+        instagramBusinessAccountId: "1789",
+      },
+      existingProductId: "gid://shopify/Product/42",
+    });
+
+    expect(result.shopifyCreated).toBe(true);
+    expect(result.shopifyProductId).toBe("gid://shopify/Product/42");
+    expect(result.shopifyProductUrl).toBe("https://demo.myshopify.com/products/flowcart-hat");
+    expect(fetchShopifyAdminGraphQL).toHaveBeenCalled();
+    expect(fetchShopifyAdminGraphQL).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        query: expect.stringContaining("CreateFlowCartProduct"),
+        variables: expect.objectContaining({
+          input: expect.objectContaining({
+            title: "FlowCart Hat Updated",
+          }),
+        }),
+      })
+    );
+  });
 });

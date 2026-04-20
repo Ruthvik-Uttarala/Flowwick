@@ -530,24 +530,51 @@ export async function patchBucket(
 ): Promise<ProductBucket | null> {
   const parsedPatch = bucketPatchSchema.parse(patch);
 
-  return updateBucket(bucketId, userId, (bucket) => {
-    const changed = {
-      ...bucket,
-      ...parsedPatch,
-      errorMessage: "",
-      shopifyCreated: false,
-      shopifyProductId: "",
-      shopifyProductUrl: "",
-      instagramPublished: false,
-      instagramPostId: "",
-      instagramPostUrl: "",
+  return updateBucket(bucketId, userId, (bucket) => applyBucketPatch(bucket, parsedPatch));
+}
+
+export function applyBucketPatch(
+  bucket: ProductBucket,
+  parsedPatch: BucketPatchPayload
+): ProductBucket {
+  const nextBase = {
+    ...bucket,
+    ...parsedPatch,
+    errorMessage: "",
+  };
+
+  // DONE buckets are launched artifacts. Keep external identity fields stable while editing local fields.
+  if (bucket.status === "DONE") {
+    const launchedDraft = {
+      ...nextBase,
+      titleEnhanced:
+        parsedPatch.titleRaw !== undefined ? parsedPatch.titleRaw : nextBase.titleEnhanced,
+      descriptionEnhanced:
+        parsedPatch.descriptionRaw !== undefined
+          ? parsedPatch.descriptionRaw
+          : nextBase.descriptionEnhanced,
     };
 
     return {
-      ...changed,
-      status: getStableBucketStatus(changed),
+      ...launchedDraft,
+      status: getStableBucketStatus(launchedDraft),
     };
-  });
+  }
+
+  const changed = {
+    ...nextBase,
+    shopifyCreated: false,
+    shopifyProductId: "",
+    shopifyProductUrl: "",
+    instagramPublished: false,
+    instagramPostId: "",
+    instagramPostUrl: "",
+  };
+
+  return {
+    ...changed,
+    status: getStableBucketStatus(changed),
+  };
 }
 
 export async function moveBucketToTrash(
@@ -561,8 +588,8 @@ export async function moveBucketToTrash(
     return null;
   }
 
-  if (current.status !== "FAILED") {
-    throw new Error("Only failed buckets can be moved to trash.");
+  if (!(current.status === "FAILED" || current.status === "EMPTY")) {
+    throw new Error("Only empty or failed buckets can be moved to trash.");
   }
 
   const { trashedAt, deleteAfterAt } = buildTrashLifecycleWindow();

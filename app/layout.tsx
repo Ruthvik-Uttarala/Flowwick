@@ -15,13 +15,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="relative isolate flex min-h-full flex-col bg-[#F5F1E8] text-[#2B1B12]">
-        {/* Warm animated background */}
-        <div className="warm-bg" />
+      <body className="cinematic-shell relative isolate flex min-h-full flex-col text-amber-50">
+        <div className="app-atmosphere" />
+        <div className="app-grain" />
 
         <AuthProvider>
           <Navbar />
-          <main className="relative z-10 mx-auto flex w-full max-w-[1200px] flex-1 px-4 py-8 sm:px-6 lg:px-8">
+          <main className="relative z-10 mx-auto flex w-full max-w-[1240px] flex-1 px-4 py-8 sm:px-6 lg:px-10">
             {children}
           </main>
         </AuthProvider>

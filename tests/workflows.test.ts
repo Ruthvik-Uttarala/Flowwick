@@ -15,10 +15,12 @@ vi.mock("@/src/lib/server/openai", () => ({
 
 vi.mock("@/src/lib/server/adapters/shopify", () => ({
   createShopifyProductArtifact: vi.fn(),
+  updateShopifyProductArtifact: vi.fn(),
 }));
 
 vi.mock("@/src/lib/server/adapters/instagram", () => ({
   publishInstagramPostArtifact: vi.fn(),
+  updateInstagramPostArtifact: vi.fn(),
 }));
 
 function makeBucket(id: string, overrides: Partial<ProductBucket> = {}): ProductBucket {
@@ -341,5 +343,83 @@ describe("launch workflow", () => {
     expect(
       vi.mocked(publishInstagramPostArtifact).mock.invocationCallOrder[0]
     ).toBeLessThan(vi.mocked(createShopifyProductArtifact).mock.invocationCallOrder[1]);
+  });
+
+  it("syncs done buckets by updating the same Shopify product id without launching a new product", async () => {
+    const { getBucketById, updateBucket } = await import("@/src/lib/server/buckets");
+    const { createShopifyProductArtifact, updateShopifyProductArtifact } = await import(
+      "@/src/lib/server/adapters/shopify"
+    );
+    const { publishInstagramPostArtifact, updateInstagramPostArtifact } = await import(
+      "@/src/lib/server/adapters/instagram"
+    );
+
+    let currentBucket = makeBucket("bucket-1", {
+      status: "DONE",
+      shopifyCreated: true,
+      shopifyProductId: "gid://shopify/Product/42",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+      instagramPublished: true,
+      instagramPostId: "ig-post-1",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+    });
+
+    vi.mocked(getBucketById).mockImplementation(async () => currentBucket);
+    vi.mocked(updateBucket).mockImplementation(async (_bucketId, _userId, updater) => {
+      currentBucket = updater(currentBucket);
+      return currentBucket;
+    });
+    vi.mocked(updateShopifyProductArtifact).mockResolvedValue({
+      shopifyCreated: true,
+      shopifyProductId: "gid://shopify/Product/42",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+      adapterMode: "live",
+      errorMessage: "",
+      shopifyImageUrl: "https://cdn.example/hat.jpg",
+    });
+    vi.mocked(updateInstagramPostArtifact).mockResolvedValue({
+      instagramUpdated: false,
+      instagramPostId: "ig-post-1",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+      outcome: "unsupported",
+      errorMessage:
+        "Instagram does not allow editing this published post in-place for the current media path. FlowCart kept the original post and did not create a duplicate.",
+    });
+
+    const { syncDoneBucket } = await import("@/src/lib/server/workflows");
+    const result = await syncDoneBucket(
+      "bucket-1",
+      "user-1",
+      {
+        titleRaw: "FlowCart Hat Updated",
+        price: 55.0,
+      },
+      {
+        shopifyStoreDomain: "demo.myshopify.com",
+        shopifyAdminToken: "shpca_live",
+        instagramAccessToken: "stale-settings-token",
+        instagramBusinessAccountId: "stale-business-id",
+      },
+      resolvedInstagramCredentials
+    );
+
+    expect(result.notFound).toBe(false);
+    expect(result.result?.shopifyUpdated).toBe(true);
+    expect(result.result?.shopifyProductId).toBe("gid://shopify/Product/42");
+    expect(result.result?.bucket.shopifyProductId).toBe("gid://shopify/Product/42");
+    expect(result.result?.bucket.instagramPostId).toBe("ig-post-1");
+    expect(result.result?.instagramOutcome).toBe("unsupported");
+    expect(updateShopifyProductArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        existingProductId: "gid://shopify/Product/42",
+      })
+    );
+    expect(updateInstagramPostArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        instagramPostId: "ig-post-1",
+      })
+    );
+    expect(createShopifyProductArtifact).not.toHaveBeenCalled();
+    expect(publishInstagramPostArtifact).not.toHaveBeenCalled();
   });
 });

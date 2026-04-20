@@ -494,4 +494,57 @@ describe("instagram adapter", () => {
     expect(loggedText).not.toContain(resolvedInstagramCredentials.publishAccessToken);
     expect(loggedText).not.toContain("access_token=EAAB-SECRET-TOKEN-123");
   });
+
+  it("updates the same published post id when caption edits are accepted by Meta", async () => {
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      jsonResponse({
+        success: true,
+      })
+    );
+
+    const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await updateInstagramPostArtifact({
+      payload: makePayload({ description: "Updated caption body." }),
+      instagramCredentials: resolvedInstagramCredentials,
+      instagramPostId: "17895695668004550",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+    });
+
+    expect(result).toMatchObject({
+      instagramUpdated: true,
+      instagramPostId: "17895695668004550",
+      outcome: "updated",
+      errorMessage: "",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/17895695668004550");
+  });
+
+  it("blocks duplicates truthfully when Meta rejects same-post edits as unsupported", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            message: "Unsupported post request. Object with ID does not support this operation.",
+            code: 100,
+          },
+        },
+        400
+      )
+    );
+
+    const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await updateInstagramPostArtifact({
+      payload: makePayload({ description: "Updated caption body." }),
+      instagramCredentials: resolvedInstagramCredentials,
+      instagramPostId: "17895695668004550",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+    });
+
+    expect(result.instagramUpdated).toBe(false);
+    expect(result.outcome).toBe("unsupported");
+    expect(result.errorMessage).toContain("did not create a duplicate");
+  });
 });

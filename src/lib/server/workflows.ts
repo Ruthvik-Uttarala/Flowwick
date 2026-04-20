@@ -1,6 +1,8 @@
 import {
   ActiveInstagramCredentials,
+  BucketPatchPayload,
   ConnectionSettings,
+  DoneBucketSyncResult,
   GoAllSummary,
   ProductBucket,
 } from "@/src/lib/types";
@@ -18,14 +20,45 @@ import {
   getStableBucketStatus,
   hasRequiredBucketFields,
 } from "@/src/lib/server/status";
-import { createShopifyProductArtifact } from "@/src/lib/server/adapters/shopify";
-import { publishInstagramPostArtifact } from "@/src/lib/server/adapters/instagram";
+import {
+  createShopifyProductArtifact,
+  updateShopifyProductArtifact,
+} from "@/src/lib/server/adapters/shopify";
+import {
+  publishInstagramPostArtifact,
+  updateInstagramPostArtifact,
+} from "@/src/lib/server/adapters/instagram";
 import { normalizeStoreDomain } from "@/src/lib/server/runtime";
 
 interface WorkflowResult {
   bucket: ProductBucket | null;
   notFound: boolean;
   error?: string;
+}
+
+interface DoneBucketSyncWorkflowResult {
+  result: DoneBucketSyncResult | null;
+  notFound: boolean;
+  error?: string;
+}
+
+function buildLaunchPayload(
+  bucket: ProductBucket,
+  settings: ConnectionSettings,
+  title: string,
+  description: string
+) {
+  return {
+    storeDomain: normalizeStoreDomain(settings.shopifyStoreDomain),
+    shopifyAdminToken: settings.shopifyAdminToken,
+    instagramAccessToken: settings.instagramAccessToken,
+    instagramBusinessAccountId: settings.instagramBusinessAccountId,
+    title,
+    description,
+    price: bucket.price ?? 1,
+    quantity: bucket.quantity ?? 1,
+    imageUrls: bucket.imageUrls,
+  };
 }
 
 /**
@@ -153,17 +186,7 @@ export async function launchBucket(
     }
   }
 
-  const launchPayload = {
-    storeDomain: normalizeStoreDomain(settings.shopifyStoreDomain),
-    shopifyAdminToken: settings.shopifyAdminToken,
-    instagramAccessToken: settings.instagramAccessToken,
-    instagramBusinessAccountId: settings.instagramBusinessAccountId,
-    title: finalTitle,
-    description: finalDescription,
-    price: existingBucket.price ?? 1,
-    quantity: existingBucket.quantity ?? 1,
-    imageUrls: existingBucket.imageUrls,
-  };
+  const launchPayload = buildLaunchPayload(existingBucket, settings, finalTitle, finalDescription);
 
   // Step 1: Create Shopify product
   const shopifyArtifact = await createShopifyProductArtifact({
@@ -263,4 +286,121 @@ export async function goAllSequentially(
   );
 
   return { total: readyBucketIds.length, succeeded, failed, bucketIds: readyBucketIds };
+}
+
+function applyDoneDraft(
+  bucket: ProductBucket,
+  patch: BucketPatchPayload
+): ProductBucket {
+  const titleRaw = patch.titleRaw ?? bucket.titleRaw;
+  const descriptionRaw = patch.descriptionRaw ?? bucket.descriptionRaw;
+  const titleEnhanced = patch.titleRaw !== undefined ? patch.titleRaw : bucket.titleEnhanced;
+  const descriptionEnhanced =
+    patch.descriptionRaw !== undefined ? patch.descriptionRaw : bucket.descriptionEnhanced;
+
+  return {
+    ...bucket,
+    titleRaw,
+    descriptionRaw,
+    titleEnhanced,
+    descriptionEnhanced,
+    quantity: patch.quantity !== undefined ? patch.quantity : bucket.quantity,
+    price: patch.price !== undefined ? patch.price : bucket.price,
+    errorMessage: "",
+    status: "DONE",
+  };
+}
+
+export async function syncDoneBucket(
+  bucketId: string,
+  userId: string,
+  patch: BucketPatchPayload,
+  settings: ConnectionSettings,
+  instagramCredentials: ActiveInstagramCredentials | null = null
+): Promise<DoneBucketSyncWorkflowResult> {
+  const current = await getBucketById(bucketId, userId);
+  if (!current) {
+    return { result: null, notFound: true, error: "Bucket not found." };
+  }
+
+  if (current.status !== "DONE" || !current.shopifyProductId.trim()) {
+    return {
+      result: null,
+      notFound: false,
+      error: "Only launched DONE buckets can be synced in-place.",
+    };
+  }
+
+  const draft = applyDoneDraft(current, patch);
+  const finalTitle = (draft.titleEnhanced || draft.titleRaw).trim();
+  const finalDescription = (draft.descriptionEnhanced || draft.descriptionRaw).trim();
+  const launchPayload = buildLaunchPayload(draft, settings, finalTitle, finalDescription);
+
+  const shopifyArtifact = await updateShopifyProductArtifact({
+    payload: launchPayload,
+    settings,
+    existingProductId: current.shopifyProductId,
+  });
+
+  if (!shopifyArtifact.shopifyCreated) {
+    return {
+      result: {
+        bucket: current,
+        shopifyUpdated: false,
+        shopifyProductId: current.shopifyProductId,
+        instagramOutcome: "skipped",
+        message: shopifyArtifact.errorMessage || "Shopify update failed.",
+      },
+      notFound: false,
+      error: shopifyArtifact.errorMessage || "Shopify update failed.",
+    };
+  }
+
+  const instagramEdit = await updateInstagramPostArtifact({
+    payload: launchPayload,
+    instagramCredentials,
+    instagramPostId: current.instagramPostId,
+    instagramPostUrl: current.instagramPostUrl,
+    shopifyProductUrl: shopifyArtifact.shopifyProductUrl,
+  });
+
+  const persisted = await updateBucket(bucketId, userId, (bucket) => ({
+    ...applyDoneDraft(bucket, patch),
+    shopifyCreated: true,
+    shopifyProductId: current.shopifyProductId,
+    shopifyProductUrl: shopifyArtifact.shopifyProductUrl || current.shopifyProductUrl,
+    instagramPublished: bucket.instagramPublished,
+    instagramPostId: current.instagramPostId,
+    instagramPostUrl: current.instagramPostUrl,
+    errorMessage: "",
+    status: "DONE",
+  }));
+
+  if (!persisted) {
+    return {
+      result: null,
+      notFound: false,
+      error: "Bucket could not be persisted after sync.",
+    };
+  }
+
+  const message =
+    instagramEdit.outcome === "updated"
+      ? "Updated existing Shopify product and existing Instagram post in place."
+      : instagramEdit.outcome === "unsupported"
+        ? `Updated existing Shopify product. ${instagramEdit.errorMessage}`
+        : instagramEdit.outcome === "failed"
+          ? `Updated existing Shopify product. Instagram update failed: ${instagramEdit.errorMessage}`
+          : "Updated existing Shopify product. Instagram update was skipped.";
+
+  return {
+    result: {
+      bucket: persisted,
+      shopifyUpdated: true,
+      shopifyProductId: current.shopifyProductId,
+      instagramOutcome: instagramEdit.outcome,
+      message,
+    },
+    notFound: false,
+  };
 }
