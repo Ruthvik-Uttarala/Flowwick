@@ -40,6 +40,8 @@ function makeBucket(id: string, overrides: Partial<ProductBucket> = {}): Product
     instagramPostId: "",
     instagramPostUrl: "",
     errorMessage: "",
+    trashedAt: "",
+    deleteAfterAt: "",
     createdAt: now,
     updatedAt: now,
     ...overrides,

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ImagePlus,
@@ -11,8 +12,10 @@ import {
   ShoppingBag,
   Camera,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import type { EditableBucketField, ProductBucket as Bucket } from "@/src/lib/types";
+import { shouldShowBucketTrashControl } from "@/src/lib/bucket-ui";
 
 interface ProductBucketProps {
   bucket: Bucket;
@@ -33,6 +36,12 @@ interface ProductBucketProps {
   onEnhanceTitle: (bucketId: string) => void;
   onEnhanceDescription: (bucketId: string) => void;
   onGo: (bucketId: string) => void;
+  onMoveToTrash: (bucketId: string) => void;
+  onDeletePermanently: (bucketId: string) => void;
+  isTrashing: boolean;
+  isDeleting: boolean;
+  isHighlighted: boolean;
+  containerRef?: (element: HTMLElement | null) => void;
 }
 
 function statusStyle(status: Bucket["status"]): { classes: string; badge: string } {
@@ -64,27 +73,42 @@ export function ProductBucket({
   onEnhanceTitle,
   onEnhanceDescription,
   onGo,
+  onMoveToTrash,
+  onDeletePermanently,
+  isTrashing,
+  isDeleting,
+  isHighlighted,
+  containerRef,
 }: ProductBucketProps) {
+  const [confirmingTrash, setConfirmingTrash] = useState(false);
+
   const controlsLocked =
     isUploading ||
     isEnhancingTitle ||
     isEnhancingDescription ||
     isLaunching ||
+    isTrashing ||
+    isDeleting ||
     isGlobalBusy ||
     bucket.status === "PROCESSING" ||
     bucket.status === "ENHANCING";
 
+  const showTrashControl = shouldShowBucketTrashControl(bucket.status);
   const { classes: statusClasses, badge: statusBadge } = statusStyle(bucket.status);
 
   const inputClass = "warm-input w-full rounded-xl px-3 py-2.5 text-sm";
 
   return (
     <motion.section
+      ref={containerRef}
+      id={`bucket-${bucket.id}`}
       layout
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24 }}
-      className="warm-card warm-card-hover rounded-3xl p-5"
+      className={`warm-card warm-card-hover rounded-3xl p-5 transition-shadow ${
+        isHighlighted ? "ring-2 ring-[#C47A2C]/55 shadow-[0_0_0_6px_rgba(196,122,44,0.10)]" : ""
+      }`}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
@@ -268,6 +292,55 @@ export function ProductBucket({
           <div className="flex items-start gap-2 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-600">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <span>{bucket.errorMessage}</span>
+          </div>
+        ) : null}
+
+        {showTrashControl ? (
+          <div className="space-y-2 rounded-xl border border-red-400/20 bg-red-400/10 p-3">
+            {!confirmingTrash ? (
+              <button
+                type="button"
+                aria-label="Open trash options"
+                onClick={() => setConfirmingTrash(true)}
+                disabled={controlsLocked}
+                className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Trash2 size={14} />
+                Trash Bucket
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-red-700">
+                  Choose how to remove this failed bucket.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmingTrash(false);
+                      onMoveToTrash(bucket.id);
+                    }}
+                    disabled={controlsLocked}
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#2B1B12]/15 bg-white/85 px-3 py-2 text-sm font-semibold text-[#2B1B12] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isTrashing ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Move to Trash (30 days)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmingTrash(false);
+                      onDeletePermanently(bucket.id);
+                    }}
+                    disabled={controlsLocked}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/15 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    Delete Permanently
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 

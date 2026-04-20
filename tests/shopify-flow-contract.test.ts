@@ -205,6 +205,8 @@ describe("shopify production flow contract", () => {
       instagramPostId: "",
       instagramPostUrl: "",
       errorMessage: "",
+      trashedAt: "",
+      deleteAfterAt: "",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

@@ -1,14 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import {
-  BUCKET_STATUSES,
-  BucketPatchPayload,
-  ProductBucket,
-} from "@/src/lib/types";
+import { BUCKET_STATUSES, BucketPatchPayload, ProductBucket } from "@/src/lib/types";
 import { getStableBucketStatus } from "@/src/lib/server/status";
 import { getSupabaseAdmin } from "@/src/lib/server/supabase-admin";
 
 export const bucketStatusSchema = z.enum(BUCKET_STATUSES);
+export const TRASH_RETENTION_DAYS = 30;
 
 export const bucketSchema = z.object({
   id: z.string().min(1),
@@ -27,6 +24,8 @@ export const bucketSchema = z.object({
   instagramPostId: z.string(),
   instagramPostUrl: z.string(),
   errorMessage: z.string(),
+  trashedAt: z.string(),
+  deleteAfterAt: z.string(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
 });
@@ -43,7 +42,7 @@ export const bucketPatchSchema = z
     message: "At least one field is required to update the bucket.",
   });
 
-interface DbBucketRow {
+export interface DbBucketRow {
   id: string;
   user_id: string;
   title_raw: string;
@@ -61,11 +60,22 @@ interface DbBucketRow {
   instagram_post_id: string;
   instagram_post_url: string;
   error_message: string;
+  trashed_at?: string | null;
+  delete_after_at?: string | null;
   created_at: string;
   updated_at: string;
 }
 
-function rowToBucket(row: DbBucketRow): ProductBucket {
+function normalizeTimestamp(value: string | null | undefined): string {
+  return value?.trim() ?? "";
+}
+
+function asNullableTimestamp(value: string): string | null {
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function mapDbBucketRowToBucket(row: DbBucketRow): ProductBucket {
   return {
     id: row.id,
     titleRaw: row.title_raw ?? "",
@@ -85,6 +95,8 @@ function rowToBucket(row: DbBucketRow): ProductBucket {
     instagramPostId: row.instagram_post_id ?? "",
     instagramPostUrl: row.instagram_post_url ?? "",
     errorMessage: row.error_message ?? "",
+    trashedAt: normalizeTimestamp(row.trashed_at),
+    deleteAfterAt: normalizeTimestamp(row.delete_after_at),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -109,6 +121,8 @@ function bucketToRow(bucket: ProductBucket, userId: string) {
     instagram_post_id: bucket.instagramPostId,
     instagram_post_url: bucket.instagramPostUrl,
     error_message: bucket.errorMessage,
+    trashed_at: asNullableTimestamp(bucket.trashedAt),
+    delete_after_at: asNullableTimestamp(bucket.deleteAfterAt),
     updated_at: new Date().toISOString(),
   };
 }
@@ -132,6 +146,8 @@ function createEmptyBucketRecord(): ProductBucket {
     instagramPostId: "",
     instagramPostUrl: "",
     errorMessage: "",
+    trashedAt: "",
+    deleteAfterAt: "",
     createdAt: now,
     updatedAt: now,
   };
@@ -139,11 +155,40 @@ function createEmptyBucketRecord(): ProductBucket {
   return { ...bucket, status: getStableBucketStatus(bucket) };
 }
 
+export function buildTrashLifecycleWindow(referenceDate = new Date()): {
+  trashedAt: string;
+  deleteAfterAt: string;
+} {
+  const trashedAt = referenceDate.toISOString();
+  const deleteAfterAt = new Date(
+    referenceDate.getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000
+  ).toISOString();
+  return { trashedAt, deleteAfterAt };
+}
+
+async function cleanupExpiredTrashedBuckets(userId: string): Promise<void> {
+  const nowIso = new Date().toISOString();
+  const { error } = await getSupabaseAdmin()
+    .from("buckets")
+    .delete()
+    .eq("user_id", userId)
+    .not("trashed_at", "is", null)
+    .not("delete_after_at", "is", null)
+    .lte("delete_after_at", nowIso);
+
+  if (error) {
+    console.error("[merchflow:buckets] Failed to cleanup trashed buckets:", error.message);
+  }
+}
+
 export async function getBuckets(userId: string): Promise<ProductBucket[]> {
+  await cleanupExpiredTrashedBuckets(userId);
+
   const { data, error } = await getSupabaseAdmin()
     .from("buckets")
     .select("*")
     .eq("user_id", userId)
+    .is("trashed_at", null)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -151,10 +196,30 @@ export async function getBuckets(userId: string): Promise<ProductBucket[]> {
     return [];
   }
 
-  return (data as DbBucketRow[]).map(rowToBucket);
+  return (data as DbBucketRow[]).map(mapDbBucketRowToBucket);
+}
+
+export async function getTrashedBuckets(userId: string): Promise<ProductBucket[]> {
+  await cleanupExpiredTrashedBuckets(userId);
+
+  const { data, error } = await getSupabaseAdmin()
+    .from("buckets")
+    .select("*")
+    .eq("user_id", userId)
+    .not("trashed_at", "is", null)
+    .order("trashed_at", { ascending: false });
+
+  if (error) {
+    console.error("[merchflow:buckets] Failed to load trashed buckets:", error.message);
+    return [];
+  }
+
+  return (data as DbBucketRow[]).map(mapDbBucketRowToBucket);
 }
 
 export async function createBucket(userId: string): Promise<ProductBucket> {
+  await cleanupExpiredTrashedBuckets(userId);
+
   const created = createEmptyBucketRecord();
   const row = bucketToRow(created, userId);
 
@@ -169,25 +234,37 @@ export async function createBucket(userId: string): Promise<ProductBucket> {
     throw new Error(`Failed to create bucket: ${error.message}`);
   }
 
-  return rowToBucket(data as DbBucketRow);
+  return mapDbBucketRowToBucket(data as DbBucketRow);
+}
+
+interface GetBucketOptions {
+  includeTrashed?: boolean;
 }
 
 export async function getBucketById(
   bucketId: string,
-  userId: string
+  userId: string,
+  options?: GetBucketOptions
 ): Promise<ProductBucket | null> {
-  const { data, error } = await getSupabaseAdmin()
+  await cleanupExpiredTrashedBuckets(userId);
+
+  let query = getSupabaseAdmin()
     .from("buckets")
     .select("*")
     .eq("id", bucketId)
-    .eq("user_id", userId)
-    .single();
+    .eq("user_id", userId);
+
+  if (!options?.includeTrashed) {
+    query = query.is("trashed_at", null);
+  }
+
+  const { data, error } = await query.single();
 
   if (error || !data) {
     return null;
   }
 
-  return rowToBucket(data as DbBucketRow);
+  return mapDbBucketRowToBucket(data as DbBucketRow);
 }
 
 export async function updateBucket(
@@ -208,6 +285,7 @@ export async function updateBucket(
     .update(row)
     .eq("id", bucketId)
     .eq("user_id", userId)
+    .is("trashed_at", null)
     .select()
     .single();
 
@@ -216,7 +294,7 @@ export async function updateBucket(
     throw new Error(`Failed to update bucket: ${error.message}`);
   }
 
-  return rowToBucket(data as DbBucketRow);
+  return mapDbBucketRowToBucket(data as DbBucketRow);
 }
 
 export async function patchBucket(
@@ -244,6 +322,102 @@ export async function patchBucket(
       status: getStableBucketStatus(changed),
     };
   });
+}
+
+export async function moveBucketToTrash(
+  bucketId: string,
+  userId: string
+): Promise<ProductBucket | null> {
+  await cleanupExpiredTrashedBuckets(userId);
+
+  const current = await getBucketById(bucketId, userId);
+  if (!current) {
+    return null;
+  }
+
+  if (current.status !== "FAILED") {
+    throw new Error("Only failed buckets can be moved to trash.");
+  }
+
+  const { trashedAt, deleteAfterAt } = buildTrashLifecycleWindow();
+
+  const { data, error } = await getSupabaseAdmin()
+    .from("buckets")
+    .update({
+      trashed_at: trashedAt,
+      delete_after_at: deleteAfterAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bucketId)
+    .eq("user_id", userId)
+    .is("trashed_at", null)
+    .select()
+    .single();
+
+  if (error || !data) {
+    if (error) {
+      console.error("[merchflow:buckets] Failed to move bucket to trash:", error.message);
+      throw new Error(`Failed to move bucket to trash: ${error.message}`);
+    }
+    return null;
+  }
+
+  return mapDbBucketRowToBucket(data as DbBucketRow);
+}
+
+export async function restoreBucketFromTrash(
+  bucketId: string,
+  userId: string
+): Promise<ProductBucket | null> {
+  await cleanupExpiredTrashedBuckets(userId);
+
+  const current = await getBucketById(bucketId, userId, { includeTrashed: true });
+  if (!current || !current.trashedAt) {
+    return null;
+  }
+
+  const { data, error } = await getSupabaseAdmin()
+    .from("buckets")
+    .update({
+      trashed_at: null,
+      delete_after_at: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", bucketId)
+    .eq("user_id", userId)
+    .not("trashed_at", "is", null)
+    .select()
+    .single();
+
+  if (error || !data) {
+    if (error) {
+      console.error("[merchflow:buckets] Failed to restore bucket:", error.message);
+      throw new Error(`Failed to restore bucket: ${error.message}`);
+    }
+    return null;
+  }
+
+  return mapDbBucketRowToBucket(data as DbBucketRow);
+}
+
+export async function permanentlyDeleteBucket(
+  bucketId: string,
+  userId: string
+): Promise<boolean> {
+  await cleanupExpiredTrashedBuckets(userId);
+
+  const { error, count } = await getSupabaseAdmin()
+    .from("buckets")
+    .delete({ count: "exact" })
+    .eq("id", bucketId)
+    .eq("user_id", userId);
+
+  if (error) {
+    console.error("[merchflow:buckets] Failed to permanently delete bucket:", error.message);
+    throw new Error(`Failed to permanently delete bucket: ${error.message}`);
+  }
+
+  return (count ?? 0) > 0;
 }
 
 export async function saveBuckets(buckets: ProductBucket[]): Promise<void> {

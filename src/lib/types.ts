@@ -91,6 +91,8 @@ export interface ProductBucket {
   instagramPostId: string;
   instagramPostUrl: string;
   errorMessage: string;
+  trashedAt: string;
+  deleteAfterAt: string;
   createdAt: string;
   updatedAt: string;
 }

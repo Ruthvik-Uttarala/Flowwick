@@ -1,5 +1,5 @@
 import { extractUserId } from "@/src/lib/server/auth";
-import { getBuckets, getTrashedBuckets } from "@/src/lib/server/buckets";
+import { getTrashedBuckets } from "@/src/lib/server/buckets";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
 
 export const runtime = "nodejs";
@@ -12,14 +12,11 @@ export async function GET(request: Request) {
       return errorResponse("Not authenticated.", { status: 401 });
     }
 
-    const [buckets, trashedBuckets] = await Promise.all([
-      getBuckets(userId),
-      getTrashedBuckets(userId),
-    ]);
-    return okResponse({ buckets, trashedBuckets });
+    const trashedBuckets = await getTrashedBuckets(userId);
+    return okResponse({ trashedBuckets });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Failed to load buckets.";
+      error instanceof Error ? error.message : "Failed to load trashed buckets.";
     return errorResponse(message, { status: 500 });
   }
 }
