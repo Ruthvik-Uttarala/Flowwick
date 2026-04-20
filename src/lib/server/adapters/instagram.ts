@@ -130,6 +130,7 @@ export async function publishInstagramPostArtifact(input: {
   }
 
   const carouselImageUrls = selectInstagramCarouselImageUrls(input.payload);
+  const singleBucketFallbackImage = selectInstagramImageUrl(input.payload);
   const publishMode: InstagramPublishMode =
     carouselImageUrls.length >= 2 ? "carousel" : "single";
   const selectedImage =
@@ -418,7 +419,7 @@ export async function publishInstagramPostArtifact(input: {
   };
 
   try {
-    const urlSource = publishMode === "carousel" ? "bucket" : selectedImage?.source ?? "";
+    let urlSource = publishMode === "carousel" ? "bucket" : selectedImage?.source ?? "";
     let publishableCreationId = "";
 
     if (publishMode === "carousel") {
@@ -487,9 +488,10 @@ export async function publishInstagramPostArtifact(input: {
 
       publishableCreationId = createdParent.creationId;
     } else {
-      const created = await createContainer({
+      let activeSelectedImage = selectedImage;
+      let created = await createContainer({
         body: new URLSearchParams({
-          image_url: selectedImage?.imageUrl ?? "",
+          image_url: activeSelectedImage?.imageUrl ?? "",
           caption,
           access_token: accessToken,
         }),
@@ -498,6 +500,41 @@ export async function publishInstagramPostArtifact(input: {
         urlSource,
         mediaCount: 1,
       });
+
+      if (
+        "instagramPublished" in created &&
+        urlSource === "shopify" &&
+        singleBucketFallbackImage &&
+        singleBucketFallbackImage.imageUrl !== activeSelectedImage?.imageUrl &&
+        created.errorMessage.includes("Instagram could not fetch the selected image URL")
+      ) {
+        logInstagramPublish(
+          "create",
+          {
+            businessAccountId,
+            mode: "single",
+            containerRole: "single",
+            urlSource,
+            fallbackUrlSource: singleBucketFallbackImage.source,
+            mediaCount: 1,
+            message: "Retrying single-image publish with bucket image fallback.",
+          },
+          "warning"
+        );
+        activeSelectedImage = singleBucketFallbackImage;
+        urlSource = singleBucketFallbackImage.source;
+        created = await createContainer({
+          body: new URLSearchParams({
+            image_url: activeSelectedImage.imageUrl,
+            caption,
+            access_token: accessToken,
+          }),
+          mode: "single",
+          containerRole: "single",
+          urlSource,
+          mediaCount: 1,
+        });
+      }
 
       if ("instagramPublished" in created) {
         return created;

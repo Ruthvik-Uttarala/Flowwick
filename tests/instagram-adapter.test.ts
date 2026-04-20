@@ -150,6 +150,49 @@ describe("instagram adapter", () => {
     });
   });
 
+  it("retries with a bucket image when Meta cannot fetch the Shopify image URL", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              message: "Could not fetch image URL",
+              code: 9004,
+              error_subcode: 2207052,
+            },
+          },
+          400
+        )
+      )
+      .mockResolvedValueOnce(jsonResponse({ id: "creation-2" }))
+      .mockResolvedValueOnce(jsonResponse({ status_code: "FINISHED" }))
+      .mockResolvedValueOnce(jsonResponse({ id: "media-1" }))
+      .mockResolvedValueOnce(jsonResponse({ permalink: "https://instagram.com/p/media-1/" }));
+
+    const { publishInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await publishInstagramPostArtifact({
+      payload: makePayload({
+        imageUrls: ["https://public.example/fallback.jpg"],
+      }),
+      instagramCredentials: resolvedInstagramCredentials,
+      shopifyImageUrl: "https://cdn.shopify.com/s/files/1/inaccessible.png",
+    });
+
+    expect(result).toMatchObject({
+      instagramPublished: true,
+      instagramPostId: "media-1",
+      instagramPostUrl: "https://instagram.com/p/media-1/",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain(
+      encodeURIComponent("https://cdn.shopify.com/s/files/1/inaccessible.png")
+    );
+    expect(String(fetchMock.mock.calls[1]?.[1]?.body)).toContain(
+      encodeURIComponent("https://public.example/fallback.jpg")
+    );
+  });
+
   it("fails early when the credential object is missing", async () => {
     const fetchMock = vi.spyOn(global, "fetch");
     const { publishInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
