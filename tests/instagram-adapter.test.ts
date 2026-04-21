@@ -496,11 +496,31 @@ describe("instagram adapter", () => {
   });
 
   it("updates the same published post id when caption edits are accepted by Meta", async () => {
-    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      jsonResponse({
-        success: true,
-      })
-    );
+    const expectedCaption =
+      "FlowCart Hat\n\nUpdated caption body.\n\nPrice: $49.99\nQuantity: 8\n\nShop now: https://demo.myshopify.com/products/flowcart-hat";
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "17895695668004550",
+          media_type: "IMAGE",
+          media_product_type: "FEED",
+          comment_enabled: true,
+          caption: "Old caption",
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          caption: expectedCaption,
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
+      );
 
     const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
     const result = await updateInstagramPostArtifact({
@@ -515,24 +535,36 @@ describe("instagram adapter", () => {
       instagramUpdated: true,
       instagramPostId: "17895695668004550",
       outcome: "updated",
+      reason: "updated_in_place",
       errorMessage: "",
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0]?.[0]).toContain("/17895695668004550");
   });
 
   it("blocks duplicates truthfully when Meta rejects same-post edits as unsupported", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      jsonResponse(
-        {
-          error: {
-            message: "Unsupported post request. Object with ID does not support this operation.",
-            code: 100,
-          },
-        },
-        400
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "17895695668004550",
+          media_type: "IMAGE",
+          media_product_type: "FEED",
+          comment_enabled: true,
+          caption: "Old caption",
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
       )
-    );
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              message: "Unsupported post request. Object with ID does not support this operation.",
+              code: 100,
+            },
+          },
+          400
+        )
+      );
 
     const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
     const result = await updateInstagramPostArtifact({
@@ -544,21 +576,58 @@ describe("instagram adapter", () => {
     });
 
     expect(result.instagramUpdated).toBe(false);
-    expect(result.outcome).toBe("unsupported");
-    expect(result.errorMessage).toContain("did not create a duplicate");
+    expect(result.outcome).toBe("unchanged");
+    expect(result.reason).toBe("unsupported_edit_path");
+    expect(result.errorMessage).toContain("can't be edited in place");
   });
 
   it("treats Graph (#100) comment_enabled edit-path errors as unsupported in-place edits", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      jsonResponse(
-        {
-          error: {
-            message: "(#100) The parameter comment_enabled is required",
-            code: 100,
-          },
-        },
-        400
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "17895695668004550",
+          media_type: "IMAGE",
+          media_product_type: "FEED",
+          comment_enabled: true,
+          caption: "Old caption",
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
       )
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              message: "(#100) The parameter comment_enabled is required",
+              code: 100,
+            },
+          },
+          400
+        )
+      );
+
+    const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await updateInstagramPostArtifact({
+      payload: makePayload({ description: "Updated caption body." }),
+      instagramCredentials: resolvedInstagramCredentials,
+      instagramPostId: "17895695668004550",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+    });
+
+    expect(result.instagramUpdated).toBe(false);
+    expect(result.outcome).toBe("unchanged");
+    expect(result.reason).toBe("unsupported_edit_path");
+    expect(result.errorMessage).toContain("can't be edited in place");
+  });
+
+  it("returns unchanged when the saved published media type is unsupported for in-place edits", async () => {
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      jsonResponse({
+        id: "17895695668004550",
+        media_type: "STORY",
+        media_product_type: "STORY",
+        permalink: "https://instagram.com/p/ig-post-1",
+      })
     );
 
     const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
@@ -571,7 +640,9 @@ describe("instagram adapter", () => {
     });
 
     expect(result.instagramUpdated).toBe(false);
-    expect(result.outcome).toBe("unsupported");
-    expect(result.errorMessage).toContain("did not create a duplicate");
+    expect(result.outcome).toBe("unchanged");
+    expect(result.reason).toBe("unsupported_media_type");
+    expect(result.errorMessage).toContain("can't be edited in place");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

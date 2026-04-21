@@ -1,4 +1,8 @@
-import { ActiveInstagramCredentials, LaunchPayload } from "@/src/lib/types";
+import {
+  ActiveInstagramCredentials,
+  InstagramEditReason,
+  LaunchPayload,
+} from "@/src/lib/types";
 import { isInstagramEnabled } from "@/src/lib/server/runtime";
 import {
   buildInstagramCaption,
@@ -22,8 +26,11 @@ export interface InstagramEditArtifact {
   instagramUpdated: boolean;
   instagramPostId: string;
   instagramPostUrl: string;
-  outcome: "updated" | "unsupported" | "failed" | "skipped";
+  outcome: "updated" | "unchanged" | "failed" | "skipped";
+  reason: InstagramEditReason;
   errorMessage: string;
+  mediaType: string;
+  mediaProductType: string;
 }
 
 interface InstagramCreateMediaResponse {
@@ -38,6 +45,16 @@ interface InstagramPublishResponse {
 
 interface InstagramMediaDetailsResponse {
   permalink?: string;
+  error?: unknown;
+}
+
+interface InstagramEditMetadataResponse {
+  id?: string;
+  caption?: string;
+  permalink?: string;
+  media_type?: string;
+  media_product_type?: string;
+  comment_enabled?: boolean;
   error?: unknown;
 }
 
@@ -625,8 +642,28 @@ function isUnsupportedInstagramEditFailure(input: {
     lowered.includes("cannot be edited") ||
     lowered.includes("not editable") ||
     lowered.includes("editing this media is not supported") ||
-    lowered.includes("does not allow editing")
+    lowered.includes("does not allow editing") ||
+    lowered.includes("only supports the comment_enabled parameter") ||
+    lowered.includes("cannot update this field")
   );
+}
+
+function normalizeCaptionForComparison(value: string): string {
+  return value.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").trim();
+}
+
+function resolveInstagramEditMediaType(metadata: InstagramEditMetadataResponse): {
+  mediaType: string;
+  mediaProductType: string;
+} {
+  return {
+    mediaType: String(metadata.media_type ?? "").trim().toUpperCase(),
+    mediaProductType: String(metadata.media_product_type ?? "").trim().toUpperCase(),
+  };
+}
+
+function isPotentiallyEditableInstagramMediaType(mediaType: string): boolean {
+  return mediaType === "IMAGE" || mediaType === "VIDEO" || mediaType === "CAROUSEL_ALBUM";
 }
 
 export async function updateInstagramPostArtifact(input: {
@@ -637,117 +674,254 @@ export async function updateInstagramPostArtifact(input: {
   shopifyProductUrl?: string;
 }): Promise<InstagramEditArtifact> {
   const instagramPostId = input.instagramPostId.trim();
+  const preservedPostUrl = input.instagramPostUrl?.trim() ?? "";
+
+  const buildInstagramEditOutcome = (outcome: InstagramEditArtifact): InstagramEditArtifact =>
+    buildEditResult(outcome);
+
   if (!instagramPostId) {
-    return buildEditResult({
+    return buildInstagramEditOutcome({
       instagramUpdated: false,
       instagramPostId: "",
-      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      instagramPostUrl: preservedPostUrl,
       outcome: "skipped",
+      reason: "missing_post_id",
       errorMessage: "Instagram post id is missing for update.",
+      mediaType: "",
+      mediaProductType: "",
     });
   }
 
   if (!isInstagramEnabled()) {
-    return buildEditResult({
+    return buildInstagramEditOutcome({
       instagramUpdated: false,
       instagramPostId,
-      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      instagramPostUrl: preservedPostUrl,
       outcome: "skipped",
+      reason: "disabled",
       errorMessage: "Instagram execution is disabled (INSTAGRAM_ENABLED=false).",
+      mediaType: "",
+      mediaProductType: "",
     });
   }
 
   if (!input.instagramCredentials) {
-    return buildEditResult({
+    return buildInstagramEditOutcome({
       instagramUpdated: false,
       instagramPostId,
-      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      instagramPostUrl: preservedPostUrl,
       outcome: "failed",
+      reason: "credentials_missing",
       errorMessage: "Instagram credentials are missing.",
+      mediaType: "",
+      mediaProductType: "",
     });
   }
 
   const accessToken = input.instagramCredentials.publishAccessToken.trim();
   if (!accessToken) {
-    return buildEditResult({
+    return buildInstagramEditOutcome({
       instagramUpdated: false,
       instagramPostId,
-      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      instagramPostUrl: preservedPostUrl,
       outcome: "failed",
+      reason: "credentials_missing",
       errorMessage: "Instagram publish access token is missing.",
+      mediaType: "",
+      mediaProductType: "",
     });
   }
 
   const caption = buildInstagramCaption(input.payload, input.shopifyProductUrl);
+  const graphBase = `https://graph.facebook.com/${INSTAGRAM_GRAPH_API_VERSION}`;
+  const metadataFields = "id,caption,permalink,media_type,media_product_type,comment_enabled";
+  const metadataUrl = `${graphBase}/${instagramPostId}?${new URLSearchParams({
+    fields: metadataFields,
+    access_token: accessToken,
+  })}`;
+
+  let mediaType = "";
+  let mediaProductType = "";
+  let instagramPostUrl = preservedPostUrl;
+  let existingCommentEnabled: boolean | undefined;
 
   try {
-    const response = await fetch(
-      `https://graph.facebook.com/${INSTAGRAM_GRAPH_API_VERSION}/${instagramPostId}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          caption,
-          access_token: accessToken,
-        }).toString(),
-      }
+    const metadataResponse = await fetch(metadataUrl);
+    const metadataPayload = await readInstagramJsonResponse<InstagramEditMetadataResponse>(
+      metadataResponse
     );
+    const metadataHasGraphError = Boolean(
+      metadataPayload && typeof metadataPayload === "object" && "error" in metadataPayload
+    );
+
+    if (metadataResponse.ok && !metadataHasGraphError && metadataPayload) {
+      const resolvedTypes = resolveInstagramEditMediaType(metadataPayload);
+      mediaType = resolvedTypes.mediaType;
+      mediaProductType = resolvedTypes.mediaProductType;
+      existingCommentEnabled =
+        typeof metadataPayload.comment_enabled === "boolean"
+          ? metadataPayload.comment_enabled
+          : undefined;
+      if (!instagramPostUrl) {
+        instagramPostUrl = metadataPayload.permalink?.trim() ?? "";
+      }
+      if (mediaType && !isPotentiallyEditableInstagramMediaType(mediaType)) {
+        return buildInstagramEditOutcome({
+          instagramUpdated: false,
+          instagramPostId,
+          instagramPostUrl,
+          outcome: "unchanged",
+          reason: "unsupported_media_type",
+          errorMessage: "Published post can't be edited in place for this media type.",
+          mediaType,
+          mediaProductType,
+        });
+      }
+    } else if (metadataPayload) {
+      const metadataError = normalizeInstagramGraphError(
+        metadataPayload,
+        metadataResponse.status,
+        "publish"
+      );
+      const unsupportedMetadata = isUnsupportedInstagramEditFailure({
+        graphMessage: metadataError.graphMessage,
+        code: metadataError.code,
+      });
+      if (unsupportedMetadata) {
+        return buildInstagramEditOutcome({
+          instagramUpdated: false,
+          instagramPostId,
+          instagramPostUrl,
+          outcome: "unchanged",
+          reason: "unsupported_edit_path",
+          errorMessage: "Published post can't be edited in place for this media type.",
+          mediaType,
+          mediaProductType,
+        });
+      }
+    }
+
+    const editParams = new URLSearchParams({
+      caption,
+      access_token: accessToken,
+    });
+    if (typeof existingCommentEnabled === "boolean") {
+      editParams.set("comment_enabled", existingCommentEnabled ? "true" : "false");
+    }
+
+    const response = await fetch(`${graphBase}/${instagramPostId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: editParams.toString(),
+    });
 
     const payload = await readInstagramJsonResponse<{ error?: unknown }>(response);
     const hasGraphError = Boolean(payload && typeof payload === "object" && "error" in payload);
 
-    if (response.ok && !hasGraphError) {
-      console.info("[flowcart:instagram:update]", {
-        outcome: "updated",
-        instagramPostId,
-      });
-      return buildEditResult({
-        instagramUpdated: true,
-        instagramPostId,
-        instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
-        outcome: "updated",
-        errorMessage: "",
-      });
-    }
-
-    const normalized = normalizeInstagramGraphError(payload, response.status, "publish");
-    const unsupported = isUnsupportedInstagramEditFailure({
-      graphMessage: normalized.graphMessage,
-      code: normalized.code,
-    });
-    if (unsupported) {
-      const message =
-        "Instagram does not allow editing this published post in-place for the current media path. FlowCart kept the original post and did not create a duplicate.";
-      console.warn("[flowcart:instagram:update]", {
-        outcome: "unsupported",
-        instagramPostId,
-        status: normalized.status,
+    if (!response.ok || hasGraphError) {
+      const normalized = normalizeInstagramGraphError(payload, response.status, "publish");
+      const unsupported = isUnsupportedInstagramEditFailure({
+        graphMessage: normalized.graphMessage,
         code: normalized.code,
-        subcode: normalized.subcode,
       });
-      return buildEditResult({
+      if (unsupported) {
+        return buildInstagramEditOutcome({
+          instagramUpdated: false,
+          instagramPostId,
+          instagramPostUrl,
+          outcome: "unchanged",
+          reason: "unsupported_edit_path",
+          errorMessage: "Published post can't be edited in place for this media type.",
+          mediaType,
+          mediaProductType,
+        });
+      }
+
+      return buildInstagramEditOutcome({
         instagramUpdated: false,
         instagramPostId,
-        instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
-        outcome: "unsupported",
-        errorMessage: message,
+        instagramPostUrl,
+        outcome: "failed",
+        reason: "unexpected_error",
+        errorMessage: normalized.message,
+        mediaType,
+        mediaProductType,
       });
     }
 
-    return buildEditResult({
+    const verificationResponse = await fetch(
+      `${graphBase}/${instagramPostId}?${new URLSearchParams({
+        fields: "caption,permalink",
+        access_token: accessToken,
+      })}`
+    );
+    const verificationPayload = await readInstagramJsonResponse<InstagramEditMetadataResponse>(
+      verificationResponse
+    );
+    const verificationHasGraphError = Boolean(
+      verificationPayload &&
+        typeof verificationPayload === "object" &&
+        "error" in verificationPayload
+    );
+
+    if (verificationResponse.ok && !verificationHasGraphError && verificationPayload) {
+      const verifiedCaption = normalizeCaptionForComparison(
+        String(verificationPayload.caption ?? "")
+      );
+      const expectedCaption = normalizeCaptionForComparison(caption);
+      const verifiedUrl = verificationPayload.permalink?.trim() ?? instagramPostUrl;
+
+      if (verifiedCaption === expectedCaption) {
+        console.info("[flowcart:instagram:update]", {
+          outcome: "updated",
+          instagramPostId,
+          mediaType,
+          mediaProductType,
+        });
+        return buildInstagramEditOutcome({
+          instagramUpdated: true,
+          instagramPostId,
+          instagramPostUrl: verifiedUrl,
+          outcome: "updated",
+          reason: "updated_in_place",
+          errorMessage: "",
+          mediaType,
+          mediaProductType,
+        });
+      }
+
+      return buildInstagramEditOutcome({
+        instagramUpdated: false,
+        instagramPostId,
+        instagramPostUrl: verifiedUrl,
+        outcome: "unchanged",
+        reason: "unsupported_edit_path",
+        errorMessage: "Published post can't be edited in place for this media type.",
+        mediaType,
+        mediaProductType,
+      });
+    }
+
+    return buildInstagramEditOutcome({
       instagramUpdated: false,
       instagramPostId,
-      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
-      outcome: "failed",
-      errorMessage: normalized.message,
+      instagramPostUrl,
+      outcome: "unchanged",
+      reason: "unsupported_edit_path",
+      errorMessage: "Published post couldn't be confirmed as updated and was left unchanged.",
+      mediaType,
+      mediaProductType,
     });
   } catch (error) {
-    return buildEditResult({
+    return buildInstagramEditOutcome({
       instagramUpdated: false,
       instagramPostId,
-      instagramPostUrl: input.instagramPostUrl?.trim() ?? "",
+      instagramPostUrl,
       outcome: "failed",
+      reason: "unexpected_error",
       errorMessage: error instanceof Error ? error.message : "Instagram update failed.",
+      mediaType,
+      mediaProductType,
     });
   }
 }

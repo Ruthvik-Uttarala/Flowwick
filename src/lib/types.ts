@@ -114,16 +114,47 @@ export type DoneBucketSyncPayload = BucketPatchPayload;
 
 export type InstagramEditCapability =
   | "updated"
-  | "unsupported"
+  | "unchanged"
   | "failed"
   | "skipped";
 
+export type InstagramEditReason =
+  | "updated_in_place"
+  | "unsupported_media_type"
+  | "unsupported_edit_path"
+  | "missing_post_id"
+  | "credentials_missing"
+  | "disabled"
+  | "unexpected_error";
+
+export interface ShopifyDoneSyncStatus {
+  productFieldsUpdated: boolean;
+  inventoryQuantityUpdated: boolean;
+  inventoryQuantityBlockedByPermissions: boolean;
+  helperText: string;
+}
+
+export interface InstagramDoneSyncStatus {
+  outcome: InstagramEditCapability;
+  reason: InstagramEditReason;
+  helperText: string;
+}
+
+export type SyncStatusTone = "success" | "warning" | "failure";
+
+export interface SyncStatusChip {
+  id: string;
+  label: string;
+  tone: SyncStatusTone;
+  detail: string;
+}
+
 export interface DoneBucketSyncResult {
   bucket: ProductBucket;
-  shopifyUpdated: boolean;
   shopifyProductId: string;
-  instagramOutcome: InstagramEditCapability;
-  message: string;
+  shopify: ShopifyDoneSyncStatus;
+  instagram: InstagramDoneSyncStatus;
+  chips: SyncStatusChip[];
 }
 
 export interface ApiErrorShape {

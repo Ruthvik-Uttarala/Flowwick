@@ -108,3 +108,49 @@ export function hasActiveBucketWork(buckets: ProductBucket[]): boolean {
 export function getBucketPollIntervalMs(isRunningGoAll: boolean): number {
   return isRunningGoAll ? 1500 : 2500;
 }
+
+export function pickGoAllReadyBucketIds(buckets: ProductBucket[]): string[] {
+  return buckets.filter((bucket) => bucket.status === "READY").map((bucket) => bucket.id);
+}
+
+export function markBucketsProcessingForGoAll(
+  buckets: ProductBucket[],
+  bucketIds: string[]
+): ProductBucket[] {
+  if (bucketIds.length === 0) {
+    return buckets;
+  }
+
+  const targetIds = new Set(bucketIds);
+  return buckets.map((bucket) =>
+    targetIds.has(bucket.id) && bucket.status === "READY"
+      ? {
+          ...bucket,
+          status: "PROCESSING",
+          errorMessage: "",
+        }
+      : bucket
+  );
+}
+
+export async function runBoundedQueue<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>
+): Promise<void> {
+  const safeConcurrency = Math.max(1, Math.trunc(concurrency));
+  let cursor = 0;
+
+  const consume = async (): Promise<void> => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      await worker(items[index] as T);
+    }
+  };
+
+  const workers = Array.from({ length: Math.min(safeConcurrency, items.length) }, () =>
+    consume()
+  );
+  await Promise.all(workers);
+}

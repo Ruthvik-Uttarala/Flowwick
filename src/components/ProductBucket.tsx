@@ -20,6 +20,7 @@ import type {
   DoneBucketSyncPayload,
   EditableBucketField,
   ProductBucket as Bucket,
+  SyncStatusChip,
 } from "@/src/lib/types";
 import {
   getBucketTrashDescription,
@@ -40,7 +41,7 @@ interface ProductBucketProps {
   isGlobalBusy: boolean;
   isDoneExpanded: boolean;
   isSyncingDone: boolean;
-  doneSyncMessage: string;
+  doneSyncChips: SyncStatusChip[];
   onLocalFieldChange: (
     bucketId: string,
     field: EditableBucketField,
@@ -149,6 +150,16 @@ function doneBucketHeadline(bucket: Bucket, bucketNumber: number): string {
   );
 }
 
+function syncChipClassName(tone: SyncStatusChip["tone"]): string {
+  if (tone === "success") {
+    return "border-emerald-500/35 bg-emerald-50 text-emerald-900";
+  }
+  if (tone === "warning") {
+    return "border-amber-500/35 bg-amber-50 text-amber-900";
+  }
+  return "border-rose-500/35 bg-rose-50 text-rose-900";
+}
+
 export function ProductBucket({
   bucket,
   bucketNumber,
@@ -160,7 +171,7 @@ export function ProductBucket({
   isGlobalBusy,
   isDoneExpanded,
   isSyncingDone,
-  doneSyncMessage,
+  doneSyncChips,
   onLocalFieldChange,
   onPersistField,
   onImagesChange,
@@ -276,7 +287,7 @@ export function ProductBucket({
               onClick={() => onToggleDoneExpanded(bucket.id)}
               variant="secondary"
               size="sm"
-              className="rounded-xl"
+              className="rounded-2xl"
             >
               <PencilLine size={14} />
               Edit
@@ -375,7 +386,7 @@ export function ProductBucket({
             onClick={() => onToggleDoneExpanded(bucket.id)}
             variant="ghost"
             size="sm"
-            className="rounded-xl"
+            className="rounded-2xl"
           >
             <ChevronDown size={13} className="rotate-180" />
             Collapse
@@ -453,7 +464,7 @@ export function ProductBucket({
                 disabled={controlsLocked || !bucket.titleRaw.trim()}
                 variant="ghost"
                 size="sm"
-                className="rounded-xl"
+                className="rounded-2xl"
               >
                 {isEnhancingTitle ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -497,7 +508,7 @@ export function ProductBucket({
                 disabled={controlsLocked || !bucket.descriptionRaw.trim()}
                 variant="ghost"
                 size="sm"
-                className="h-fit rounded-xl"
+                className="h-fit rounded-2xl"
               >
                 {isEnhancingDescription ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -605,7 +616,7 @@ export function ProductBucket({
                 disabled={controlsLocked}
                 variant={isEmptyTrash ? "secondary" : "ghost"}
                 size="sm"
-                className="rounded-xl"
+                className="rounded-2xl"
               >
                 <Trash2 size={14} />
                 {trashLabel}
@@ -623,7 +634,7 @@ export function ProductBucket({
                     disabled={controlsLocked}
                     variant="secondary"
                     size="sm"
-                    className="rounded-xl"
+                    className="rounded-2xl"
                   >
                     {isTrashing ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -641,7 +652,7 @@ export function ProductBucket({
                     disabled={controlsLocked}
                     variant="danger"
                     size="sm"
-                    className="rounded-xl"
+                    className="rounded-2xl"
                   >
                     {isDeleting ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -657,21 +668,23 @@ export function ProductBucket({
         ) : null}
 
         <AnimatePresence initial={false}>
-          {isDoneBucket && doneSyncMessage ? (
+          {isDoneBucket && doneSyncChips.length > 0 ? (
             <motion.div
-              key={`sync-message-${bucket.id}-${doneSyncMessage}`}
+              key={`sync-status-${bucket.id}-${doneSyncChips.map((chip) => chip.id).join("-")}`}
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className={`rounded-xl border px-3 py-2 text-sm ${
-                doneSyncMessage.toLowerCase().includes("failed")
-                  ? "border-black/25 bg-white text-black"
-                  : doneSyncMessage.toLowerCase().includes("does not allow editing")
-                    ? "border-black/20 bg-white text-black"
-                    : "border-black/20 bg-white text-black"
-              }`}
+              className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/15 bg-white/90 px-3 py-2"
             >
-              {doneSyncMessage}
+              {doneSyncChips.map((chip) => (
+                <span
+                  key={`${bucket.id}-${chip.id}`}
+                  title={chip.detail || undefined}
+                  className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold tracking-wide ${syncChipClassName(chip.tone)}`}
+                >
+                  {chip.label}
+                </span>
+              ))}
             </motion.div>
           ) : null}
         </AnimatePresence>
@@ -698,7 +711,7 @@ export function ProductBucket({
               onClick={() => onSyncDone(bucket.id, donePatch)}
               disabled={controlsLocked || isSyncingDone || !hasDoneChanges}
               size="md"
-              className="rounded-xl"
+              className="rounded-2xl"
             >
               <span className="flex items-center gap-2">
                 {isSyncingDone ? (
@@ -717,7 +730,7 @@ export function ProductBucket({
               onClick={() => onGo(bucket.id)}
               disabled={bucket.status !== "READY" || controlsLocked}
               size="md"
-              className="rounded-xl"
+              className="rounded-2xl"
             >
               <span className="flex items-center gap-2">
                 {isLaunching ? (

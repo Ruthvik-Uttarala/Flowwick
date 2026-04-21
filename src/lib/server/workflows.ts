@@ -4,7 +4,10 @@ import {
   ConnectionSettings,
   DoneBucketSyncResult,
   GoAllSummary,
+  InstagramDoneSyncStatus,
   ProductBucket,
+  ShopifyDoneSyncStatus,
+  SyncStatusChip,
 } from "@/src/lib/types";
 import {
   createBucket,
@@ -314,6 +317,96 @@ function applyDoneDraft(
   };
 }
 
+function normalizeShopifyDoneSyncStatus(input: {
+  shopifyCreated: boolean;
+  productFieldsUpdated?: boolean;
+  inventoryQuantityUpdated?: boolean;
+  inventoryQuantityBlockedByPermissions?: boolean;
+  inventoryWarningMessage?: string;
+}): ShopifyDoneSyncStatus {
+  return {
+    productFieldsUpdated: Boolean(input.productFieldsUpdated ?? input.shopifyCreated),
+    inventoryQuantityUpdated: Boolean(input.inventoryQuantityUpdated),
+    inventoryQuantityBlockedByPermissions: Boolean(input.inventoryQuantityBlockedByPermissions),
+    helperText: input.inventoryWarningMessage?.trim() ?? "",
+  };
+}
+
+function normalizeInstagramDoneSyncStatus(input: {
+  outcome: "updated" | "unchanged" | "failed" | "skipped";
+  reason: InstagramDoneSyncStatus["reason"];
+  errorMessage: string;
+}): InstagramDoneSyncStatus {
+  return {
+    outcome: input.outcome,
+    reason: input.reason,
+    helperText: input.errorMessage.trim(),
+  };
+}
+
+function buildDoneSyncChips(
+  shopify: ShopifyDoneSyncStatus,
+  instagram: InstagramDoneSyncStatus,
+  syncFailureMessage = ""
+): SyncStatusChip[] {
+  const chips: SyncStatusChip[] = [];
+
+  if (shopify.productFieldsUpdated) {
+    chips.push({
+      id: "shopify-updated",
+      label: "Shopify updated",
+      tone: "success",
+      detail: "Updated title, description, and price on the same Shopify product.",
+    });
+  } else {
+    chips.push({
+      id: "sync-failed",
+      label: "Sync failed",
+      tone: "failure",
+      detail: syncFailureMessage || "Shopify update failed.",
+    });
+  }
+
+  if (shopify.productFieldsUpdated && !shopify.inventoryQuantityUpdated) {
+    chips.push({
+      id: "inventory-unchanged",
+      label: "Inventory unchanged",
+      tone: "warning",
+      detail:
+        shopify.helperText ||
+        (shopify.inventoryQuantityBlockedByPermissions
+          ? "Inventory quantity could not update because Shopify locations access is missing."
+          : "Inventory quantity did not change."),
+    });
+  }
+
+  if (instagram.outcome === "updated") {
+    chips.push({
+      id: "instagram-updated",
+      label: "Instagram updated",
+      tone: "success",
+      detail: "Updated the caption on the same Instagram post.",
+    });
+  } else if (instagram.outcome === "unchanged" || instagram.outcome === "skipped") {
+    chips.push({
+      id: "instagram-unchanged",
+      label: "Instagram unchanged",
+      tone: "warning",
+      detail:
+        instagram.helperText || "Published post can't be edited in place for this media type.",
+    });
+  } else {
+    chips.push({
+      id: "instagram-failed",
+      label: "Sync failed",
+      tone: "failure",
+      detail: instagram.helperText || "Instagram update failed unexpectedly.",
+    });
+  }
+
+  return chips;
+}
+
 export async function syncDoneBucket(
   bucketId: string,
   userId: string,
@@ -344,15 +437,40 @@ export async function syncDoneBucket(
     settings,
     existingProductId: current.shopifyProductId,
   });
+  const shopifySync = normalizeShopifyDoneSyncStatus({
+    shopifyCreated: shopifyArtifact.shopifyCreated,
+    productFieldsUpdated: shopifyArtifact.productFieldsUpdated,
+    inventoryQuantityUpdated: shopifyArtifact.inventoryQuantityUpdated,
+    inventoryQuantityBlockedByPermissions:
+      shopifyArtifact.inventoryQuantityBlockedByPermissions,
+    inventoryWarningMessage: shopifyArtifact.inventoryWarningMessage,
+  });
 
   if (!shopifyArtifact.shopifyCreated) {
+    const instagramSkipped = normalizeInstagramDoneSyncStatus({
+      outcome: "skipped",
+      reason: "unexpected_error",
+      errorMessage: "Instagram was skipped because Shopify update failed.",
+    });
     return {
       result: {
         bucket: current,
-        shopifyUpdated: false,
         shopifyProductId: current.shopifyProductId,
-        instagramOutcome: "skipped",
-        message: shopifyArtifact.errorMessage || "Shopify update failed.",
+        shopify: {
+          ...shopifySync,
+          productFieldsUpdated: false,
+          inventoryQuantityUpdated: false,
+        },
+        instagram: instagramSkipped,
+        chips: buildDoneSyncChips(
+          {
+            ...shopifySync,
+            productFieldsUpdated: false,
+            inventoryQuantityUpdated: false,
+          },
+          instagramSkipped,
+          shopifyArtifact.errorMessage || "Shopify update failed."
+        ),
       },
       notFound: false,
       error: shopifyArtifact.errorMessage || "Shopify update failed.",
@@ -374,7 +492,7 @@ export async function syncDoneBucket(
     shopifyProductUrl: shopifyArtifact.shopifyProductUrl || current.shopifyProductUrl,
     instagramPublished: bucket.instagramPublished,
     instagramPostId: current.instagramPostId,
-    instagramPostUrl: current.instagramPostUrl,
+    instagramPostUrl: instagramEdit.instagramPostUrl || current.instagramPostUrl,
     errorMessage: "",
     status: "DONE",
   }));
@@ -387,28 +505,29 @@ export async function syncDoneBucket(
     };
   }
 
-  const shopifyMessage = shopifyArtifact.warningMessage
-    ? `Shopify updated existing product fields in place (title, description, and price). ${shopifyArtifact.warningMessage}`
-    : "Shopify updated existing product fields in place (title, description, and price).";
+  const instagramSync = normalizeInstagramDoneSyncStatus({
+    outcome: instagramEdit.outcome,
+    reason: instagramEdit.reason,
+    errorMessage:
+      instagramEdit.outcome === "updated"
+        ? ""
+        : instagramEdit.errorMessage ||
+          (instagramEdit.outcome === "unchanged"
+            ? "Published post can't be edited in place for this media type."
+            : instagramEdit.outcome === "skipped"
+              ? "Instagram update was skipped."
+              : "Instagram update failed unexpectedly."),
+  });
 
-  const instagramMessage =
-    instagramEdit.outcome === "updated"
-      ? "Instagram updated the existing post in place."
-      : instagramEdit.outcome === "unsupported"
-        ? `Instagram edit-in-place is unsupported for this published post path. ${instagramEdit.errorMessage}`
-        : instagramEdit.outcome === "failed"
-          ? `Instagram update failed unexpectedly: ${instagramEdit.errorMessage}`
-          : "Instagram update was skipped.";
-
-  const finalMessage = `${shopifyMessage} ${instagramMessage}`.trim();
+  const chips = buildDoneSyncChips(shopifySync, instagramSync);
 
   return {
     result: {
       bucket: persisted,
-      shopifyUpdated: true,
       shopifyProductId: current.shopifyProductId,
-      instagramOutcome: instagramEdit.outcome,
-      message: finalMessage,
+      shopify: shopifySync,
+      instagram: instagramSync,
+      chips,
     },
     notFound: false,
   };

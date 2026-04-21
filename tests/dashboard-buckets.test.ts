@@ -2,11 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   applyCreatedBucket,
   applyMoveToTrash,
+  markBucketsProcessingForGoAll,
+  pickGoAllReadyBucketIds,
   applyPermanentDelete,
   applyRestoreFromTrash,
   getBucketPollIntervalMs,
   getTrashDaysRemaining,
   hasActiveBucketWork,
+  runBoundedQueue,
 } from "@/src/lib/dashboard-buckets";
 import type { ProductBucket } from "@/src/lib/types";
 
@@ -116,5 +119,47 @@ describe("dashboard bucket collection transitions", () => {
   it("uses a faster poll interval while GO ALL is running", () => {
     expect(getBucketPollIntervalMs(true)).toBe(1500);
     expect(getBucketPollIntervalMs(false)).toBe(2500);
+  });
+
+  it("selects only READY bucket ids for GO ALL fan-out", () => {
+    const buckets = [
+      makeBucket("bucket-1", { status: "READY" }),
+      makeBucket("bucket-2", { status: "DONE" }),
+      makeBucket("bucket-3", { status: "PROCESSING" }),
+      makeBucket("bucket-4", { status: "READY" }),
+    ];
+
+    expect(pickGoAllReadyBucketIds(buckets)).toEqual(["bucket-1", "bucket-4"]);
+  });
+
+  it("immediately marks selected READY buckets as PROCESSING for GO ALL", () => {
+    const buckets = [
+      makeBucket("bucket-1", { status: "READY", errorMessage: "stale error" }),
+      makeBucket("bucket-2", { status: "DONE" }),
+      makeBucket("bucket-3", { status: "READY", errorMessage: "another stale error" }),
+    ];
+
+    const updated = markBucketsProcessingForGoAll(buckets, ["bucket-1", "bucket-3"]);
+    expect(updated.find((bucket) => bucket.id === "bucket-1")?.status).toBe("PROCESSING");
+    expect(updated.find((bucket) => bucket.id === "bucket-3")?.status).toBe("PROCESSING");
+    expect(updated.find((bucket) => bucket.id === "bucket-2")?.status).toBe("DONE");
+    expect(updated.find((bucket) => bucket.id === "bucket-1")?.errorMessage).toBe("");
+    expect(updated.find((bucket) => bucket.id === "bucket-3")?.errorMessage).toBe("");
+  });
+
+  it("runs GO ALL workers with bounded concurrency and no duplicate launches", async () => {
+    const bucketIds = ["bucket-1", "bucket-2", "bucket-3", "bucket-4"];
+    const started = new Set<string>();
+    const completed: string[] = [];
+
+    await runBoundedQueue(bucketIds, 2, async (bucketId) => {
+      expect(started.has(bucketId)).toBe(false);
+      started.add(bucketId);
+      await Promise.resolve();
+      completed.push(bucketId);
+    });
+
+    expect(completed).toHaveLength(4);
+    expect(new Set(completed)).toEqual(new Set(bucketIds));
   });
 });

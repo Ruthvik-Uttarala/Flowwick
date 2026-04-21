@@ -15,11 +15,14 @@ import { apiErrorMessage, readApiResponse } from "@/src/components/api-response"
 import {
   applyCreatedBucket,
   applyMoveToTrash,
+  markBucketsProcessingForGoAll,
+  pickGoAllReadyBucketIds,
   applyPermanentDelete,
   applyRestoreFromTrash,
   getBucketPollIntervalMs,
   getTrashDaysRemaining,
   hasActiveBucketWork,
+  runBoundedQueue,
   upsertBucketById,
 } from "@/src/lib/dashboard-buckets";
 import {
@@ -39,6 +42,7 @@ import type {
   EditableBucketField,
   GoAllSummary,
   ProductBucket as Bucket,
+  SyncStatusChip,
 } from "@/src/lib/types";
 import {
   isDoneBucketCollapsedByDefault,
@@ -88,13 +92,15 @@ function hasSyncPayloadChanges(payload: DoneBucketSyncPayload): boolean {
   return Object.keys(payload).length > 0;
 }
 
+const GO_ALL_CONCURRENCY_LIMIT = 3;
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [trashedBuckets, setTrashedBuckets] = useState<Bucket[]>([]);
   const [actionsByBucket, setActionsByBucket] = useState<Record<string, BucketActionState>>({});
   const [doneExpandedByBucketId, setDoneExpandedByBucketId] = useState<Record<string, boolean>>({});
-  const [doneSyncMessages, setDoneSyncMessages] = useState<Record<string, string>>({});
+  const [doneSyncChips, setDoneSyncChips] = useState<Record<string, SyncStatusChip[]>>({});
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth>({
     openaiConfigured: false,
     settingsConfigured: false,
@@ -110,6 +116,7 @@ export default function DashboardPage() {
   const highlightTimeoutRef = useRef<number | null>(null);
   const bucketsRef = useRef<Bucket[]>([]);
   const trashedBucketsRef = useRef<Bucket[]>([]);
+  const goAllInFlightRef = useRef(false);
 
   const trashDateFormatter = useMemo(
     () =>
@@ -146,11 +153,11 @@ export default function DashboardPage() {
       }
       return pruned;
     });
-    setDoneSyncMessages((current) => {
-      const pruned: Record<string, string> = {};
-      for (const [bucketId, message] of Object.entries(current)) {
+    setDoneSyncChips((current) => {
+      const pruned: Record<string, SyncStatusChip[]> = {};
+      for (const [bucketId, chips] of Object.entries(current)) {
         if (activeIds.has(bucketId)) {
-          pruned[bucketId] = message;
+          pruned[bucketId] = chips;
         }
       }
       return pruned;
@@ -576,16 +583,23 @@ export default function DashboardPage() {
 
   const syncDoneBucketAction = async (bucketId: string, patch: DoneBucketSyncPayload) => {
     if (!hasSyncPayloadChanges(patch)) {
-      setDoneSyncMessages((current) => ({
+      setDoneSyncChips((current) => ({
         ...current,
-        [bucketId]: "No field changes to sync.",
+        [bucketId]: [
+          {
+            id: "sync-no-op",
+            label: "No changes",
+            tone: "warning",
+            detail: "Edit at least one field before syncing updates.",
+          },
+        ],
       }));
       return;
     }
 
     setBucketActionState(bucketId, (current) => ({ ...current, syncingDone: true }));
     setPageError("");
-    setDoneSyncMessages((current) => ({ ...current, [bucketId]: "" }));
+    setDoneSyncChips((current) => ({ ...current, [bucketId]: [] }));
 
     try {
       const response = await fetch(`/api/buckets/${bucketId}/sync`, {
@@ -595,8 +609,9 @@ export default function DashboardPage() {
       });
       const payload = await readApiResponse<{
         bucket?: Bucket;
-        sync?: { instagramOutcome?: string };
-        message?: string;
+        sync?: {
+          chips?: SyncStatusChip[];
+        };
       }>(response);
 
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
@@ -604,18 +619,31 @@ export default function DashboardPage() {
       }
 
       upsertBucket(payload.data.bucket);
-      setDoneSyncMessages((current) => ({
+      setDoneSyncChips((current) => ({
         ...current,
         [bucketId]:
-          payload.data?.message ??
-          (payload.data?.sync?.instagramOutcome === "updated"
-            ? "Done bucket synced successfully."
-            : "Done bucket synced."),
+          payload.data?.sync?.chips && payload.data.sync.chips.length > 0
+            ? payload.data.sync.chips
+            : [
+                {
+                  id: "sync-complete",
+                  label: "Sync complete",
+                  tone: "success",
+                  detail: "Done bucket updates were synced.",
+                },
+              ],
       }));
     } catch (error) {
-      setDoneSyncMessages((current) => ({
+      setDoneSyncChips((current) => ({
         ...current,
-        [bucketId]: error instanceof Error ? error.message : "Failed to sync launched bucket.",
+        [bucketId]: [
+          {
+            id: "sync-failed",
+            label: "Sync failed",
+            tone: "failure",
+            detail: error instanceof Error ? error.message : "Failed to sync launched bucket.",
+          },
+        ],
       }));
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, syncingDone: false }));
@@ -623,33 +651,99 @@ export default function DashboardPage() {
   };
 
   const goAllBuckets = async () => {
+    if (goAllInFlightRef.current) {
+      return;
+    }
+
+    const targetBucketIds = pickGoAllReadyBucketIds(bucketsRef.current);
+    if (targetBucketIds.length === 0) {
+      return;
+    }
+
+    goAllInFlightRef.current = true;
     setIsRunningGoAll(true);
     setPageError("");
-    setSummaryMessage("");
-    setGoAllSummary(null);
-    try {
-      const response = await fetch("/api/buckets/go-all", { method: "POST" });
-      const payload = await readApiResponse<{ summary?: GoAllSummary; buckets?: Bucket[] }>(
-        response
-      );
-      if (!response.ok || !payload?.ok || !payload.data) {
-        throw new Error(apiErrorMessage(payload, "Go All failed."));
-      }
+    setGoAllSummary({
+      total: targetBucketIds.length,
+      succeeded: 0,
+      failed: 0,
+      bucketIds: targetBucketIds,
+    });
+    setSummaryMessage(`GO ALL running: 0/${targetBucketIds.length} completed.`);
 
-      if (Array.isArray(payload.data.buckets)) {
-        setCollections(payload.data.buckets, trashedBucketsRef.current);
-      }
-      if (payload.data.summary) {
-        setGoAllSummary(payload.data.summary);
+    const nextBuckets = markBucketsProcessingForGoAll(bucketsRef.current, targetBucketIds);
+    setCollections(nextBuckets, trashedBucketsRef.current);
+
+    let succeeded = 0;
+    let failed = 0;
+    let completed = 0;
+
+    const reportProgress = () => {
+      setGoAllSummary({
+        total: targetBucketIds.length,
+        succeeded,
+        failed,
+        bucketIds: targetBucketIds,
+      });
+
+      if (completed < targetBucketIds.length) {
+        setSummaryMessage(`GO ALL running: ${completed}/${targetBucketIds.length} completed.`);
+      } else {
         setSummaryMessage(
-          `Go All complete: ${payload.data.summary.succeeded} succeeded, ${payload.data.summary.failed} failed.`
+          `Go All complete: ${succeeded} succeeded, ${failed} failed. (${targetBucketIds.length} processed)`
         );
       }
+    };
+
+    try {
+      await runBoundedQueue(targetBucketIds, GO_ALL_CONCURRENCY_LIMIT, async (bucketId) => {
+        try {
+          const response = await fetch(`/api/buckets/${bucketId}/go`, { method: "POST" });
+          const payload = await readApiResponse<{ bucket?: Bucket }>(response);
+
+          if (payload?.data?.bucket) {
+            upsertBucket(payload.data.bucket);
+          }
+
+          if (!response.ok || !payload?.ok) {
+            const message = apiErrorMessage(payload, "Launch failed.");
+            const currentBucket = bucketsRef.current.find((bucket) => bucket.id === bucketId);
+            if (currentBucket) {
+              upsertBucket({
+                ...currentBucket,
+                status: "FAILED",
+                errorMessage: message,
+              });
+            }
+          }
+
+          const completedBucket = payload?.data?.bucket ?? bucketsRef.current.find((b) => b.id === bucketId);
+          if (completedBucket?.status === "DONE") {
+            succeeded += 1;
+          } else {
+            failed += 1;
+          }
+        } catch (error) {
+          failed += 1;
+          const currentBucket = bucketsRef.current.find((bucket) => bucket.id === bucketId);
+          if (currentBucket) {
+            upsertBucket({
+              ...currentBucket,
+              status: "FAILED",
+              errorMessage: error instanceof Error ? error.message : "Launch failed.",
+            });
+          }
+        } finally {
+          completed += 1;
+          reportProgress();
+        }
+      });
       await loadRuntimeHealth();
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "Go All failed.");
     } finally {
       setIsRunningGoAll(false);
+      goAllInFlightRef.current = false;
     }
   };
 
@@ -737,7 +831,7 @@ export default function DashboardPage() {
               onClick={goAllBuckets}
               disabled={readyCount === 0 || isRunningGoAll}
               size="lg"
-              className="rounded-2xl disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-2xl"
             >
               <span className="flex items-center gap-2">
                 {isRunningGoAll ? (
@@ -800,8 +894,14 @@ export default function DashboardPage() {
             exit={{ opacity: 0, y: -8 }}
             className="rounded-2xl border border-black/18 bg-white px-4 py-3 text-sm text-black"
           >
-            {summaryMessage}
-            {goAllSummary ? ` (${goAllSummary.total} processed)` : ""}
+            <div className="flex flex-wrap items-center gap-2">
+              <span>{summaryMessage}</span>
+              {goAllSummary ? (
+                <span className="rounded-full border border-black/15 bg-white/85 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-black/75">
+                  Success {goAllSummary.succeeded} · Failed {goAllSummary.failed}
+                </span>
+              ) : null}
+            </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -855,7 +955,7 @@ export default function DashboardPage() {
                   isDeleting={actionsByBucket[bucket.id]?.deleting ?? false}
                   isDoneExpanded={isDoneExpanded}
                   isSyncingDone={actionsByBucket[bucket.id]?.syncingDone ?? false}
-                  doneSyncMessage={doneSyncMessages[bucket.id] ?? ""}
+                  doneSyncChips={doneSyncChips[bucket.id] ?? []}
                   isHighlighted={highlightedBucketId === bucket.id}
                   isGlobalBusy={isRunningGoAll}
                   containerRef={registerBucketRef(bucket.id)}
@@ -949,7 +1049,7 @@ export default function DashboardPage() {
                           disabled={actionsByBucket[bucket.id]?.restoring || isRunningGoAll}
                           variant="secondary"
                           size="sm"
-                          className="rounded-xl"
+                          className="rounded-2xl"
                         >
                           {actionsByBucket[bucket.id]?.restoring ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -964,7 +1064,7 @@ export default function DashboardPage() {
                           disabled={actionsByBucket[bucket.id]?.deleting || isRunningGoAll}
                           variant="danger"
                           size="sm"
-                          className="rounded-xl"
+                          className="rounded-2xl"
                         >
                           {actionsByBucket[bucket.id]?.deleting ? (
                             <Loader2 size={14} className="animate-spin" />

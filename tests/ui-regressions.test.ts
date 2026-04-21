@@ -47,6 +47,20 @@ describe("ui regressions", () => {
     expect(dashboardSource).toContain("if (authLoading || !user || !shouldAutoRefreshBuckets) {");
     expect(dashboardSource).toContain("window.setTimeout(() => {");
     expect(dashboardSource).toContain("getBucketPollIntervalMs(isRunningGoAll)");
+    expect(dashboardSource).toContain("markBucketsProcessingForGoAll");
+    expect(dashboardSource).toContain("runBoundedQueue(targetBucketIds, GO_ALL_CONCURRENCY_LIMIT");
+  });
+
+  it("renders DONE sync acknowledgement as structured status chips instead of raw paragraph text", () => {
+    const dashboardSource = readSource("app/dashboard/page.tsx");
+    const bucketSource = readSource("src/components/ProductBucket.tsx");
+
+    expect(dashboardSource).toContain("doneSyncChips");
+    expect(bucketSource).toContain("doneSyncChips");
+    expect(bucketSource).toContain("syncChipClassName");
+    expect(bucketSource).toContain("chip.label");
+    expect(bucketSource).not.toContain("doneSyncMessage");
+    expect(bucketSource).not.toContain("Instagram edit-in-place is unsupported for this published post path.");
   });
 
   it("keeps the homepage scroll story path aligned and responsive", () => {

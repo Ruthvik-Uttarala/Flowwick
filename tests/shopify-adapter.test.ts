@@ -244,6 +244,9 @@ describe("shopify adapter", () => {
     expect(result.shopifyCreated).toBe(true);
     expect(result.shopifyProductId).toBe("gid://shopify/Product/42");
     expect(result.shopifyProductUrl).toBe("https://demo.myshopify.com/products/flowcart-hat");
+    expect(result.productFieldsUpdated).toBe(true);
+    expect(result.inventoryQuantityUpdated).toBe(true);
+    expect(result.inventoryQuantityBlockedByPermissions).toBe(false);
     expect(fetchShopifyAdminGraphQL).toHaveBeenCalled();
     expect(fetchShopifyAdminGraphQL).not.toHaveBeenCalledWith(
       expect.objectContaining({
@@ -255,6 +258,24 @@ describe("shopify adapter", () => {
         }),
       })
     );
+
+    const variantPriceMutationCall = vi
+      .mocked(fetchShopifyAdminGraphQL)
+      .mock.calls.find(([request]) => request.query.includes("productVariantsBulkUpdate"))?.[0];
+    expect(variantPriceMutationCall?.variables).toMatchObject({
+      variants: [{ id: "gid://shopify/ProductVariant/99", price: 59.99 }],
+    });
+    expect(JSON.stringify(variantPriceMutationCall?.variables ?? {})).not.toContain("quantity");
+
+    const inventoryMutationCall = vi
+      .mocked(fetchShopifyAdminGraphQL)
+      .mock.calls.find(([request]) => request.query.includes("inventorySetQuantities"))?.[0];
+    expect(inventoryMutationCall?.variables).toMatchObject({
+      input: {
+        quantities: [{ inventoryItemId: "gid://shopify/InventoryItem/11", quantity: 12 }],
+      },
+    });
+    expect(JSON.stringify(inventoryMutationCall?.variables ?? {})).not.toContain("\"price\"");
   });
 
   it("keeps in-place product updates successful when locations inventory access is denied", async () => {
@@ -320,7 +341,10 @@ describe("shopify adapter", () => {
     expect(result.shopifyCreated).toBe(true);
     expect(result.shopifyProductId).toBe("gid://shopify/Product/42");
     expect(result.shopifyProductUrl).toBe("https://demo.myshopify.com/products/flowcart-hat");
+    expect(result.productFieldsUpdated).toBe(true);
+    expect(result.inventoryQuantityUpdated).toBe(false);
+    expect(result.inventoryQuantityBlockedByPermissions).toBe(true);
+    expect(result.inventoryWarningCode).toBe("permissions");
     expect(result.warningMessage).toContain("Inventory quantity was not updated");
-    expect(result.warningMessage).toContain("Access denied for locations field");
   });
 });

@@ -10,6 +10,11 @@ export interface ShopifyLaunchArtifact {
   errorMessage: string;
   warningMessage?: string;
   shopifyImageUrl?: string;
+  productFieldsUpdated?: boolean;
+  inventoryQuantityUpdated?: boolean;
+  inventoryQuantityBlockedByPermissions?: boolean;
+  inventoryWarningCode?: "permissions" | "no_location" | "inventory_item_missing" | "unknown";
+  inventoryWarningMessage?: string;
 }
 
 interface ShopifyUserError {
@@ -277,15 +282,13 @@ function looksLikeInventoryPermissionFailure(message: string): boolean {
 }
 
 function buildInventoryPermissionWarning(message: string): string {
-  const normalized = normalizeWhitespace(message);
-  if (normalized.toLowerCase().includes("locations field")) {
-    return "Inventory quantity was not updated because this Shopify connection cannot access inventory locations (Access denied for locations field).";
-  }
-  return `Inventory quantity was not updated due to Shopify inventory/location permissions: ${normalized}`;
+  void message;
+  return "Inventory quantity was not updated because this Shopify connection cannot access inventory locations.";
 }
 
 function buildInventorySkippedWarning(message: string): string {
-  return `Inventory quantity update was skipped: ${normalizeWhitespace(message)}`;
+  void message;
+  return "Inventory quantity was not updated.";
 }
 
 function pickPrimaryImageUrl(imageUrls: string[]): string {
@@ -497,7 +500,25 @@ export async function updateShopifyProductArtifact(input: {
   }
 
   try {
+    let productFieldsUpdated = false;
+    let inventoryQuantityUpdated = false;
+    let inventoryQuantityBlockedByPermissions = false;
+    let inventoryWarningCode: ShopifyLaunchArtifact["inventoryWarningCode"];
     const syncWarnings: string[] = [];
+
+    const registerInventoryWarning = (
+      message: string,
+      code: NonNullable<ShopifyLaunchArtifact["inventoryWarningCode"]>,
+      blockedByPermissions = false
+    ) => {
+      syncWarnings.push(message);
+      if (!inventoryWarningCode) {
+        inventoryWarningCode = code;
+      }
+      if (blockedByPermissions) {
+        inventoryQuantityBlockedByPermissions = true;
+      }
+    };
 
     const beforeUpdate = await fetchShopifyAdminGraphQL<ShopifyProductForUpdateQuery>({
       shopDomain: storeDomain,
@@ -527,6 +548,7 @@ export async function updateShopifyProductArtifact(input: {
     if (productUpdateErrors) {
       return buildFailure(productUpdateErrors);
     }
+    productFieldsUpdated = true;
 
     const variantId = existingProduct.variants?.nodes?.[0]?.id?.trim() ?? "";
     if (variantId) {
@@ -563,8 +585,9 @@ export async function updateShopifyProductArtifact(input: {
         });
         const locationId = locationsData.locations?.nodes?.[0]?.id?.trim() ?? "";
         if (!locationId) {
-          syncWarnings.push(
-            "Inventory quantity was not updated because no accessible Shopify location was returned."
+          registerInventoryWarning(
+            "Inventory quantity was not updated because no accessible Shopify location was returned.",
+            "no_location"
           );
         } else {
           try {
@@ -592,33 +615,44 @@ export async function updateShopifyProductArtifact(input: {
               inventoryData.inventorySetQuantities?.userErrors
             );
             if (inventoryErrors) {
-              syncWarnings.push(
-                looksLikeInventoryPermissionFailure(inventoryErrors)
-                  ? buildInventoryPermissionWarning(inventoryErrors)
-                  : buildInventorySkippedWarning(inventoryErrors)
-              );
+              if (looksLikeInventoryPermissionFailure(inventoryErrors)) {
+                registerInventoryWarning(
+                  buildInventoryPermissionWarning(inventoryErrors),
+                  "permissions",
+                  true
+                );
+              } else {
+                registerInventoryWarning(buildInventorySkippedWarning(inventoryErrors), "unknown");
+              }
+            } else {
+              inventoryQuantityUpdated = true;
             }
           } catch (error) {
             const message =
               error instanceof Error
                 ? normalizeWhitespace(error.message)
                 : "Unknown inventory update failure.";
-            syncWarnings.push(
-              looksLikeInventoryPermissionFailure(message)
-                ? buildInventoryPermissionWarning(message)
-                : buildInventorySkippedWarning(message)
-            );
+            if (looksLikeInventoryPermissionFailure(message)) {
+              registerInventoryWarning(buildInventoryPermissionWarning(message), "permissions", true);
+            } else {
+              registerInventoryWarning(buildInventorySkippedWarning(message), "unknown");
+            }
           }
         }
       } catch (error) {
         const message =
           error instanceof Error ? normalizeWhitespace(error.message) : "Unknown location lookup failure.";
-        syncWarnings.push(
-          looksLikeInventoryPermissionFailure(message)
-            ? buildInventoryPermissionWarning(message)
-            : buildInventorySkippedWarning(message)
-        );
+        if (looksLikeInventoryPermissionFailure(message)) {
+          registerInventoryWarning(buildInventoryPermissionWarning(message), "permissions", true);
+        } else {
+          registerInventoryWarning(buildInventorySkippedWarning(message), "unknown");
+        }
       }
+    } else {
+      registerInventoryWarning(
+        "Inventory quantity was not updated because no Shopify inventory item was found.",
+        "inventory_item_missing"
+      );
     }
 
     if (imageUrl) {
@@ -671,6 +705,12 @@ export async function updateShopifyProductArtifact(input: {
       warningMessage:
         syncWarnings.length > 0 ? Array.from(new Set(syncWarnings)).join(" ") : undefined,
       shopifyImageUrl: primaryImageUrl || undefined,
+      productFieldsUpdated,
+      inventoryQuantityUpdated,
+      inventoryQuantityBlockedByPermissions,
+      inventoryWarningCode,
+      inventoryWarningMessage:
+        syncWarnings.length > 0 ? Array.from(new Set(syncWarnings)).join(" ") : undefined,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error.";

@@ -145,9 +145,11 @@ vi.mock("@/src/lib/server/adapters/instagram", () => ({
     instagramUpdated: false,
     instagramPostId: "ig-post-1",
     instagramPostUrl: "https://instagram.example/p/1",
-    outcome: "unsupported" as const,
-    errorMessage:
-      "Instagram does not allow editing this published post in-place for the current media path. FlowCart kept the original post and did not create a duplicate.",
+    outcome: "unchanged" as const,
+    reason: "unsupported_edit_path" as const,
+    errorMessage: "Published post can't be edited in place for this media type.",
+    mediaType: "CAROUSEL_ALBUM",
+    mediaProductType: "FEED",
   })),
 }));
 

@@ -47,11 +47,11 @@ export async function POST(request: Request, context: ParamsContext) {
     return okResponse({
       bucket: result.result.bucket,
       sync: {
-        shopifyUpdated: result.result.shopifyUpdated,
         shopifyProductId: result.result.shopifyProductId,
-        instagramOutcome: result.result.instagramOutcome,
+        shopify: result.result.shopify,
+        instagram: result.result.instagram,
+        chips: result.result.chips,
       },
-      message: result.result.message,
     });
   } catch (error) {
     if (error instanceof ZodError) {
