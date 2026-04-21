@@ -8,13 +8,13 @@ type LiquidButtonSize = "sm" | "md" | "lg" | "xl" | "icon";
 
 const variantClass: Record<LiquidButtonVariant, string> = {
   primary:
-    "border border-amber-300/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,248,232,0.66),rgba(251,216,146,0.5))] text-slate-900 shadow-[0_10px_30px_rgba(243,183,95,0.35)]",
+    "border border-black/20 bg-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.22)]",
   secondary:
-    "border border-slate-200/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.82),rgba(245,250,255,0.62))] text-slate-800 shadow-[0_8px_24px_rgba(148,163,184,0.2)]",
+    "border border-black/16 bg-white text-black shadow-[0_8px_18px_rgba(0,0,0,0.12)]",
   ghost:
-    "border border-slate-300/70 bg-white/65 text-slate-800 shadow-[0_8px_24px_rgba(15,23,42,0.08)]",
+    "border border-black/20 bg-white/80 text-black shadow-[0_7px_14px_rgba(0,0,0,0.1)]",
   danger:
-    "border border-rose-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.86),rgba(255,237,237,0.78),rgba(254,205,211,0.64))] text-rose-700 shadow-[0_10px_26px_rgba(244,63,94,0.16)]",
+    "border border-black/35 bg-[linear-gradient(145deg,#1f1f1f,#0f0f0f)] text-white shadow-[0_10px_24px_rgba(0,0,0,0.25)]",
 };
 
 const sizeClass: Record<LiquidButtonSize, string> = {
@@ -50,11 +50,12 @@ export const LiquidButton = React.forwardRef<HTMLButtonElement, LiquidButtonProp
         type={type}
         className={cn(
           "group relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold tracking-[0.01em] outline-none transition duration-300 ease-out",
-          "focus-visible:ring-2 focus-visible:ring-cyan-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+          "focus-visible:ring-2 focus-visible:ring-black/35 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
           "disabled:pointer-events-none disabled:opacity-50",
-          "before:pointer-events-none before:absolute before:inset-0 before:rounded-full before:bg-[radial-gradient(circle_at_25%_20%,rgba(255,255,255,0.85),rgba(255,255,255,0)_58%)]",
-          "after:pointer-events-none after:absolute after:inset-[1px] after:rounded-full after:bg-[linear-gradient(180deg,rgba(255,255,255,0.25),rgba(255,255,255,0.02))] after:opacity-90",
-          "hover:-translate-y-0.5 hover:brightness-[1.03] active:translate-y-0 active:scale-[0.985]",
+          "before:pointer-events-none before:absolute before:inset-0 before:rounded-full before:bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.56),rgba(255,255,255,0)_58%)]",
+          "after:pointer-events-none after:absolute after:inset-0 after:rounded-full after:opacity-0 after:transition-opacity after:duration-300",
+          "after:bg-[linear-gradient(105deg,rgba(0,212,255,0),rgba(0,212,255,0.38),rgba(93,255,162,0.4),rgba(255,208,86,0.36),rgba(255,104,220,0.3),rgba(0,212,255,0))] after:bg-[length:220%_100%]",
+          "hover:-translate-y-0.5 hover:brightness-[1.02] hover:after:opacity-100 hover:after:animate-[shimmer_1.35s_linear_infinite] active:translate-y-0 active:scale-[0.985]",
           variantClass[variant],
           sizeClass[size],
           className

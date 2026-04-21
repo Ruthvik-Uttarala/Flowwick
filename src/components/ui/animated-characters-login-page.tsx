@@ -71,16 +71,19 @@ export function AnimatedCharactersLoginPage({ className }: { className?: string 
   return (
     <div
       className={cn(
-        "relative min-h-[360px] overflow-hidden rounded-[2rem] border border-amber-100 bg-gradient-to-br from-[#fff8ea] via-[#f8fbff] to-[#ecf7ff] p-6",
+        "relative min-h-[360px] overflow-hidden rounded-[2rem] border border-black/10 bg-[linear-gradient(145deg,#ffffff,#f5f5f5)] p-6",
         className
       )}
     >
-      <div className="pointer-events-none absolute -left-20 -top-20 h-48 w-48 rounded-full bg-amber-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 right-0 h-52 w-52 rounded-full bg-cyan-200/45 blur-3xl" />
+      <div className="pointer-events-none absolute -left-28 -top-20 h-56 w-56 rounded-full bg-black/8 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 right-0 h-56 w-56 rounded-full bg-black/10 blur-3xl" />
+      <div className="pointer-events-none absolute left-[8%] top-[10%] h-20 w-20 rounded-full bg-[radial-gradient(circle,rgba(0,212,255,0.45),rgba(0,212,255,0))] blur-xl float-fast" />
+      <div className="pointer-events-none absolute right-[14%] top-[28%] h-24 w-24 rounded-full bg-[radial-gradient(circle,rgba(255,118,214,0.42),rgba(255,118,214,0))] blur-xl float-medium" />
+      <div className="pointer-events-none absolute right-[28%] bottom-[18%] h-16 w-16 rounded-full bg-[radial-gradient(circle,rgba(113,255,180,0.42),rgba(113,255,180,0))] blur-lg float-slow" />
 
       <div className="relative flex h-full items-end justify-center gap-6">
         <div
-          className="relative h-64 w-40 rounded-t-[4rem] bg-[#f4c14f] shadow-[0_16px_28px_rgba(251,191,36,0.28)] transition-transform duration-200"
+          className="relative h-64 w-40 rounded-t-[4rem] border border-black/12 bg-[linear-gradient(180deg,#f9f9f9,#e8e8e8)] shadow-[0_16px_28px_rgba(0,0,0,0.18)] transition-transform duration-200"
           style={{ transform: `skewX(${(pointer.x - 0.5) * -4}deg)` }}
         >
           <div className="absolute left-1/2 top-12 -translate-x-1/2">
@@ -89,7 +92,7 @@ export function AnimatedCharactersLoginPage({ className }: { className?: string 
         </div>
 
         <div
-          className="relative h-80 w-44 rounded-t-[2rem] bg-[#6d7bff] shadow-[0_16px_28px_rgba(109,123,255,0.24)] transition-transform duration-200"
+          className="relative h-80 w-44 rounded-t-[2rem] border border-black/12 bg-[linear-gradient(180deg,#3a3a3a,#121212)] shadow-[0_16px_28px_rgba(0,0,0,0.24)] transition-transform duration-200"
           style={{ transform: `skewX(${(pointer.x - 0.5) * 5}deg)` }}
         >
           <div className="absolute left-1/2 top-16 -translate-x-1/2">
@@ -98,7 +101,7 @@ export function AnimatedCharactersLoginPage({ className }: { className?: string 
         </div>
 
         <div
-          className="relative h-52 w-32 rounded-t-[3rem] bg-[#ff947a] shadow-[0_16px_28px_rgba(251,146,60,0.24)] transition-transform duration-200"
+          className="relative h-52 w-32 rounded-t-[3rem] border border-black/12 bg-[linear-gradient(180deg,#ffffff,#dedede)] shadow-[0_16px_28px_rgba(0,0,0,0.18)] transition-transform duration-200"
           style={{ transform: `skewX(${(pointer.x - 0.5) * -3}deg)` }}
         >
           <div className="absolute left-1/2 top-12 -translate-x-1/2 flex items-center gap-3">

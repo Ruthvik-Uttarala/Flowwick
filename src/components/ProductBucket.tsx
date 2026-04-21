@@ -72,31 +72,31 @@ function statusStyle(status: Bucket["status"]): { classes: string; badge: string
   if (status === "DONE")
     return {
       classes:
-        "border border-amber-200 bg-amber-50 text-amber-700 shadow-[0_0_24px_rgba(245,158,11,0.16)]",
+        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
       badge: "badge-gold",
     };
   if (status === "FAILED")
     return {
       classes:
-        "border border-rose-200 bg-rose-50 text-rose-700 shadow-[0_0_20px_rgba(248,113,113,0.15)]",
+        "border border-black/25 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
       badge: "badge-red",
     };
   if (status === "PROCESSING")
     return {
       classes:
-        "border border-sky-200 bg-sky-50 text-sky-700 shadow-[0_0_20px_rgba(56,189,248,0.14)]",
+        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
       badge: "pulse-blue",
     };
   if (status === "ENHANCING")
     return {
       classes:
-        "border border-violet-200 bg-violet-50 text-violet-700 shadow-[0_0_20px_rgba(167,139,250,0.13)]",
+        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
       badge: "badge-purple",
     };
   if (status === "READY")
     return {
       classes:
-        "border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-[0_0_20px_rgba(16,185,129,0.13)]",
+        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
       badge: "badge-green",
     };
 
@@ -209,11 +209,11 @@ export function ProductBucket({
   const isEmptyTrash = bucket.status === "EMPTY";
   const trashContainerClass = isEmptyTrash
     ? "border-slate-200 bg-white/75"
-    : "border-rose-200 bg-rose-50/75";
+    : "border-black/20 bg-white";
   const trashPrimaryClass = isEmptyTrash
     ? "border-slate-200 bg-white/95 text-slate-800 hover:bg-slate-50"
-    : "border-rose-200 bg-rose-100 text-rose-700 hover:bg-rose-200";
-  const trashDescriptionClass = isEmptyTrash ? "text-slate-600" : "text-rose-700";
+    : "border-black/20 bg-white text-black hover:bg-black/[0.04]";
+  const trashDescriptionClass = isEmptyTrash ? "text-slate-600" : "text-black";
 
   const { classes: statusClasses, badge: statusBadge } = statusStyle(bucket.status);
   const inputClass = "cinematic-input w-full rounded-2xl px-3 py-2.5 text-sm";
@@ -231,7 +231,7 @@ export function ProductBucket({
         transition={{ duration: 0.24 }}
         className={`cinematic-card rounded-3xl p-4 sm:p-5 ${
           isHighlighted
-            ? "ring-2 ring-cyan-300 shadow-[0_0_0_6px_rgba(14,165,233,0.14)]"
+            ? "ring-2 ring-black/20 shadow-[0_0_0_6px_rgba(0,0,0,0.06)]"
             : ""
         }`}
       >
@@ -278,7 +278,7 @@ export function ProductBucket({
               type="button"
               data-testid={`bucket-edit-${bucket.id}`}
               onClick={() => onToggleDoneExpanded(bucket.id)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-black/18 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-black/[0.04]"
             >
               <PencilLine size={14} />
               Edit
@@ -286,8 +286,8 @@ export function ProductBucket({
           </div>
 
           <div className="grid gap-2 text-xs sm:grid-cols-2">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
-              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-emerald-700/70">
+            <div className="rounded-xl border border-black/18 bg-white px-3 py-2 text-black">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-black/55">
                 <ShoppingBag size={12} />
                 Shopify
               </div>
@@ -296,17 +296,17 @@ export function ProductBucket({
                   href={bucket.shopifyProductUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-emerald-700 hover:text-emerald-800"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-black hover:text-black"
                 >
                   <span className="truncate">{bucket.shopifyProductUrl}</span>
                   <ExternalLink size={12} className="shrink-0" />
                 </a>
               ) : (
-                <span className="text-emerald-700/65">No link</span>
+                <span className="text-black/55">No link</span>
               )}
             </div>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
-              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-amber-700/70">
+            <div className="rounded-xl border border-black/18 bg-white px-3 py-2 text-black">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-black/55">
                 <Camera size={12} />
                 Instagram
               </div>
@@ -315,13 +315,13 @@ export function ProductBucket({
                   href={bucket.instagramPostUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-amber-700 hover:text-amber-800"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-black hover:text-black"
                 >
                   <span className="truncate">{bucket.instagramPostUrl}</span>
                   <ExternalLink size={12} className="shrink-0" />
                 </a>
               ) : (
-                <span className="text-amber-700/65">No link</span>
+                <span className="text-black/55">No link</span>
               )}
             </div>
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">
@@ -352,7 +352,7 @@ export function ProductBucket({
       transition={{ duration: 0.24 }}
       className={`cinematic-card rounded-3xl p-5 ${
         isHighlighted
-          ? "ring-2 ring-cyan-300 shadow-[0_0_0_6px_rgba(14,165,233,0.14)]"
+          ? "ring-2 ring-black/20 shadow-[0_0_0_6px_rgba(0,0,0,0.06)]"
           : ""
       }`}
     >
@@ -396,7 +396,7 @@ export function ProductBucket({
               accept="image/*"
               disabled={controlsLocked}
               onChange={(event) => onImagesChange(bucket.id, event.target.files)}
-              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-100 file:px-3 file:py-2 file:text-cyan-700 file:font-medium file:text-sm hover:file:bg-cyan-200 transition"
+              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-black file:px-3 file:py-2 file:text-white file:font-medium file:text-sm hover:file:bg-black/85 transition"
             />
             {isUploading ? (
               <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
@@ -453,7 +453,7 @@ export function ProductBucket({
                 type="button"
                 onClick={() => onEnhanceTitle(bucket.id)}
                 disabled={controlsLocked || !bucket.titleRaw.trim()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-black/18 bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isEnhancingTitle ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -496,7 +496,7 @@ export function ProductBucket({
                 type="button"
                 onClick={() => onEnhanceDescription(bucket.id)}
                 disabled={controlsLocked || !bucket.descriptionRaw.trim()}
-                className="h-fit inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-fit inline-flex items-center gap-1.5 rounded-xl border border-black/18 bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isEnhancingDescription ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -566,7 +566,7 @@ export function ProductBucket({
             href={bucket.shopifyProductUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-100"
+            className="flex items-center gap-2 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm text-black transition hover:bg-black/[0.04]"
           >
             <ShoppingBag size={14} />
             <span className="truncate">Shopify: {bucket.shopifyProductUrl}</span>
@@ -579,7 +579,7 @@ export function ProductBucket({
             href={bucket.instagramPostUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 transition hover:bg-amber-100"
+            className="flex items-center gap-2 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm text-black transition hover:bg-black/[0.04]"
           >
             <Camera size={14} />
             <span className="truncate">Instagram: {bucket.instagramPostUrl}</span>
@@ -588,7 +588,7 @@ export function ProductBucket({
         ) : null}
 
         {bucket.errorMessage ? (
-          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="flex items-start gap-2 rounded-xl border border-black/25 bg-white px-3 py-2 text-sm text-black">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <span>{bucket.errorMessage}</span>
           </div>
@@ -637,7 +637,7 @@ export function ProductBucket({
                       onDeletePermanently(bucket.id);
                     }}
                     disabled={controlsLocked}
-                    className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-100 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg border border-black/25 bg-white px-3 py-2 text-sm font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isDeleting ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -661,10 +661,10 @@ export function ProductBucket({
               exit={{ opacity: 0, y: -8 }}
               className={`rounded-xl border px-3 py-2 text-sm ${
                 doneSyncMessage.toLowerCase().includes("failed")
-                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  ? "border-black/25 bg-white text-black"
                   : doneSyncMessage.toLowerCase().includes("does not allow editing")
-                    ? "border-amber-200 bg-amber-50 text-amber-700"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    ? "border-black/20 bg-white text-black"
+                    : "border-black/20 bg-white text-black"
               }`}
             >
               {doneSyncMessage}
@@ -739,3 +739,4 @@ export function ProductBucket({
     </motion.section>
   );
 }
+

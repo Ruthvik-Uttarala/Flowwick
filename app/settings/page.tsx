@@ -61,7 +61,7 @@ export default function SettingsPage() {
     <Suspense
       fallback={
         <div className="flex w-full items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-cyan-600" />
+          <Loader2 size={24} className="animate-spin text-black/70" />
         </div>
       }
     >
@@ -74,14 +74,14 @@ function getInstagramBadgeClass(status: InstagramConnectionSummary | null): stri
   switch (status?.status) {
     case "connected":
     case "legacy_fallback":
-      return "border border-emerald-300 bg-emerald-50 text-emerald-700";
+      return "border border-black/20 bg-white text-black";
     case "needs_reconnect":
     case "invalid_expired_token":
     case "missing_page_linkage":
     case "missing_instagram_business_account":
-      return "border border-rose-300 bg-rose-50 text-rose-700";
+      return "border border-black/25 bg-white text-black";
     case "selection_required":
-      return "border border-amber-300 bg-amber-50 text-amber-700";
+      return "border border-black/20 bg-black/[0.03] text-black";
     default:
       return "border border-slate-200 bg-slate-50 text-slate-600";
   }
@@ -193,7 +193,7 @@ function SettingsContent() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-cyan-600" />
+        <Loader2 size={24} className="animate-spin text-black/70" />
       </div>
     );
   }
@@ -382,8 +382,8 @@ function SettingsContent() {
     >
       <section className="cinematic-card relative overflow-hidden rounded-3xl p-6 space-y-6">
         <WebGLShader className="opacity-45" />
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-300/18 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-amber-300/18 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-black/8 blur-3xl" />
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
@@ -398,7 +398,7 @@ function SettingsContent() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                 openaiLive
-                  ? "border border-violet-300 bg-violet-50 text-violet-700"
+                  ? "border border-black/20 bg-white text-black"
                   : "border border-slate-200 bg-slate-50 text-slate-600"
               }`}
             >
@@ -407,8 +407,8 @@ function SettingsContent() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                 launchReady
-                  ? "border border-emerald-300 bg-emerald-50 text-emerald-700"
-                  : "border border-rose-300 bg-rose-50 text-rose-700"
+                  ? "border border-black/20 bg-white text-black"
+                  : "border border-black/25 bg-white text-black"
               }`}
             >
               {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
@@ -425,22 +425,22 @@ function SettingsContent() {
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShoppingBag size={18} className="text-cyan-700" />
+              <ShoppingBag size={18} className="text-black" />
               <h2 className="text-lg font-semibold text-slate-900">Shopify</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {shopifyDomainSaved ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-black/20 bg-black/[0.03] px-3 py-1 text-xs font-semibold text-black">
                   <ShoppingBag size={12} /> Domain Saved
                 </span>
               ) : null}
               {shopifyConnected ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-black/20 bg-white px-3 py-1 text-xs font-semibold text-black">
                   <CheckCircle2 size={12} /> Authorized
                 </span>
               ) : null}
               {shopifyReauthorizationRequired ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-black/25 bg-white px-3 py-1 text-xs font-semibold text-black">
                   <XCircle size={12} /> Reauthorization Required
                 </span>
               ) : null}
@@ -503,7 +503,7 @@ function SettingsContent() {
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <Camera size={18} className="text-cyan-700" />
+              <Camera size={18} className="text-black" />
               <h2 className="text-lg font-semibold text-slate-900">Instagram</h2>
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${getInstagramBadgeClass(
@@ -629,12 +629,12 @@ function SettingsContent() {
 
           {instagramConnection?.status === "selection_required" &&
           instagramConnection.candidates.length > 0 ? (
-            <div className="rounded-2xl border border-amber-300/60 bg-amber-50 p-4 space-y-3">
+            <div className="rounded-2xl border border-black/18 bg-black/[0.03] p-4 space-y-3">
               <div>
-                <p className="text-sm font-semibold text-amber-700">
+                <p className="text-sm font-semibold text-black">
                   Choose the Instagram account to use
                 </p>
-                <p className="text-xs text-amber-700/80">
+                <p className="text-xs text-black/65">
                   Select the Page and Instagram account FlowCart should publish to for this user.
                 </p>
               </div>
@@ -653,7 +653,7 @@ function SettingsContent() {
                         )
                       }
                       disabled={Boolean(selectingCandidateKey)}
-                      className="flex w-full items-center justify-between rounded-2xl border border-amber-200 bg-white px-4 py-3 text-left transition hover:border-amber-300 hover:bg-amber-50"
+                      className="flex w-full items-center justify-between rounded-2xl border border-black/15 bg-white px-4 py-3 text-left transition hover:border-black/30 hover:bg-black/[0.03]"
                     >
                       <span>
                         <span className="block text-sm font-semibold text-slate-900">
@@ -663,7 +663,7 @@ function SettingsContent() {
                           Page {candidate.pageId} · Instagram {candidate.instagramBusinessAccountId}
                         </span>
                       </span>
-                      <span className="text-sm font-semibold text-amber-700">
+                      <span className="text-sm font-semibold text-black">
                         {selecting ? "Selecting..." : "Use this account"}
                       </span>
                     </button>
@@ -742,7 +742,7 @@ function SettingsContent() {
             <RefreshCw size={14} /> Refresh
           </button>
           {isDirty ? (
-            <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+            <span className="rounded-full border border-black/20 bg-black/[0.03] px-3 py-1 text-xs font-semibold text-black">
               Unsaved changes
             </span>
           ) : null}
@@ -752,7 +752,7 @@ function SettingsContent() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+            className="rounded-2xl border border-black/20 bg-white px-4 py-3 text-sm text-black"
           >
             {message}
           </motion.div>
@@ -761,7 +761,7 @@ function SettingsContent() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            className="rounded-2xl border border-black/25 bg-white px-4 py-3 text-sm text-black"
           >
             {errorMessage}
           </motion.div>
@@ -770,3 +770,4 @@ function SettingsContent() {
     </motion.div>
   );
 }
+

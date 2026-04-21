@@ -304,7 +304,7 @@ export default function DashboardPage() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-cyan-600" />
+        <Loader2 size={24} className="animate-spin text-black/70" />
       </div>
     );
   }
@@ -623,19 +623,19 @@ export default function DashboardPage() {
       label: "Ready",
       value: readyCount,
       icon: Clock,
-      accent: "border-emerald-200 bg-emerald-50/90 text-emerald-700",
+      accent: "border-black/15 bg-white/92 text-black",
     },
     {
       label: "Done",
       value: doneCount,
       icon: CheckCircle2,
-      accent: "border-amber-200 bg-amber-50/90 text-amber-700",
+      accent: "border-black/15 bg-white/92 text-black",
     },
     {
       label: "Failed",
       value: failedCount,
       icon: XCircle,
-      accent: "border-rose-200 bg-rose-50/90 text-rose-700",
+      accent: "border-black/15 bg-white/92 text-black",
     },
     {
       label: "Trash",
@@ -648,7 +648,7 @@ export default function DashboardPage() {
       value: runtimeHealth.openaiConfigured ? "Live" : "Missing",
       icon: Zap,
       accent: runtimeHealth.openaiConfigured
-        ? "border-cyan-200 bg-cyan-50/90 text-cyan-700"
+        ? "border-black/20 bg-white text-black"
         : "border-slate-200 bg-slate-50/90 text-slate-700",
     },
   ];
@@ -662,21 +662,20 @@ export default function DashboardPage() {
         className="cinematic-card relative overflow-hidden rounded-3xl p-6"
       >
         <WebGLShader className="opacity-55" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-cyan-300/16 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-amber-300/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-black/8 blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-black/55">
               Launch Console
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-black">
               FlowCart Dashboard
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-              Build, launch, and now refine live buckets in-place. DONE buckets stay compact until
-              you choose to edit, and launched sync avoids duplicate Shopify products or duplicate
-              Instagram posts.
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-black/65">
+              Build once, launch everywhere, and edit launched buckets without duplicate Shopify
+              products or duplicate Instagram posts.
             </p>
           </div>
           <div className="flex flex-col gap-3">
@@ -741,7 +740,7 @@ export default function DashboardPage() {
             exit={{ opacity: 0, y: -8 }}
             className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3"
           >
-            <Loader2 size={14} className="animate-spin text-cyan-600" />
+            <Loader2 size={14} className="animate-spin text-black/70" />
             <span className="text-sm text-slate-700">Loading buckets...</span>
           </motion.div>
         ) : null}
@@ -753,7 +752,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
+            className="rounded-2xl border border-black/18 bg-white px-4 py-3 text-sm text-black"
           >
             {summaryMessage}
             {goAllSummary ? ` (${goAllSummary.total} processed)` : ""}
@@ -767,7 +766,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            className="rounded-2xl border border-black/25 bg-white px-4 py-3 text-sm text-black"
           >
             {pageError}
           </motion.div>
@@ -903,7 +902,7 @@ export default function DashboardPage() {
                           data-testid={`trash-restore-${bucket.id}`}
                           onClick={() => restoreBucketAction(bucket.id)}
                           disabled={actionsByBucket[bucket.id]?.restoring || isRunningGoAll}
-                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {actionsByBucket[bucket.id]?.restoring ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -917,7 +916,7 @@ export default function DashboardPage() {
                           data-testid={`trash-delete-${bucket.id}`}
                           onClick={() => permanentlyDeleteBucketAction(bucket.id)}
                           disabled={actionsByBucket[bucket.id]?.deleting || isRunningGoAll}
-                          className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-xl border border-black/25 bg-white px-3 py-2 text-sm font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {actionsByBucket[bucket.id]?.deleting ? (
                             <Loader2 size={14} className="animate-spin" />

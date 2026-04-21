@@ -93,26 +93,25 @@ export function AuthView({ redirectTo }: AuthViewProps) {
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55 }}
-        className="grid w-full gap-6 rounded-[2rem] border border-slate-200/80 bg-white/74 p-5 shadow-[0_26px_54px_rgba(15,23,42,0.1)] backdrop-blur-2xl lg:grid-cols-[1.1fr_0.9fr] lg:p-8"
+        className="grid w-full gap-6 rounded-[2rem] border border-black/12 bg-white/88 p-5 shadow-[0_24px_48px_rgba(0,0,0,0.11)] backdrop-blur lg:grid-cols-[1.1fr_0.9fr] lg:p-8"
       >
         <section className="space-y-5">
-          <div className="rounded-3xl border border-slate-200/80 bg-white/72 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+          <div className="rounded-3xl border border-black/12 bg-white/92 p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
+            <span className="mono-pill">
               <Sparkles size={12} /> FlowCart Access
             </span>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900">
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-black">
               Start your launch flow.
             </h1>
-            <p className="mt-3 text-sm leading-7 text-slate-600">
-              Sign in to continue your upload-once launch pipeline and manage Shopify + Instagram
-              publishing from one control center.
+            <p className="mt-3 text-sm leading-7 text-black/65">
+              Sign in to continue your connected launch pipeline.
             </p>
           </div>
           <AnimatedCharactersLoginPage />
         </section>
 
-        <section className="rounded-[1.75rem] border border-slate-200/80 bg-white/88 p-5 shadow-[0_16px_34px_rgba(15,23,42,0.09)] sm:p-6">
-          <div className="mb-6 flex gap-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-1 text-sm">
+        <section className="rounded-[1.75rem] border border-black/12 bg-white/95 p-5 shadow-[0_16px_34px_rgba(0,0,0,0.09)] sm:p-6">
+          <div className="mb-6 flex gap-1 rounded-2xl border border-black/12 bg-black/[0.03] p-1 text-sm">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -123,8 +122,8 @@ export function AuthView({ redirectTo }: AuthViewProps) {
                 }}
                 className={`flex-1 rounded-xl px-3 py-2.5 font-semibold transition ${
                   mode === tab.key
-                    ? "bg-white text-slate-900 shadow-[0_8px_16px_rgba(15,23,42,0.12)]"
-                    : "text-slate-500 hover:text-slate-700"
+                    ? "bg-black text-white shadow-[0_8px_16px_rgba(0,0,0,0.18)]"
+                    : "text-black/55 hover:text-black"
                 }`}
               >
                 {tab.label}
@@ -134,9 +133,9 @@ export function AuthView({ redirectTo }: AuthViewProps) {
 
           <div className="space-y-4">
             <label className="block space-y-2 text-sm">
-              <span className="text-slate-600">Email</span>
+              <span className="text-black/65">Email</span>
               <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40" />
                 <input
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -150,9 +149,9 @@ export function AuthView({ redirectTo }: AuthViewProps) {
 
             {mode !== "reset" ? (
               <label className="block space-y-2 text-sm">
-                <span className="text-slate-600">Password</span>
+                <span className="text-black/65">Password</span>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40" />
                   <input
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -196,7 +195,7 @@ export function AuthView({ redirectTo }: AuthViewProps) {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
+                className="rounded-2xl border border-black/15 bg-black/[0.03] px-4 py-3 text-sm text-black/78"
               >
                 {status}
               </motion.div>

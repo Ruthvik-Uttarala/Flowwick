@@ -35,16 +35,16 @@ export function Navbar() {
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/65 backdrop-blur-2xl"
+      className="sticky top-0 z-20 border-b border-black/10 bg-white/85 backdrop-blur-xl"
     >
       <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
         <Link href="/" className="group inline-flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-sky-400 to-amber-300 text-sm font-bold text-slate-900 shadow-[0_10px_24px_rgba(14,165,233,0.28)] transition group-hover:shadow-[0_14px_28px_rgba(14,165,233,0.35)]">
+          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/20 bg-black text-sm font-bold text-white shadow-[0_8px_18px_rgba(0,0,0,0.2)] transition group-hover:scale-[1.02]">
             FC
           </span>
           <div>
-            <p className="text-sm font-semibold tracking-[0.08em] text-slate-900">FlowCart</p>
-            <p className="text-[11px] text-slate-500">Upload once. Launch everywhere.</p>
+            <p className="text-sm font-semibold tracking-[0.08em] text-black">FlowCart</p>
+            <p className="text-[11px] text-black/55">Upload once. Launch everywhere.</p>
           </div>
         </Link>
 
@@ -58,7 +58,7 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={signOut}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-black/5"
               >
                 <LogOut size={14} />
                 Logout
