@@ -3,80 +3,107 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { LayoutDashboard, LogOut, Settings, Sparkles } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
-import { LimelightNav } from "@/src/components/ui/limelight-nav";
-import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
+import { cn } from "@/src/lib/cn";
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, loading, signOut } = useAuth();
 
-  const navItems = user
-    ? [
-        { key: "home", href: "/", label: "Home", icon: <Sparkles size={15} /> },
-        { key: "dashboard", href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={15} /> },
-        { key: "settings", href: "/settings", label: "Settings", icon: <Settings size={15} /> },
-      ]
-    : [
-        { key: "home", href: "/", label: "Home", icon: <Sparkles size={15} /> },
-        { key: "auth", href: "/auth", label: "Login", icon: <LogOut size={15} /> },
-      ];
-
-  const activeKey = pathname.startsWith("/dashboard")
-    ? "dashboard"
-    : pathname.startsWith("/settings")
-      ? "settings"
-      : pathname.startsWith("/auth")
-        ? "auth"
-        : "home";
+  const isHome = pathname === "/";
+  const isAuth = pathname.startsWith("/auth");
+  const isDashboard = pathname.startsWith("/dashboard");
+  const isSettings = pathname.startsWith("/settings");
 
   return (
-    <motion.header
-      initial={{ opacity: 0, y: -12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      className="sticky top-0 z-30 border-b border-black/10 bg-white/90 backdrop-blur-xl"
-    >
-      <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
-        <Link href="/" className="group inline-flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-black/15 bg-white shadow-[0_8px_18px_rgba(0,0,0,0.14)] transition group-hover:scale-[1.02]">
+    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur-md">
+      <div className="mx-auto flex w-full max-w-[1200px] items-center justify-between px-5 py-3 sm:px-8">
+        {/* Brand lockup */}
+        <Link 
+          href="/" 
+          className="group flex items-center gap-3 focus-ring rounded-lg"
+        >
+          <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-sm transition-transform group-hover:scale-[1.02]">
             <Image
               src="/brand/flowcart-logo-clean.png"
               alt="FlowCart logo"
-              width={64}
-              height={64}
-              className="h-full w-full object-contain p-1"
+              width={36}
+              height={36}
+              className="h-full w-full object-contain p-0.5"
               priority
             />
           </span>
-          <div>
-            <p className="text-sm font-semibold tracking-[0.01em] text-black">FlowCart</p>
-            <p className="text-[11px] text-black/55">Upload once. Launch everywhere.</p>
-          </div>
+          <span className="text-[0.9375rem] font-semibold tracking-[-0.01em] text-[var(--foreground)]">
+            FlowCart
+          </span>
         </Link>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <LimelightNav items={navItems} activeKey={activeKey} />
-          {!loading && user ? (
+        {/* Navigation */}
+        <nav className="flex items-center gap-1">
+          {user ? (
             <>
-              <span className="hidden max-w-[190px] truncate rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-600 sm:inline">
-                {user.email}
-              </span>
-              <LiquidButton
-                onClick={signOut}
-                variant="ghost"
-                size="sm"
-                className="rounded-xl"
-              >
-                <LogOut size={14} />
-                Logout
-              </LiquidButton>
+              <NavLink href="/" active={isHome}>Home</NavLink>
+              <NavLink href="/dashboard" active={isDashboard}>Dashboard</NavLink>
+              <NavLink href="/settings" active={isSettings}>Settings</NavLink>
+              
+              <div className="ml-3 flex items-center gap-2">
+                <span className="hidden max-w-[160px] truncate rounded-lg border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs text-[var(--muted-foreground)] sm:inline">
+                  {user.email}
+                </span>
+                <button
+                  onClick={signOut}
+                  className="focus-ring inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+                >
+                  <LogOut size={14} />
+                  <span className="hidden sm:inline">Logout</span>
+                </button>
+              </div>
             </>
-          ) : null}
-        </div>
+          ) : (
+            <>
+              <NavLink href="/" active={isHome}>Home</NavLink>
+              {!loading && (
+                <Link
+                  href="/auth"
+                  className={cn(
+                    "focus-ring ml-2 inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition-all",
+                    isAuth
+                      ? "bg-[var(--primary)] text-white"
+                      : "border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--muted)]"
+                  )}
+                >
+                  Login
+                </Link>
+              )}
+            </>
+          )}
+        </nav>
       </div>
-    </motion.header>
+    </header>
+  );
+}
+
+function NavLink({ 
+  href, 
+  active, 
+  children 
+}: { 
+  href: string; 
+  active: boolean; 
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "focus-ring rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "text-[var(--primary)]"
+          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+      )}
+    >
+      {children}
+    </Link>
   );
 }
