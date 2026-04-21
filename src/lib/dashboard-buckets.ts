@@ -5,6 +5,11 @@ export interface BucketCollections {
   trashedBuckets: ProductBucket[];
 }
 
+const ACTIVE_BUCKET_STATUSES = new Set<ProductBucket["status"]>([
+  "PROCESSING",
+  "ENHANCING",
+]);
+
 function sortActiveBuckets(buckets: ProductBucket[]): ProductBucket[] {
   return [...buckets].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
@@ -94,4 +99,12 @@ export function getTrashDaysRemaining(deleteAfterAt: string, now = new Date()): 
   }
 
   return Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+}
+
+export function hasActiveBucketWork(buckets: ProductBucket[]): boolean {
+  return buckets.some((bucket) => ACTIVE_BUCKET_STATUSES.has(bucket.status));
+}
+
+export function getBucketPollIntervalMs(isRunningGoAll: boolean): number {
+  return isRunningGoAll ? 1500 : 2500;
 }

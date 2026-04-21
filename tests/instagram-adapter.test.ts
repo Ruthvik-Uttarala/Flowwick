@@ -547,4 +547,31 @@ describe("instagram adapter", () => {
     expect(result.outcome).toBe("unsupported");
     expect(result.errorMessage).toContain("did not create a duplicate");
   });
+
+  it("treats Graph (#100) comment_enabled edit-path errors as unsupported in-place edits", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      jsonResponse(
+        {
+          error: {
+            message: "(#100) The parameter comment_enabled is required",
+            code: 100,
+          },
+        },
+        400
+      )
+    );
+
+    const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await updateInstagramPostArtifact({
+      payload: makePayload({ description: "Updated caption body." }),
+      instagramCredentials: resolvedInstagramCredentials,
+      instagramPostId: "17895695668004550",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+    });
+
+    expect(result.instagramUpdated).toBe(false);
+    expect(result.outcome).toBe("unsupported");
+    expect(result.errorMessage).toContain("did not create a duplicate");
+  });
 });

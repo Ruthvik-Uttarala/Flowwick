@@ -409,6 +409,12 @@ describe("launch workflow", () => {
     expect(result.result?.bucket.shopifyProductId).toBe("gid://shopify/Product/42");
     expect(result.result?.bucket.instagramPostId).toBe("ig-post-1");
     expect(result.result?.instagramOutcome).toBe("unsupported");
+    expect(result.result?.message).toContain(
+      "Shopify updated existing product fields in place (title, description, and price)."
+    );
+    expect(result.result?.message).toContain(
+      "Instagram edit-in-place is unsupported for this published post path."
+    );
     expect(updateShopifyProductArtifact).toHaveBeenCalledWith(
       expect.objectContaining({
         existingProductId: "gid://shopify/Product/42",
@@ -487,6 +493,10 @@ describe("launch workflow", () => {
     expect(result.result?.bucket.quantity).toBe(1000);
     expect(result.result?.bucket.shopifyProductId).toBe("gid://shopify/Product/99");
     expect(result.result?.bucket.instagramPostId).toBe("ig-post-qty-price");
+    expect(result.result?.message).toContain(
+      "Shopify updated existing product fields in place (title, description, and price)."
+    );
+    expect(result.result?.message).toContain("Instagram updated the existing post in place.");
     expect(result.result?.message).toContain("Inventory quantity was not updated");
     expect(updateShopifyProductArtifact).toHaveBeenCalledWith(
       expect.objectContaining({

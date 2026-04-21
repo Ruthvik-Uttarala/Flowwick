@@ -606,8 +606,20 @@ export async function publishInstagramPostArtifact(input: {
   }
 }
 
-function isUnsupportedInstagramEditFailure(graphMessage: string): boolean {
-  const lowered = graphMessage.toLowerCase();
+function isUnsupportedInstagramEditFailure(input: {
+  graphMessage: string;
+  code: number | null;
+}): boolean {
+  const lowered = input.graphMessage.toLowerCase();
+  const isCode100 = input.code === 100;
+  const requiresCommentToggle =
+    lowered.includes("parameter comment_enabled is required") ||
+    lowered.includes("the parameter comment_enabled is required");
+
+  if (isCode100 && requiresCommentToggle) {
+    return true;
+  }
+
   return (
     lowered.includes("unsupported post request") ||
     lowered.includes("cannot be edited") ||
@@ -699,7 +711,10 @@ export async function updateInstagramPostArtifact(input: {
     }
 
     const normalized = normalizeInstagramGraphError(payload, response.status, "publish");
-    const unsupported = isUnsupportedInstagramEditFailure(normalized.graphMessage);
+    const unsupported = isUnsupportedInstagramEditFailure({
+      graphMessage: normalized.graphMessage,
+      code: normalized.code,
+    });
     if (unsupported) {
       const message =
         "Instagram does not allow editing this published post in-place for the current media path. FlowCart kept the original post and did not create a duplicate.";

@@ -387,18 +387,20 @@ export async function syncDoneBucket(
     };
   }
 
-  const message =
-    instagramEdit.outcome === "updated"
-      ? "Updated existing Shopify product and existing Instagram post in place."
-      : instagramEdit.outcome === "unsupported"
-        ? `Updated existing Shopify product. ${instagramEdit.errorMessage}`
-        : instagramEdit.outcome === "failed"
-          ? `Updated existing Shopify product. Instagram update failed: ${instagramEdit.errorMessage}`
-          : "Updated existing Shopify product. Instagram update was skipped.";
+  const shopifyMessage = shopifyArtifact.warningMessage
+    ? `Shopify updated existing product fields in place (title, description, and price). ${shopifyArtifact.warningMessage}`
+    : "Shopify updated existing product fields in place (title, description, and price).";
 
-  const finalMessage = shopifyArtifact.warningMessage
-    ? `${message} ${shopifyArtifact.warningMessage}`.trim()
-    : message;
+  const instagramMessage =
+    instagramEdit.outcome === "updated"
+      ? "Instagram updated the existing post in place."
+      : instagramEdit.outcome === "unsupported"
+        ? `Instagram edit-in-place is unsupported for this published post path. ${instagramEdit.errorMessage}`
+        : instagramEdit.outcome === "failed"
+          ? `Instagram update failed unexpectedly: ${instagramEdit.errorMessage}`
+          : "Instagram update was skipped.";
+
+  const finalMessage = `${shopifyMessage} ${instagramMessage}`.trim();
 
   return {
     result: {

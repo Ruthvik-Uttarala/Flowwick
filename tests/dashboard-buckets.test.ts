@@ -4,7 +4,9 @@ import {
   applyMoveToTrash,
   applyPermanentDelete,
   applyRestoreFromTrash,
+  getBucketPollIntervalMs,
   getTrashDaysRemaining,
+  hasActiveBucketWork,
 } from "@/src/lib/dashboard-buckets";
 import type { ProductBucket } from "@/src/lib/types";
 
@@ -101,5 +103,18 @@ describe("dashboard bucket collection transitions", () => {
     );
 
     expect(days).toBe(5);
+  });
+
+  it("detects when any bucket is still actively processing", () => {
+    const idle = [makeBucket("bucket-1", { status: "READY" }), makeBucket("bucket-2", { status: "DONE" })];
+    const active = [makeBucket("bucket-3", { status: "PROCESSING" })];
+
+    expect(hasActiveBucketWork(idle)).toBe(false);
+    expect(hasActiveBucketWork(active)).toBe(true);
+  });
+
+  it("uses a faster poll interval while GO ALL is running", () => {
+    expect(getBucketPollIntervalMs(true)).toBe(1500);
+    expect(getBucketPollIntervalMs(false)).toBe(2500);
   });
 });

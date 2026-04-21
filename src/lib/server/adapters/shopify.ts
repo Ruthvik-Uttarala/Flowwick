@@ -276,6 +276,18 @@ function looksLikeInventoryPermissionFailure(message: string): boolean {
   );
 }
 
+function buildInventoryPermissionWarning(message: string): string {
+  const normalized = normalizeWhitespace(message);
+  if (normalized.toLowerCase().includes("locations field")) {
+    return "Inventory quantity was not updated because this Shopify connection cannot access inventory locations (Access denied for locations field).";
+  }
+  return `Inventory quantity was not updated due to Shopify inventory/location permissions: ${normalized}`;
+}
+
+function buildInventorySkippedWarning(message: string): string {
+  return `Inventory quantity update was skipped: ${normalizeWhitespace(message)}`;
+}
+
 function pickPrimaryImageUrl(imageUrls: string[]): string {
   return imageUrls.find((url) => hasPublicUrl(url))?.trim() ?? "";
 }
@@ -582,8 +594,8 @@ export async function updateShopifyProductArtifact(input: {
             if (inventoryErrors) {
               syncWarnings.push(
                 looksLikeInventoryPermissionFailure(inventoryErrors)
-                  ? `Inventory quantity was not updated due to Shopify permissions: ${normalizeWhitespace(inventoryErrors)}`
-                  : `Inventory quantity update was skipped: ${normalizeWhitespace(inventoryErrors)}`
+                  ? buildInventoryPermissionWarning(inventoryErrors)
+                  : buildInventorySkippedWarning(inventoryErrors)
               );
             }
           } catch (error) {
@@ -593,8 +605,8 @@ export async function updateShopifyProductArtifact(input: {
                 : "Unknown inventory update failure.";
             syncWarnings.push(
               looksLikeInventoryPermissionFailure(message)
-                ? `Inventory quantity was not updated due to Shopify permissions: ${message}`
-                : `Inventory quantity update was skipped: ${message}`
+                ? buildInventoryPermissionWarning(message)
+                : buildInventorySkippedWarning(message)
             );
           }
         }
@@ -603,8 +615,8 @@ export async function updateShopifyProductArtifact(input: {
           error instanceof Error ? normalizeWhitespace(error.message) : "Unknown location lookup failure.";
         syncWarnings.push(
           looksLikeInventoryPermissionFailure(message)
-            ? `Inventory quantity was not updated due to Shopify permissions: ${message}`
-            : `Inventory quantity update was skipped: ${message}`
+            ? buildInventoryPermissionWarning(message)
+            : buildInventorySkippedWarning(message)
         );
       }
     }

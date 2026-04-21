@@ -39,6 +39,16 @@ describe("ui regressions", () => {
     expect(settingsSource).toContain("{isConnectingInstagram || isValidatingInstagram ? (");
   });
 
+  it("auto-refreshes dashboard buckets while GO ALL or active processing is in progress", () => {
+    const dashboardSource = readSource("app/dashboard/page.tsx");
+
+    expect(dashboardSource).toContain("hasActiveBucketWork(buckets)");
+    expect(dashboardSource).toContain("const shouldAutoRefreshBuckets = isRunningGoAll || hasActiveProcessingBuckets;");
+    expect(dashboardSource).toContain("if (authLoading || !user || !shouldAutoRefreshBuckets) {");
+    expect(dashboardSource).toContain("window.setTimeout(() => {");
+    expect(dashboardSource).toContain("getBucketPollIntervalMs(isRunningGoAll)");
+  });
+
   it("keeps the homepage scroll story path aligned and responsive", () => {
     const scrollSource = readSource("src/components/ui/svg-follow-scroll.tsx");
 

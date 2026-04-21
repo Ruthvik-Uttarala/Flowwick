@@ -17,7 +17,9 @@ import {
   applyMoveToTrash,
   applyPermanentDelete,
   applyRestoreFromTrash,
+  getBucketPollIntervalMs,
   getTrashDaysRemaining,
+  hasActiveBucketWork,
   upsertBucketById,
 } from "@/src/lib/dashboard-buckets";
 import {
@@ -300,6 +302,50 @@ export default function DashboardPage() {
       active = false;
     };
   }, [authLoading, user, loadBuckets, loadRuntimeHealth]);
+
+  const hasActiveProcessingBuckets = useMemo(
+    () => hasActiveBucketWork(buckets),
+    [buckets]
+  );
+  const shouldAutoRefreshBuckets = isRunningGoAll || hasActiveProcessingBuckets;
+
+  useEffect(() => {
+    if (authLoading || !user || !shouldAutoRefreshBuckets) {
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: number | null = null;
+
+    const pollOnce = async () => {
+      if (cancelled) {
+        return;
+      }
+
+      try {
+        await loadBuckets();
+      } catch (error) {
+        console.warn("[flowcart:dashboard] bucket polling failed", error);
+      } finally {
+        if (!cancelled) {
+          timeoutId = window.setTimeout(() => {
+            void pollOnce();
+          }, getBucketPollIntervalMs(isRunningGoAll));
+        }
+      }
+    };
+
+    timeoutId = window.setTimeout(() => {
+      void pollOnce();
+    }, getBucketPollIntervalMs(isRunningGoAll));
+
+    return () => {
+      cancelled = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [authLoading, user, shouldAutoRefreshBuckets, isRunningGoAll, loadBuckets]);
 
   if (authLoading) {
     return (
