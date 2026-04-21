@@ -422,4 +422,89 @@ describe("launch workflow", () => {
     expect(createShopifyProductArtifact).not.toHaveBeenCalled();
     expect(publishInstagramPostArtifact).not.toHaveBeenCalled();
   });
+
+  it("keeps quantity stable when only price is edited during done-bucket sync", async () => {
+    const { getBucketById, updateBucket } = await import("@/src/lib/server/buckets");
+    const { createShopifyProductArtifact, updateShopifyProductArtifact } = await import(
+      "@/src/lib/server/adapters/shopify"
+    );
+    const { publishInstagramPostArtifact, updateInstagramPostArtifact } = await import(
+      "@/src/lib/server/adapters/instagram"
+    );
+
+    let currentBucket = makeBucket("bucket-qty-price", {
+      status: "DONE",
+      quantity: 1000,
+      price: 1100,
+      shopifyCreated: true,
+      shopifyProductId: "gid://shopify/Product/99",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+      instagramPublished: true,
+      instagramPostId: "ig-post-qty-price",
+      instagramPostUrl: "https://instagram.com/p/ig-post-qty-price",
+    });
+
+    vi.mocked(getBucketById).mockImplementation(async () => currentBucket);
+    vi.mocked(updateBucket).mockImplementation(async (_bucketId, _userId, updater) => {
+      currentBucket = updater(currentBucket);
+      return currentBucket;
+    });
+    vi.mocked(updateShopifyProductArtifact).mockResolvedValue({
+      shopifyCreated: true,
+      shopifyProductId: "gid://shopify/Product/99",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+      adapterMode: "live",
+      errorMessage: "",
+      warningMessage:
+        "Inventory quantity was not updated due to Shopify permissions: Access denied for locations field.",
+    });
+    vi.mocked(updateInstagramPostArtifact).mockResolvedValue({
+      instagramUpdated: true,
+      instagramPostId: "ig-post-qty-price",
+      instagramPostUrl: "https://instagram.com/p/ig-post-qty-price",
+      outcome: "updated",
+      errorMessage: "",
+    });
+
+    const { syncDoneBucket } = await import("@/src/lib/server/workflows");
+    const result = await syncDoneBucket(
+      "bucket-qty-price",
+      "user-1",
+      {
+        price: 11000,
+      },
+      {
+        shopifyStoreDomain: "demo.myshopify.com",
+        shopifyAdminToken: "shpca_live",
+        instagramAccessToken: "stale-settings-token",
+        instagramBusinessAccountId: "stale-business-id",
+      },
+      resolvedInstagramCredentials
+    );
+
+    expect(result.notFound).toBe(false);
+    expect(result.result?.bucket.price).toBe(11000);
+    expect(result.result?.bucket.quantity).toBe(1000);
+    expect(result.result?.bucket.shopifyProductId).toBe("gid://shopify/Product/99");
+    expect(result.result?.bucket.instagramPostId).toBe("ig-post-qty-price");
+    expect(result.result?.message).toContain("Inventory quantity was not updated");
+    expect(updateShopifyProductArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          price: 11000,
+          quantity: 1000,
+        }),
+      })
+    );
+    expect(updateInstagramPostArtifact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          price: 11000,
+          quantity: 1000,
+        }),
+      })
+    );
+    expect(createShopifyProductArtifact).not.toHaveBeenCalled();
+    expect(publishInstagramPostArtifact).not.toHaveBeenCalled();
+  });
 });

@@ -897,12 +897,13 @@ export default function DashboardPage() {
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
+                        <LiquidButton
                           data-testid={`trash-restore-${bucket.id}`}
                           onClick={() => restoreBucketAction(bucket.id)}
                           disabled={actionsByBucket[bucket.id]?.restoring || isRunningGoAll}
-                          className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                          variant="secondary"
+                          size="sm"
+                          className="rounded-xl"
                         >
                           {actionsByBucket[bucket.id]?.restoring ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -910,13 +911,14 @@ export default function DashboardPage() {
                             <RotateCcw size={14} />
                           )}
                           Restore
-                        </button>
-                        <button
-                          type="button"
+                        </LiquidButton>
+                        <LiquidButton
                           data-testid={`trash-delete-${bucket.id}`}
                           onClick={() => permanentlyDeleteBucketAction(bucket.id)}
                           disabled={actionsByBucket[bucket.id]?.deleting || isRunningGoAll}
-                          className="inline-flex items-center gap-2 rounded-xl border border-black/25 bg-white px-3 py-2 text-sm font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                          variant="danger"
+                          size="sm"
+                          className="rounded-xl"
                         >
                           {actionsByBucket[bucket.id]?.deleting ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -924,7 +926,7 @@ export default function DashboardPage() {
                             <Trash2 size={14} />
                           )}
                           Delete Permanently
-                        </button>
+                        </LiquidButton>
                       </div>
                     </div>
                   </motion.div>

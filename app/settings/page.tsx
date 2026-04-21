@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { useAuth } from "@/src/context/AuthContext";
@@ -386,12 +387,20 @@ function SettingsContent() {
         <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-black/8 blur-3xl" />
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
+            <div className="mb-3 inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-black/15 bg-white shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
+              <Image
+                src="/brand/flowcart-logo-clean.png"
+                alt="FlowCart logo"
+                width={64}
+                height={64}
+                className="h-full w-full object-contain p-1"
+              />
+            </div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
               Integration Settings
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              Keep Shopify and Instagram connected so every FlowCart launch moves through one
-              reliable pipeline.
+              Connect both channels once, then keep launches synced from one control surface.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -733,14 +742,15 @@ function SettingsContent() {
               </>
             )}
           </LiquidButton>
-          <button
-            type="button"
+          <LiquidButton
             onClick={loadSettings}
             disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            variant="ghost"
+            size="lg"
+            className="rounded-2xl"
           >
             <RefreshCw size={14} /> Refresh
-          </button>
+          </LiquidButton>
           {isDirty ? (
             <span className="rounded-full border border-black/20 bg-black/[0.03] px-3 py-1 text-xs font-semibold text-black">
               Unsaved changes

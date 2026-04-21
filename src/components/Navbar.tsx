@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import { LayoutDashboard, LogOut, Settings, Sparkles } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { LimelightNav } from "@/src/components/ui/limelight-nav";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -35,15 +37,22 @@ export function Navbar() {
       initial={{ opacity: 0, y: -12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="sticky top-0 z-20 border-b border-black/10 bg-white/85 backdrop-blur-xl"
+      className="sticky top-0 z-30 border-b border-black/10 bg-white/90 backdrop-blur-xl"
     >
       <div className="mx-auto flex w-full max-w-[1240px] flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-10">
         <Link href="/" className="group inline-flex items-center gap-3">
-          <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-black/20 bg-black text-sm font-bold text-white shadow-[0_8px_18px_rgba(0,0,0,0.2)] transition group-hover:scale-[1.02]">
-            FC
+          <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-black/15 bg-white shadow-[0_8px_18px_rgba(0,0,0,0.14)] transition group-hover:scale-[1.02]">
+            <Image
+              src="/brand/flowcart-logo-clean.png"
+              alt="FlowCart logo"
+              width={64}
+              height={64}
+              className="h-full w-full object-contain p-1"
+              priority
+            />
           </span>
           <div>
-            <p className="text-sm font-semibold tracking-[0.08em] text-black">FlowCart</p>
+            <p className="text-sm font-semibold tracking-[0.01em] text-black">FlowCart</p>
             <p className="text-[11px] text-black/55">Upload once. Launch everywhere.</p>
           </div>
         </Link>
@@ -55,14 +64,15 @@ export function Navbar() {
               <span className="hidden max-w-[190px] truncate rounded-xl border border-slate-200 bg-white/80 px-3 py-2 text-xs text-slate-600 sm:inline">
                 {user.email}
               </span>
-              <button
-                type="button"
+              <LiquidButton
                 onClick={signOut}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm font-medium text-black transition hover:bg-black/5"
+                variant="ghost"
+                size="sm"
+                className="rounded-xl"
               >
                 <LogOut size={14} />
                 Logout
-              </button>
+              </LiquidButton>
             </>
           ) : null}
         </div>

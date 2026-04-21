@@ -7,29 +7,25 @@ interface WebGLShaderProps {
   className?: string;
 }
 
+const STROKE_COLORS = [
+  "rgba(0, 212, 255, 0.35)",
+  "rgba(129, 232, 255, 0.28)",
+  "rgba(171, 147, 255, 0.26)",
+  "rgba(88, 198, 255, 0.24)",
+];
+
 export function WebGLShader({ className }: WebGLShaderProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) {
-      return;
-    }
-
+    if (!canvas) return;
     const context = canvas.getContext("2d");
-    if (!context) {
-      return;
-    }
+    if (!context) return;
 
-    let rafId = 0;
     let frame = 0;
+    let rafId = 0;
     const pointer = { x: 0.5, y: 0.5 };
-    const comets = Array.from({ length: 7 }, (_, index) => ({
-      speed: 0.0019 + index * 0.00024,
-      phase: index * 0.63,
-      band: 0.16 + index * 0.1,
-      thickness: 1.1 + index * 0.14,
-    }));
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -41,11 +37,36 @@ export function WebGLShader({ className }: WebGLShaderProps) {
 
     const onPointerMove = (event: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
-      if (!rect.width || !rect.height) {
-        return;
-      }
+      if (!rect.width || !rect.height) return;
       pointer.x = (event.clientX - rect.left) / rect.width;
       pointer.y = (event.clientY - rect.top) / rect.height;
+    };
+
+    const drawFlowBand = (
+      width: number,
+      height: number,
+      index: number,
+      lineWidth: number
+    ) => {
+      const yBase = height * (0.2 + index * 0.17);
+      const wave = 20 + index * 7 + pointer.y * 8;
+      const speed = 0.009 + index * 0.0015;
+      const drift = Math.sin(frame * speed + index * 0.8) * wave;
+
+      context.beginPath();
+      context.moveTo(-80, yBase + drift);
+      for (let step = 0; step <= 7; step += 1) {
+        const x = (step / 7) * width;
+        const bend =
+          Math.sin(step * 0.75 + frame * speed + pointer.x * 3 + index) * wave +
+          Math.cos(step * 0.36 + frame * speed * 0.72) * wave * 0.4;
+        context.lineTo(x, yBase + bend);
+      }
+      context.lineTo(width + 80, yBase + drift);
+      context.strokeStyle = STROKE_COLORS[index % STROKE_COLORS.length];
+      context.lineWidth = lineWidth;
+      context.lineCap = "round";
+      context.stroke();
     };
 
     const render = () => {
@@ -59,85 +80,30 @@ export function WebGLShader({ className }: WebGLShaderProps) {
 
       context.clearRect(0, 0, width, height);
 
-      const backgroundGradient = context.createLinearGradient(0, 0, width, height);
-      backgroundGradient.addColorStop(0, "rgba(255,255,255,0.76)");
-      backgroundGradient.addColorStop(0.48, "rgba(250,250,250,0.68)");
-      backgroundGradient.addColorStop(1, "rgba(244,244,244,0.7)");
-      context.fillStyle = backgroundGradient;
+      const baseGradient = context.createLinearGradient(0, 0, width, height);
+      baseGradient.addColorStop(0, "rgba(255,255,255,0.82)");
+      baseGradient.addColorStop(0.5, "rgba(255,255,255,0.70)");
+      baseGradient.addColorStop(1, "rgba(248,248,248,0.82)");
+      context.fillStyle = baseGradient;
       context.fillRect(0, 0, width, height);
 
-      const monochromeVignette = context.createRadialGradient(
-        width * 0.55,
-        height * 0.45,
-        width * 0.08,
+      const vignette = context.createRadialGradient(
         width * 0.52,
-        height * 0.5,
-        width * 0.8
+        height * 0.48,
+        width * 0.12,
+        width * 0.52,
+        height * 0.48,
+        width * 0.78
       );
-      monochromeVignette.addColorStop(0, "rgba(255,255,255,0)");
-      monochromeVignette.addColorStop(1, "rgba(0,0,0,0.16)");
-      context.fillStyle = monochromeVignette;
+      vignette.addColorStop(0, "rgba(255,255,255,0)");
+      vignette.addColorStop(1, "rgba(0,0,0,0.18)");
+      context.fillStyle = vignette;
       context.fillRect(0, 0, width, height);
 
-      const pointerGlow = context.createRadialGradient(
-        width * pointer.x,
-        height * pointer.y,
-        0,
-        width * pointer.x,
-        height * pointer.y,
-        Math.max(width, height) * 0.25
-      );
-      pointerGlow.addColorStop(0, "rgba(0,0,0,0.08)");
-      pointerGlow.addColorStop(1, "rgba(0,0,0,0)");
-      context.fillStyle = pointerGlow;
-      context.fillRect(0, 0, width, height);
-
-      for (let index = 0; index < comets.length; index += 1) {
-        const comet = comets[index];
-        const t = frame * comet.speed + comet.phase;
-        const centerX = (width * (t % 1)) - width * 0.2;
-        const centerY =
-          height * comet.band +
-          Math.sin(t * 9 + pointer.x * 2.4 + index * 0.8) * (height * 0.07) +
-          Math.cos(t * 4 + pointer.y * 2) * (height * 0.04);
-
-        const tail = context.createLinearGradient(
-          centerX - width * 0.35,
-          centerY,
-          centerX + width * 0.07,
-          centerY
-        );
-        tail.addColorStop(0, "rgba(0,0,0,0)");
-        tail.addColorStop(0.35, "rgba(0,212,255,0.16)");
-        tail.addColorStop(0.68, "rgba(83,255,170,0.22)");
-        tail.addColorStop(0.84, "rgba(255,207,92,0.24)");
-        tail.addColorStop(1, "rgba(255,93,205,0.26)");
-
-        context.strokeStyle = tail;
-        context.lineWidth = comet.thickness;
-        context.lineCap = "round";
-        context.beginPath();
-        context.moveTo(centerX - width * 0.35, centerY + Math.sin(t * 16) * 6);
-        for (let step = 0; step <= 40; step += 1) {
-          const x = centerX - width * 0.35 + (step / 40) * (width * 0.42);
-          const y =
-            centerY +
-            Math.sin(step * 0.34 + t * 20 + index * 0.9) * (6 + index * 0.5) +
-            Math.cos(step * 0.14 + t * 9) * 2.6;
-          context.lineTo(x, y);
-        }
-        context.stroke();
-
-        const head = context.createRadialGradient(centerX, centerY, 0, centerX, centerY, 18 + index * 1.5);
-        head.addColorStop(0, "rgba(255,255,255,0.95)");
-        head.addColorStop(0.3, "rgba(126,255,212,0.86)");
-        head.addColorStop(0.62, "rgba(65,162,255,0.54)");
-        head.addColorStop(1, "rgba(255,255,255,0)");
-        context.fillStyle = head;
-        context.beginPath();
-        context.arc(centerX, centerY, 18 + index * 1.5, 0, Math.PI * 2);
-        context.fill();
-      }
+      drawFlowBand(width, height, 0, 18);
+      drawFlowBand(width, height, 1, 13);
+      drawFlowBand(width, height, 2, 10);
+      drawFlowBand(width, height, 3, 7);
 
       rafId = window.requestAnimationFrame(render);
     };

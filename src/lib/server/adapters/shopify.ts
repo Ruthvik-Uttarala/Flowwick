@@ -8,6 +8,7 @@ export interface ShopifyLaunchArtifact {
   shopifyProductUrl: string;
   adapterMode: "live";
   errorMessage: string;
+  warningMessage?: string;
   shopifyImageUrl?: string;
 }
 
@@ -260,6 +261,21 @@ function normalizeUserErrors(errors: ShopifyUserError[] | null | undefined): str
     .join(" | ");
 }
 
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function looksLikeInventoryPermissionFailure(message: string): boolean {
+  const lowered = message.toLowerCase();
+  return (
+    lowered.includes("access denied") ||
+    lowered.includes("locations field") ||
+    lowered.includes("inventorysetquantities") ||
+    lowered.includes("inventory") ||
+    lowered.includes("location")
+  );
+}
+
 function pickPrimaryImageUrl(imageUrls: string[]): string {
   return imageUrls.find((url) => hasPublicUrl(url))?.trim() ?? "";
 }
@@ -469,6 +485,8 @@ export async function updateShopifyProductArtifact(input: {
   }
 
   try {
+    const syncWarnings: string[] = [];
+
     const beforeUpdate = await fetchShopifyAdminGraphQL<ShopifyProductForUpdateQuery>({
       shopDomain: storeDomain,
       adminToken,
@@ -525,40 +543,69 @@ export async function updateShopifyProductArtifact(input: {
 
     const inventoryItemId = existingProduct.variants?.nodes?.[0]?.inventoryItem?.id?.trim() ?? "";
     if (inventoryItemId) {
-      const locationsData = await fetchShopifyAdminGraphQL<ShopifyLocationsQuery>({
-        shopDomain: storeDomain,
-        adminToken,
-        query: GET_LOCATIONS_QUERY,
-      });
-      const locationId = locationsData.locations?.nodes?.[0]?.id?.trim() ?? "";
-
-      if (locationId) {
-        const inventoryData =
-          await fetchShopifyAdminGraphQL<ShopifyInventorySetQuantitiesMutation>({
-            shopDomain: storeDomain,
-            adminToken,
-            query: SET_INVENTORY_QUANTITY_MUTATION,
-            variables: {
-              input: {
-                name: "available",
-                reason: "correction",
-                quantities: [
-                  {
-                    inventoryItemId,
-                    locationId,
-                    quantity,
+      try {
+        const locationsData = await fetchShopifyAdminGraphQL<ShopifyLocationsQuery>({
+          shopDomain: storeDomain,
+          adminToken,
+          query: GET_LOCATIONS_QUERY,
+        });
+        const locationId = locationsData.locations?.nodes?.[0]?.id?.trim() ?? "";
+        if (!locationId) {
+          syncWarnings.push(
+            "Inventory quantity was not updated because no accessible Shopify location was returned."
+          );
+        } else {
+          try {
+            const inventoryData =
+              await fetchShopifyAdminGraphQL<ShopifyInventorySetQuantitiesMutation>({
+                shopDomain: storeDomain,
+                adminToken,
+                query: SET_INVENTORY_QUANTITY_MUTATION,
+                variables: {
+                  input: {
+                    name: "available",
+                    reason: "correction",
+                    quantities: [
+                      {
+                        inventoryItemId,
+                        locationId,
+                        quantity,
+                      },
+                    ],
                   },
-                ],
-              },
-            },
-          });
+                },
+              });
 
-        const inventoryErrors = normalizeUserErrors(
-          inventoryData.inventorySetQuantities?.userErrors
-        );
-        if (inventoryErrors) {
-          return buildFailure(inventoryErrors);
+            const inventoryErrors = normalizeUserErrors(
+              inventoryData.inventorySetQuantities?.userErrors
+            );
+            if (inventoryErrors) {
+              syncWarnings.push(
+                looksLikeInventoryPermissionFailure(inventoryErrors)
+                  ? `Inventory quantity was not updated due to Shopify permissions: ${normalizeWhitespace(inventoryErrors)}`
+                  : `Inventory quantity update was skipped: ${normalizeWhitespace(inventoryErrors)}`
+              );
+            }
+          } catch (error) {
+            const message =
+              error instanceof Error
+                ? normalizeWhitespace(error.message)
+                : "Unknown inventory update failure.";
+            syncWarnings.push(
+              looksLikeInventoryPermissionFailure(message)
+                ? `Inventory quantity was not updated due to Shopify permissions: ${message}`
+                : `Inventory quantity update was skipped: ${message}`
+            );
+          }
         }
+      } catch (error) {
+        const message =
+          error instanceof Error ? normalizeWhitespace(error.message) : "Unknown location lookup failure.";
+        syncWarnings.push(
+          looksLikeInventoryPermissionFailure(message)
+            ? `Inventory quantity was not updated due to Shopify permissions: ${message}`
+            : `Inventory quantity update was skipped: ${message}`
+        );
       }
     }
 
@@ -609,6 +656,8 @@ export async function updateShopifyProductArtifact(input: {
       shopifyProductUrl: productUrl,
       adapterMode: "live",
       errorMessage: "",
+      warningMessage:
+        syncWarnings.length > 0 ? Array.from(new Set(syncWarnings)).join(" ") : undefined,
       shopifyImageUrl: primaryImageUrl || undefined,
     };
   } catch (error) {

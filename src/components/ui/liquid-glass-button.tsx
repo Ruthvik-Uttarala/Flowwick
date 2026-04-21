@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/src/lib/cn";
 
 type LiquidButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -29,6 +30,7 @@ export interface LiquidButtonProps extends React.ButtonHTMLAttributes<HTMLButton
   variant?: LiquidButtonVariant;
   size?: LiquidButtonSize;
   contentClassName?: string;
+  asChild?: boolean;
 }
 
 export const LiquidButton = React.forwardRef<HTMLButtonElement, LiquidButtonProps>(
@@ -38,16 +40,18 @@ export const LiquidButton = React.forwardRef<HTMLButtonElement, LiquidButtonProp
       variant = "primary",
       size = "md",
       contentClassName,
+      asChild = false,
       children,
       type = "button",
       ...props
     },
     ref
   ) => {
+    const Comp = asChild ? Slot : "button";
     return (
-      <button
+      <Comp
         ref={ref}
-        type={type}
+        type={asChild ? undefined : type}
         className={cn(
           "group relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold tracking-[0.01em] outline-none transition duration-300 ease-out",
           "focus-visible:ring-2 focus-visible:ring-black/35 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
@@ -65,7 +69,7 @@ export const LiquidButton = React.forwardRef<HTMLButtonElement, LiquidButtonProp
         <span className={cn("relative z-10 inline-flex items-center gap-2", contentClassName)}>
           {children}
         </span>
-      </button>
+      </Comp>
     );
   }
 );

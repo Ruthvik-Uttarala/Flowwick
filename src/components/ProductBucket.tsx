@@ -210,9 +210,6 @@ export function ProductBucket({
   const trashContainerClass = isEmptyTrash
     ? "border-slate-200 bg-white/75"
     : "border-black/20 bg-white";
-  const trashPrimaryClass = isEmptyTrash
-    ? "border-slate-200 bg-white/95 text-slate-800 hover:bg-slate-50"
-    : "border-black/20 bg-white text-black hover:bg-black/[0.04]";
   const trashDescriptionClass = isEmptyTrash ? "text-slate-600" : "text-black";
 
   const { classes: statusClasses, badge: statusBadge } = statusStyle(bucket.status);
@@ -274,15 +271,16 @@ export function ProductBucket({
                 </span>
               ) : null}
             </div>
-            <button
-              type="button"
+            <LiquidButton
               data-testid={`bucket-edit-${bucket.id}`}
               onClick={() => onToggleDoneExpanded(bucket.id)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-black/18 bg-white px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-black/[0.04]"
+              variant="secondary"
+              size="sm"
+              className="rounded-xl"
             >
               <PencilLine size={14} />
               Edit
-            </button>
+            </LiquidButton>
           </div>
 
           <div className="grid gap-2 text-xs sm:grid-cols-2">
@@ -373,14 +371,15 @@ export function ProductBucket({
           <p className="text-xs text-slate-600">
             Editing a launched bucket uses in-place sync on the same Shopify product and never republishes Instagram silently.
           </p>
-          <button
-            type="button"
+          <LiquidButton
             onClick={() => onToggleDoneExpanded(bucket.id)}
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            variant="ghost"
+            size="sm"
+            className="rounded-xl"
           >
             <ChevronDown size={13} className="rotate-180" />
             Collapse
-          </button>
+          </LiquidButton>
         </div>
       ) : null}
 
@@ -449,11 +448,12 @@ export function ProductBucket({
               className={inputClass}
             />
             {!isDoneBucket ? (
-              <button
-                type="button"
+              <LiquidButton
                 onClick={() => onEnhanceTitle(bucket.id)}
                 disabled={controlsLocked || !bucket.titleRaw.trim()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-black/18 bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                variant="ghost"
+                size="sm"
+                className="rounded-xl"
               >
                 {isEnhancingTitle ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -461,7 +461,7 @@ export function ProductBucket({
                   <Sparkles size={12} />
                 )}
                 {isEnhancingTitle ? "Enhancing..." : "Enhance"}
-              </button>
+              </LiquidButton>
             ) : null}
           </div>
         </div>
@@ -492,11 +492,12 @@ export function ProductBucket({
               className={`${inputClass} resize-none`}
             />
             {!isDoneBucket ? (
-              <button
-                type="button"
+              <LiquidButton
                 onClick={() => onEnhanceDescription(bucket.id)}
                 disabled={controlsLocked || !bucket.descriptionRaw.trim()}
-                className="h-fit inline-flex items-center gap-1.5 rounded-xl border border-black/18 bg-white px-3 py-2 text-xs font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                variant="ghost"
+                size="sm"
+                className="h-fit rounded-xl"
               >
                 {isEnhancingDescription ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -504,7 +505,7 @@ export function ProductBucket({
                   <Sparkles size={12} />
                 )}
                 {isEnhancingDescription ? "Enhancing..." : "Enhance"}
-              </button>
+              </LiquidButton>
             ) : null}
           </div>
         </div>
@@ -597,30 +598,32 @@ export function ProductBucket({
         {showTrashControl ? (
           <div className={`space-y-2 rounded-xl border p-3 ${trashContainerClass}`}>
             {!confirmingTrash ? (
-              <button
-                type="button"
+              <LiquidButton
                 aria-label="Open trash options"
                 data-testid={`bucket-trash-open-${bucket.id}`}
                 onClick={() => setConfirmingTrash(true)}
                 disabled={controlsLocked}
-                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${trashPrimaryClass}`}
+                variant={isEmptyTrash ? "secondary" : "ghost"}
+                size="sm"
+                className="rounded-xl"
               >
                 <Trash2 size={14} />
                 {trashLabel}
-              </button>
+              </LiquidButton>
             ) : (
               <div className="space-y-2">
                 <p className={`text-xs font-medium ${trashDescriptionClass}`}>{trashDescription}</p>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
+                  <LiquidButton
                     data-testid={`bucket-trash-soft-${bucket.id}`}
                     onClick={() => {
                       setConfirmingTrash(false);
                       onMoveToTrash(bucket.id);
                     }}
                     disabled={controlsLocked}
-                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    variant="secondary"
+                    size="sm"
+                    className="rounded-xl"
                   >
                     {isTrashing ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -628,16 +631,17 @@ export function ProductBucket({
                       <Trash2 size={14} />
                     )}
                     Move to Trash (30 days)
-                  </button>
-                  <button
-                    type="button"
+                  </LiquidButton>
+                  <LiquidButton
                     data-testid={`bucket-trash-hard-${bucket.id}`}
                     onClick={() => {
                       setConfirmingTrash(false);
                       onDeletePermanently(bucket.id);
                     }}
                     disabled={controlsLocked}
-                    className="inline-flex items-center gap-2 rounded-lg border border-black/25 bg-white px-3 py-2 text-sm font-semibold text-black transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
+                    variant="danger"
+                    size="sm"
+                    className="rounded-xl"
                   >
                     {isDeleting ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -645,7 +649,7 @@ export function ProductBucket({
                       <Trash2 size={14} />
                     )}
                     Delete Permanently
-                  </button>
+                  </LiquidButton>
                 </div>
               </div>
             )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowRight, Loader2, Lock, Mail, Sparkles } from "lucide-react";
@@ -95,11 +96,28 @@ export function AuthView({ redirectTo }: AuthViewProps) {
         transition={{ duration: 0.55 }}
         className="grid w-full gap-6 rounded-[2rem] border border-black/12 bg-white/88 p-5 shadow-[0_24px_48px_rgba(0,0,0,0.11)] backdrop-blur lg:grid-cols-[1.1fr_0.9fr] lg:p-8"
       >
-        <section className="space-y-5">
+        <section className="relative space-y-5 overflow-hidden rounded-[1.75rem] border border-black/12 bg-white/90 p-4 sm:p-5">
+          <Image
+            src="/brand/flowcart-background.png"
+            alt="FlowCart background"
+            fill
+            className="object-cover opacity-22"
+            priority
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.88))]" />
           <div className="rounded-3xl border border-black/12 bg-white/92 p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
             <span className="mono-pill">
               <Sparkles size={12} /> FlowCart Access
             </span>
+            <div className="mt-4 inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-black/15 bg-white shadow-[0_10px_20px_rgba(0,0,0,0.12)]">
+              <Image
+                src="/brand/flowcart-logo-clean.png"
+                alt="FlowCart logo"
+                width={64}
+                height={64}
+                className="h-full w-full object-contain p-1"
+              />
+            </div>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-black">
               Start your launch flow.
             </h1>
@@ -107,7 +125,9 @@ export function AuthView({ redirectTo }: AuthViewProps) {
               Sign in to continue your connected launch pipeline.
             </p>
           </div>
-          <AnimatedCharactersLoginPage />
+          <div className="relative z-10">
+            <AnimatedCharactersLoginPage />
+          </div>
         </section>
 
         <section className="rounded-[1.75rem] border border-black/12 bg-white/95 p-5 shadow-[0_16px_34px_rgba(0,0,0,0.09)] sm:p-6">

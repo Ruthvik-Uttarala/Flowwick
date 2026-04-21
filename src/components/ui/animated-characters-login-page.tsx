@@ -104,9 +104,8 @@ export function AnimatedCharactersLoginPage({ className }: { className?: string 
           className="relative h-52 w-32 rounded-t-[3rem] border border-black/12 bg-[linear-gradient(180deg,#ffffff,#dedede)] shadow-[0_16px_28px_rgba(0,0,0,0.18)] transition-transform duration-200"
           style={{ transform: `skewX(${(pointer.x - 0.5) * -3}deg)` }}
         >
-          <div className="absolute left-1/2 top-12 -translate-x-1/2 flex items-center gap-3">
-            <span className="h-3 w-3 rounded-full bg-slate-900" />
-            <span className="h-3 w-3 rounded-full bg-slate-900" />
+          <div className="absolute left-1/2 top-12 -translate-x-1/2">
+            <CharacterEyes pupilOffsetX={gaze.x * 0.8} pupilOffsetY={gaze.y * 0.7} blinking={false} />
           </div>
         </div>
       </div>

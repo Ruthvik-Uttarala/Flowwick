@@ -292,20 +292,23 @@ function applyDoneDraft(
   bucket: ProductBucket,
   patch: BucketPatchPayload
 ): ProductBucket {
-  const titleRaw = patch.titleRaw ?? bucket.titleRaw;
-  const descriptionRaw = patch.descriptionRaw ?? bucket.descriptionRaw;
-  const titleEnhanced = patch.titleRaw !== undefined ? patch.titleRaw : bucket.titleEnhanced;
-  const descriptionEnhanced =
+  const nextTitleRaw = patch.titleRaw ?? bucket.titleRaw;
+  const nextDescriptionRaw = patch.descriptionRaw ?? bucket.descriptionRaw;
+  const nextTitleEnhanced = patch.titleRaw !== undefined ? patch.titleRaw : bucket.titleEnhanced;
+  const nextDescriptionEnhanced =
     patch.descriptionRaw !== undefined ? patch.descriptionRaw : bucket.descriptionEnhanced;
+  // Keep numeric fields strictly independent so a price edit can never alter quantity (and vice-versa).
+  const nextQuantity = patch.quantity !== undefined ? patch.quantity : bucket.quantity;
+  const nextPrice = patch.price !== undefined ? patch.price : bucket.price;
 
   return {
     ...bucket,
-    titleRaw,
-    descriptionRaw,
-    titleEnhanced,
-    descriptionEnhanced,
-    quantity: patch.quantity !== undefined ? patch.quantity : bucket.quantity,
-    price: patch.price !== undefined ? patch.price : bucket.price,
+    titleRaw: nextTitleRaw,
+    descriptionRaw: nextDescriptionRaw,
+    titleEnhanced: nextTitleEnhanced,
+    descriptionEnhanced: nextDescriptionEnhanced,
+    quantity: nextQuantity,
+    price: nextPrice,
     errorMessage: "",
     status: "DONE",
   };
@@ -393,13 +396,17 @@ export async function syncDoneBucket(
           ? `Updated existing Shopify product. Instagram update failed: ${instagramEdit.errorMessage}`
           : "Updated existing Shopify product. Instagram update was skipped.";
 
+  const finalMessage = shopifyArtifact.warningMessage
+    ? `${message} ${shopifyArtifact.warningMessage}`.trim()
+    : message;
+
   return {
     result: {
       bucket: persisted,
       shopifyUpdated: true,
       shopifyProductId: current.shopifyProductId,
       instagramOutcome: instagramEdit.outcome,
-      message,
+      message: finalMessage,
     },
     notFound: false,
   };
