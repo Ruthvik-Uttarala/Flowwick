@@ -543,7 +543,8 @@ describe("instagram adapter", () => {
   });
 
   it("blocks duplicates truthfully when Meta rejects same-post edits as unsupported", async () => {
-    vi.spyOn(global, "fetch")
+    const fetchMock = vi
+      .spyOn(global, "fetch")
       .mockResolvedValueOnce(
         jsonResponse({
           id: "17895695668004550",
@@ -579,16 +580,23 @@ describe("instagram adapter", () => {
     expect(result.outcome).toBe("unchanged");
     expect(result.reason).toBe("unsupported_edit_path");
     expect(result.errorMessage).toContain("can't be edited in place");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(calledUrls.every((url) => url.includes("/17895695668004550"))).toBe(true);
+    expect(calledUrls.some((url) => url.includes("/media_publish"))).toBe(false);
+    expect(calledUrls.some((url) => /\/media(\?|$)/.test(url))).toBe(false);
   });
 
-  it("treats Graph (#100) comment_enabled edit-path errors as unsupported in-place edits", async () => {
-    vi.spyOn(global, "fetch")
+  it("retries Graph (#100) comment_enabled-required edits on the same post id with comment_enabled set", async () => {
+    const expectedCaption =
+      "FlowCart Hat\n\nUpdated caption body.\n\nPrice: $49.99\nQuantity: 8\n\nShop now: https://demo.myshopify.com/products/flowcart-hat";
+    const fetchMock = vi
+      .spyOn(global, "fetch")
       .mockResolvedValueOnce(
         jsonResponse({
           id: "17895695668004550",
           media_type: "IMAGE",
           media_product_type: "FEED",
-          comment_enabled: true,
           caption: "Old caption",
           permalink: "https://instagram.com/p/ig-post-1",
         })
@@ -603,6 +611,17 @@ describe("instagram adapter", () => {
           },
           400
         )
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          success: true,
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          caption: expectedCaption,
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
       );
 
     const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
@@ -614,10 +633,23 @@ describe("instagram adapter", () => {
       shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
     });
 
-    expect(result.instagramUpdated).toBe(false);
-    expect(result.outcome).toBe("unchanged");
-    expect(result.reason).toBe("unsupported_edit_path");
-    expect(result.errorMessage).toContain("can't be edited in place");
+    expect(result.instagramUpdated).toBe(true);
+    expect(result.outcome).toBe("updated");
+    expect(result.reason).toBe("updated_in_place");
+    expect(result.errorMessage).toBe("");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+
+    const firstEditCall = fetchMock.mock.calls[1];
+    const secondEditCall = fetchMock.mock.calls[2];
+    expect(String(firstEditCall?.[0])).toContain("/17895695668004550");
+    expect(String(secondEditCall?.[0])).toContain("/17895695668004550");
+    expect(String(firstEditCall?.[0])).not.toContain("/media_publish");
+    expect(String(secondEditCall?.[0])).not.toContain("/media_publish");
+
+    const firstEditBody = String((firstEditCall?.[1] as RequestInit | undefined)?.body ?? "");
+    const retryEditBody = String((secondEditCall?.[1] as RequestInit | undefined)?.body ?? "");
+    expect(firstEditBody).not.toContain("comment_enabled=");
+    expect(retryEditBody).toContain("comment_enabled=true");
   });
 
   it("returns unchanged when the saved published media type is unsupported for in-place edits", async () => {

@@ -628,14 +628,6 @@ function isUnsupportedInstagramEditFailure(input: {
   code: number | null;
 }): boolean {
   const lowered = input.graphMessage.toLowerCase();
-  const isCode100 = input.code === 100;
-  const requiresCommentToggle =
-    lowered.includes("parameter comment_enabled is required") ||
-    lowered.includes("the parameter comment_enabled is required");
-
-  if (isCode100 && requiresCommentToggle) {
-    return true;
-  }
 
   return (
     lowered.includes("unsupported post request") ||
@@ -645,6 +637,18 @@ function isUnsupportedInstagramEditFailure(input: {
     lowered.includes("does not allow editing") ||
     lowered.includes("only supports the comment_enabled parameter") ||
     lowered.includes("cannot update this field")
+  );
+}
+
+function isCommentEnabledRequiredFailure(input: {
+  graphMessage: string;
+  code: number | null;
+}): boolean {
+  const lowered = input.graphMessage.toLowerCase();
+  return (
+    input.code === 100 &&
+    (lowered.includes("parameter comment_enabled is required") ||
+      lowered.includes("the parameter comment_enabled is required"))
   );
 }
 
@@ -744,6 +748,7 @@ export async function updateInstagramPostArtifact(input: {
   let mediaProductType = "";
   let instagramPostUrl = preservedPostUrl;
   let existingCommentEnabled: boolean | undefined;
+  const requestPath = `/${instagramPostId}`;
 
   try {
     const metadataResponse = await fetch(metadataUrl);
@@ -765,6 +770,14 @@ export async function updateInstagramPostArtifact(input: {
       if (!instagramPostUrl) {
         instagramPostUrl = metadataPayload.permalink?.trim() ?? "";
       }
+      console.info("[flowcart:instagram:update]", {
+        stage: "metadata",
+        instagramPostId,
+        requestPath,
+        mediaType,
+        mediaProductType,
+        hasCommentEnabled: typeof existingCommentEnabled === "boolean",
+      });
       if (mediaType && !isPotentiallyEditableInstagramMediaType(mediaType)) {
         return buildInstagramEditOutcome({
           instagramUpdated: false,
@@ -778,6 +791,13 @@ export async function updateInstagramPostArtifact(input: {
         });
       }
     } else if (metadataPayload) {
+      console.warn("[flowcart:instagram:update]", {
+        stage: "metadata",
+        outcome: "warning",
+        instagramPostId,
+        requestPath,
+        message: "Metadata read failed; proceeding with same-id edit attempt.",
+      });
       const metadataError = normalizeInstagramGraphError(
         metadataPayload,
         metadataResponse.status,
@@ -800,29 +820,88 @@ export async function updateInstagramPostArtifact(input: {
         });
       }
     }
+    const executeEditAttempt = async (input: {
+      attempt: "primary" | "retry-comment-enabled";
+      commentEnabled?: boolean;
+    }): Promise<{
+      ok: boolean;
+      normalizedError?: ReturnType<typeof normalizeInstagramGraphError>;
+    }> => {
+      const editParams = new URLSearchParams({
+        caption,
+        access_token: accessToken,
+      });
+      if (typeof input.commentEnabled === "boolean") {
+        editParams.set("comment_enabled", input.commentEnabled ? "true" : "false");
+      }
 
-    const editParams = new URLSearchParams({
-      caption,
-      access_token: accessToken,
+      const response = await fetch(`${graphBase}/${instagramPostId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: editParams.toString(),
+      });
+      const payload = await readInstagramJsonResponse<{ error?: unknown }>(response);
+      const hasGraphError = Boolean(payload && typeof payload === "object" && "error" in payload);
+
+      if (response.ok && !hasGraphError) {
+        console.info("[flowcart:instagram:update]", {
+          stage: "edit",
+          attempt: input.attempt,
+          outcome: "success",
+          instagramPostId,
+          requestPath,
+          mediaType,
+          mediaProductType,
+          usedCommentEnabled: typeof input.commentEnabled === "boolean",
+          commentEnabledValue: input.commentEnabled ?? null,
+        });
+        return { ok: true };
+      }
+
+      const normalizedError = normalizeInstagramGraphError(payload, response.status, "publish");
+      console.warn("[flowcart:instagram:update]", {
+        stage: "edit",
+        attempt: input.attempt,
+        outcome: "failure",
+        instagramPostId,
+        requestPath,
+        mediaType,
+        mediaProductType,
+        usedCommentEnabled: typeof input.commentEnabled === "boolean",
+        commentEnabledValue: input.commentEnabled ?? null,
+        status: normalizedError.status,
+        code: normalizedError.code,
+        subcode: normalizedError.subcode,
+        graphMessage: normalizedError.graphMessage,
+      });
+      return { ok: false, normalizedError };
+    };
+
+    let editAttempt = await executeEditAttempt({
+      attempt: "primary",
+      commentEnabled: existingCommentEnabled,
     });
-    if (typeof existingCommentEnabled === "boolean") {
-      editParams.set("comment_enabled", existingCommentEnabled ? "true" : "false");
+
+    if (!editAttempt.ok && editAttempt.normalizedError) {
+      if (
+        isCommentEnabledRequiredFailure({
+          graphMessage: editAttempt.normalizedError.graphMessage,
+          code: editAttempt.normalizedError.code,
+        })
+      ) {
+        const retryCommentEnabled =
+          typeof existingCommentEnabled === "boolean" ? existingCommentEnabled : true;
+        editAttempt = await executeEditAttempt({
+          attempt: "retry-comment-enabled",
+          commentEnabled: retryCommentEnabled,
+        });
+      }
     }
 
-    const response = await fetch(`${graphBase}/${instagramPostId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: editParams.toString(),
-    });
-
-    const payload = await readInstagramJsonResponse<{ error?: unknown }>(response);
-    const hasGraphError = Boolean(payload && typeof payload === "object" && "error" in payload);
-
-    if (!response.ok || hasGraphError) {
-      const normalized = normalizeInstagramGraphError(payload, response.status, "publish");
+    if (!editAttempt.ok && editAttempt.normalizedError) {
       const unsupported = isUnsupportedInstagramEditFailure({
-        graphMessage: normalized.graphMessage,
-        code: normalized.code,
+        graphMessage: editAttempt.normalizedError.graphMessage,
+        code: editAttempt.normalizedError.code,
       });
       if (unsupported) {
         return buildInstagramEditOutcome({
@@ -843,7 +922,7 @@ export async function updateInstagramPostArtifact(input: {
         instagramPostUrl,
         outcome: "failed",
         reason: "unexpected_error",
-        errorMessage: normalized.message,
+        errorMessage: editAttempt.normalizedError.message,
         mediaType,
         mediaProductType,
       });
@@ -870,8 +949,18 @@ export async function updateInstagramPostArtifact(input: {
       );
       const expectedCaption = normalizeCaptionForComparison(caption);
       const verifiedUrl = verificationPayload.permalink?.trim() ?? instagramPostUrl;
+      const captionMatched = verifiedCaption === expectedCaption;
 
-      if (verifiedCaption === expectedCaption) {
+      console.info("[flowcart:instagram:update]", {
+        stage: "verification",
+        instagramPostId,
+        requestPath,
+        mediaType,
+        mediaProductType,
+        captionMatched,
+      });
+
+      if (captionMatched) {
         console.info("[flowcart:instagram:update]", {
           outcome: "updated",
           instagramPostId,

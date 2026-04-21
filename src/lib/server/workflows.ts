@@ -324,11 +324,13 @@ function normalizeShopifyDoneSyncStatus(input: {
   inventoryQuantityBlockedByPermissions?: boolean;
   inventoryWarningMessage?: string;
 }): ShopifyDoneSyncStatus {
+  const blockedByPermissions = Boolean(input.inventoryQuantityBlockedByPermissions);
   return {
     productFieldsUpdated: Boolean(input.productFieldsUpdated ?? input.shopifyCreated),
     inventoryQuantityUpdated: Boolean(input.inventoryQuantityUpdated),
-    inventoryQuantityBlockedByPermissions: Boolean(input.inventoryQuantityBlockedByPermissions),
-    helperText: input.inventoryWarningMessage?.trim() ?? "",
+    inventoryQuantityBlockedByPermissions: blockedByPermissions,
+    inventoryWarning: input.inventoryWarningMessage?.trim() ?? "",
+    inventoryReconnectRequired: blockedByPermissions,
   };
 }
 
@@ -373,10 +375,20 @@ function buildDoneSyncChips(
       label: "Inventory unchanged",
       tone: "warning",
       detail:
-        shopify.helperText ||
+        shopify.inventoryWarning ||
         (shopify.inventoryQuantityBlockedByPermissions
           ? "Inventory quantity could not update because Shopify locations access is missing."
           : "Inventory quantity did not change."),
+    });
+  }
+
+  if (shopify.inventoryReconnectRequired) {
+    chips.push({
+      id: "shopify-reconnect-needed",
+      label: "Reconnect Shopify",
+      tone: "warning",
+      detail:
+        "Inventory scopes are missing for locations. Reconnect Shopify with inventory/location access to update quantity.",
     });
   }
 

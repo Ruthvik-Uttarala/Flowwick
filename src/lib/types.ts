@@ -131,7 +131,8 @@ export interface ShopifyDoneSyncStatus {
   productFieldsUpdated: boolean;
   inventoryQuantityUpdated: boolean;
   inventoryQuantityBlockedByPermissions: boolean;
-  helperText: string;
+  inventoryWarning: string;
+  inventoryReconnectRequired: boolean;
 }
 
 export interface InstagramDoneSyncStatus {

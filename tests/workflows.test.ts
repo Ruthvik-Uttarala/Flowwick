@@ -508,10 +508,15 @@ describe("launch workflow", () => {
     expect(result.result?.shopify.productFieldsUpdated).toBe(true);
     expect(result.result?.shopify.inventoryQuantityUpdated).toBe(false);
     expect(result.result?.shopify.inventoryQuantityBlockedByPermissions).toBe(true);
+    expect(result.result?.shopify.inventoryWarning).toContain(
+      "cannot access inventory locations"
+    );
+    expect(result.result?.shopify.inventoryReconnectRequired).toBe(true);
     expect(result.result?.chips).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "Shopify updated", tone: "success" }),
         expect.objectContaining({ label: "Inventory unchanged", tone: "warning" }),
+        expect.objectContaining({ label: "Reconnect Shopify", tone: "warning" }),
         expect.objectContaining({ label: "Instagram updated", tone: "success" }),
       ])
     );
@@ -601,6 +606,8 @@ describe("launch workflow", () => {
     expect(result.notFound).toBe(false);
     expect(result.result?.bucket.quantity).toBe(25);
     expect(result.result?.bucket.price).toBe(199.99);
+    expect(result.result?.shopify.inventoryWarning).toBe("");
+    expect(result.result?.shopify.inventoryReconnectRequired).toBe(false);
     expect(updateShopifyProductArtifact).toHaveBeenCalledWith(
       expect.objectContaining({
         payload: expect.objectContaining({

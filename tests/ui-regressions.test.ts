@@ -54,11 +54,13 @@ describe("ui regressions", () => {
   it("renders DONE sync acknowledgement as structured status chips instead of raw paragraph text", () => {
     const dashboardSource = readSource("app/dashboard/page.tsx");
     const bucketSource = readSource("src/components/ProductBucket.tsx");
+    const workflowSource = readSource("src/lib/server/workflows.ts");
 
     expect(dashboardSource).toContain("doneSyncChips");
     expect(bucketSource).toContain("doneSyncChips");
     expect(bucketSource).toContain("syncChipClassName");
     expect(bucketSource).toContain("chip.label");
+    expect(workflowSource).toContain("label: \"Reconnect Shopify\"");
     expect(bucketSource).not.toContain("doneSyncMessage");
     expect(bucketSource).not.toContain("Instagram edit-in-place is unsupported for this published post path.");
   });
