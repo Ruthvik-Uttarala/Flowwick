@@ -42,6 +42,8 @@ import {
   isDoneBucketCollapsedByDefault,
   toggleDoneBucketExpandedState,
 } from "@/src/lib/bucket-ui";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
+import { WebGLShader } from "@/src/components/ui/web-gl-shader";
 
 interface BucketActionState {
   saving: boolean;
@@ -302,7 +304,7 @@ export default function DashboardPage() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-amber-200" />
+        <Loader2 size={24} className="animate-spin text-cyan-600" />
       </div>
     );
   }
@@ -621,33 +623,33 @@ export default function DashboardPage() {
       label: "Ready",
       value: readyCount,
       icon: Clock,
-      accent: "border-emerald-300/25 bg-emerald-400/14 text-emerald-100",
+      accent: "border-emerald-200 bg-emerald-50/90 text-emerald-700",
     },
     {
       label: "Done",
       value: doneCount,
       icon: CheckCircle2,
-      accent: "border-amber-300/25 bg-amber-300/14 text-amber-100",
+      accent: "border-amber-200 bg-amber-50/90 text-amber-700",
     },
     {
       label: "Failed",
       value: failedCount,
       icon: XCircle,
-      accent: "border-red-300/25 bg-red-500/16 text-red-100",
+      accent: "border-rose-200 bg-rose-50/90 text-rose-700",
     },
     {
       label: "Trash",
       value: trashCount,
       icon: Trash2,
-      accent: "border-white/12 bg-white/6 text-amber-50/80",
+      accent: "border-slate-200 bg-slate-50/90 text-slate-700",
     },
     {
       label: "AI",
       value: runtimeHealth.openaiConfigured ? "Live" : "Missing",
       icon: Zap,
       accent: runtimeHealth.openaiConfigured
-        ? "border-violet-300/25 bg-violet-400/14 text-violet-100"
-        : "border-white/12 bg-white/6 text-amber-50/80",
+        ? "border-cyan-200 bg-cyan-50/90 text-cyan-700"
+        : "border-slate-200 bg-slate-50/90 text-slate-700",
     },
   ];
 
@@ -659,37 +661,38 @@ export default function DashboardPage() {
         transition={{ duration: 0.5 }}
         className="cinematic-card relative overflow-hidden rounded-3xl p-6"
       >
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-amber-300/12 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-red-400/8 blur-3xl" />
+        <WebGLShader className="opacity-55" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-cyan-300/16 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-amber-300/15 blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-amber-50/40">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
               Launch Console
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-amber-50">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">
               FlowCart Dashboard
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-amber-50/65">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
               Build, launch, and now refine live buckets in-place. DONE buckets stay compact until
               you choose to edit, and launched sync avoids duplicate Shopify products or duplicate
               Instagram posts.
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            <button
-              type="button"
+            <LiquidButton
               onClick={createBucketAction}
               disabled={isRunningGoAll}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-100/20 bg-white/8 px-4 py-2.5 text-sm font-semibold text-amber-50/80 transition hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              variant="secondary"
+              className="rounded-2xl"
             >
               <Plus size={16} /> Create Bucket
-            </button>
-            <button
-              type="button"
+            </LiquidButton>
+            <LiquidButton
               onClick={goAllBuckets}
               disabled={readyCount === 0 || isRunningGoAll}
-              className="btn-warm inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              size="lg"
+              className="rounded-2xl disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="flex items-center gap-2">
                 {isRunningGoAll ? (
@@ -702,7 +705,7 @@ export default function DashboardPage() {
                   </>
                 )}
               </span>
-            </button>
+            </LiquidButton>
           </div>
         </div>
 
@@ -736,10 +739,10 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/6 px-4 py-3"
+            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3"
           >
-            <Loader2 size={14} className="animate-spin text-amber-100" />
-            <span className="text-sm text-amber-50/70">Loading buckets...</span>
+            <Loader2 size={14} className="animate-spin text-cyan-600" />
+            <span className="text-sm text-slate-700">Loading buckets...</span>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -750,7 +753,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-emerald-300/25 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100"
+            className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
           >
             {summaryMessage}
             {goAllSummary ? ` (${goAllSummary.total} processed)` : ""}
@@ -764,7 +767,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-red-300/25 bg-red-500/14 px-4 py-3 text-sm text-red-100"
+            className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
           >
             {pageError}
           </motion.div>
@@ -773,7 +776,7 @@ export default function DashboardPage() {
 
       {buckets.length === 0 && !loading ? (
         <div className="cinematic-card rounded-3xl p-8 text-center">
-          <p className="text-sm text-amber-50/65">
+          <p className="text-sm text-slate-600">
             No buckets yet. Create your first bucket to start the launch flow.
           </p>
         </div>
@@ -850,18 +853,18 @@ export default function DashboardPage() {
       >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-amber-50">Trash</h2>
-            <p className="text-xs text-amber-50/50">
+            <h2 className="text-lg font-semibold text-slate-900">Trash</h2>
+            <p className="text-xs text-slate-500">
               Empty and failed buckets stay recoverable here for 30 days.
             </p>
           </div>
-          <span className="rounded-full border border-amber-100/20 bg-white/8 px-3 py-1 text-xs font-semibold text-amber-50/75">
+          <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700">
             {trashCount} item{trashCount === 1 ? "" : "s"}
           </span>
         </div>
 
         {trashedBuckets.length === 0 ? (
-          <p className="rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm text-amber-50/55">
+          <p className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600">
             No trashed buckets.
           </p>
         ) : (
@@ -883,13 +886,13 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className="rounded-2xl border border-amber-100/16 bg-white/8 p-4"
+                    className="rounded-2xl border border-slate-200 bg-white/86 p-4"
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="space-y-1">
-                        <p className="text-sm font-semibold text-amber-50">{label}</p>
-                        <p className="text-xs text-amber-50/50">Bucket ID: {bucket.id}</p>
-                        <p className="text-xs text-amber-50/60">
+                        <p className="text-sm font-semibold text-slate-900">{label}</p>
+                        <p className="text-xs text-slate-500">Bucket ID: {bucket.id}</p>
+                        <p className="text-xs text-slate-600">
                           Trashed: {trashedDate} · {daysRemaining} day
                           {daysRemaining === 1 ? "" : "s"} remaining
                         </p>
@@ -900,7 +903,7 @@ export default function DashboardPage() {
                           data-testid={`trash-restore-${bucket.id}`}
                           onClick={() => restoreBucketAction(bucket.id)}
                           disabled={actionsByBucket[bucket.id]?.restoring || isRunningGoAll}
-                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-300/25 bg-emerald-500/14 px-3 py-2 text-sm font-semibold text-emerald-100 transition hover:bg-emerald-500/24 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {actionsByBucket[bucket.id]?.restoring ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -914,7 +917,7 @@ export default function DashboardPage() {
                           data-testid={`trash-delete-${bucket.id}`}
                           onClick={() => permanentlyDeleteBucketAction(bucket.id)}
                           disabled={actionsByBucket[bucket.id]?.deleting || isRunningGoAll}
-                          className="inline-flex items-center gap-2 rounded-xl border border-red-400/40 bg-red-500/18 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/28 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {actionsByBucket[bucket.id]?.deleting ? (
                             <Loader2 size={14} className="animate-spin" />

@@ -32,6 +32,9 @@ import {
   safeNormalizeShopifyDomain,
 } from "@/src/lib/shopify";
 import { mapInstagramOauthError } from "@/src/lib/instagram";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
+import { RippleCircles } from "@/src/components/ui/ripple-circles";
+import { WebGLShader } from "@/src/components/ui/web-gl-shader";
 
 interface FormSettings {
   shopifyStoreDomain: string;
@@ -58,7 +61,7 @@ export default function SettingsPage() {
     <Suspense
       fallback={
         <div className="flex w-full items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-amber-200" />
+          <Loader2 size={24} className="animate-spin text-cyan-600" />
         </div>
       }
     >
@@ -71,16 +74,16 @@ function getInstagramBadgeClass(status: InstagramConnectionSummary | null): stri
   switch (status?.status) {
     case "connected":
     case "legacy_fallback":
-      return "border border-green-600/30 bg-green-600/10 text-green-700";
+      return "border border-emerald-300 bg-emerald-50 text-emerald-700";
     case "needs_reconnect":
     case "invalid_expired_token":
     case "missing_page_linkage":
     case "missing_instagram_business_account":
-      return "border border-red-400/30 bg-red-400/10 text-red-600";
+      return "border border-rose-300 bg-rose-50 text-rose-700";
     case "selection_required":
-      return "border border-amber-300/30 bg-amber-300/14 text-amber-100";
+      return "border border-amber-300 bg-amber-50 text-amber-700";
     default:
-      return "border border-white/12 bg-white/6 text-amber-50/70";
+      return "border border-slate-200 bg-slate-50 text-slate-600";
   }
 }
 
@@ -137,13 +140,11 @@ function SettingsContent() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadSettings();
   }, [authLoading, user]);
 
   useEffect(() => {
     if (searchParams.get("shopify_connected") === "true") {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessage("Shopify connected successfully!");
       loadSettings();
     }
@@ -183,7 +184,6 @@ function SettingsContent() {
     if (!connectShopDomain) return;
 
     autostartedConnect.current = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsConnectingShopify(true);
     window.location.href = `/api/shopify/connect?shopDomain=${encodeURIComponent(
       connectShopDomain
@@ -193,7 +193,7 @@ function SettingsContent() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-amber-200" />
+        <Loader2 size={24} className="animate-spin text-cyan-600" />
       </div>
     );
   }
@@ -381,23 +381,25 @@ function SettingsContent() {
       className="mx-auto w-full max-w-4xl"
     >
       <section className="cinematic-card relative overflow-hidden rounded-3xl p-6 space-y-6">
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-amber-300/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-red-400/8 blur-3xl" />
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <WebGLShader className="opacity-45" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-300/18 blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-amber-300/18 blur-3xl" />
+        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-amber-50">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
               Integration Settings
             </h1>
-            <p className="mt-2 text-sm text-amber-50/65">
-              Connect your Shopify store and Instagram account to enable product launches.
+            <p className="mt-2 text-sm text-slate-600">
+              Keep Shopify and Instagram connected so every FlowCart launch moves through one
+              reliable pipeline.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                 openaiLive
-                  ? "border border-violet-300/30 bg-violet-400/14 text-violet-100"
-                  : "border border-white/12 bg-white/6 text-amber-50/70"
+                  ? "border border-violet-300 bg-violet-50 text-violet-700"
+                  : "border border-slate-200 bg-slate-50 text-slate-600"
               }`}
             >
               <Zap size={12} /> AI: {openaiLive ? "Live" : "Missing"}
@@ -405,8 +407,8 @@ function SettingsContent() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                 launchReady
-                  ? "border border-emerald-300/30 bg-emerald-500/14 text-emerald-100"
-                  : "border border-red-300/30 bg-red-500/16 text-red-100"
+                  ? "border border-emerald-300 bg-emerald-50 text-emerald-700"
+                  : "border border-rose-300 bg-rose-50 text-rose-700"
               }`}
             >
               {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
@@ -419,33 +421,33 @@ function SettingsContent() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.03 }}
-          className="rounded-2xl border border-amber-100/16 bg-white/8 p-5 space-y-4"
+          className="relative z-10 rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShoppingBag size={18} className="text-amber-100" />
-              <h2 className="text-lg font-semibold text-amber-50">Shopify</h2>
+              <ShoppingBag size={18} className="text-cyan-700" />
+              <h2 className="text-lg font-semibold text-slate-900">Shopify</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {shopifyDomainSaved ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-300/14 px-3 py-1 text-xs font-semibold text-amber-100">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
                   <ShoppingBag size={12} /> Domain Saved
                 </span>
               ) : null}
               {shopifyConnected ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/14 px-3 py-1 text-xs font-semibold text-emerald-100">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                   <CheckCircle2 size={12} /> Authorized
                 </span>
               ) : null}
               {shopifyReauthorizationRequired ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-red-300/30 bg-red-500/16 px-3 py-1 text-xs font-semibold text-red-100">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-300 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700">
                   <XCircle size={12} /> Reauthorization Required
                 </span>
               ) : null}
             </div>
           </div>
           <label className="block space-y-2 text-sm">
-            <span className="text-amber-50/70">Store Domain</span>
+            <span className="text-slate-600">Store Domain</span>
             <input
               value={form.shopifyStoreDomain}
               onChange={(event) =>
@@ -458,16 +460,17 @@ function SettingsContent() {
               className={inputClass}
             />
           </label>
-          <button
-            type="button"
-            onClick={connectShopify}
-            disabled={isConnectingShopify || !form.shopifyStoreDomain.trim()}
-            className="btn-warm inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <span className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <LiquidButton
+              onClick={connectShopify}
+              disabled={isConnectingShopify || !form.shopifyStoreDomain.trim()}
+              variant="secondary"
+              size="lg"
+              className="rounded-2xl"
+            >
               {isConnectingShopify ? (
                 <>
-                  <Loader2 size={14} className="animate-spin" /> Connecting...
+                  <Loader2 size={14} className="animate-spin" /> Connecting Shopify...
                 </>
               ) : (
                 <>
@@ -475,9 +478,10 @@ function SettingsContent() {
                   {shopifyConnected ? "Reconnect Shopify" : "Connect Shopify"}
                 </>
               )}
-            </span>
-          </button>
-          <div className="space-y-1 text-xs text-amber-50/58">
+            </LiquidButton>
+            {isConnectingShopify ? <RippleCircles compact /> : null}
+          </div>
+          <div className="space-y-1 text-xs text-slate-600">
             {domainChangedSinceSave ? (
               <p>Save or connect with this new domain to clear the old Shopify authorization.</p>
             ) : null}
@@ -495,12 +499,12 @@ function SettingsContent() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.08 }}
-          className="rounded-2xl border border-amber-100/16 bg-white/8 p-5 space-y-4"
+          className="relative z-10 rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <Camera size={18} className="text-amber-100" />
-              <h2 className="text-lg font-semibold text-amber-50">Instagram</h2>
+              <Camera size={18} className="text-cyan-700" />
+              <h2 className="text-lg font-semibold text-slate-900">Instagram</h2>
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${getInstagramBadgeClass(
                   instagramConnection
@@ -511,11 +515,11 @@ function SettingsContent() {
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
+              <LiquidButton
                 onClick={connectInstagram}
                 disabled={isConnectingInstagram}
-                className="btn-warm inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                variant="secondary"
+                className="rounded-2xl"
               >
                 {isConnectingInstagram ? (
                   <>
@@ -526,12 +530,12 @@ function SettingsContent() {
                     <PlugZap size={14} /> {connectInstagramLabel}
                   </>
                 )}
-              </button>
-              <button
-                type="button"
+              </LiquidButton>
+              <LiquidButton
                 onClick={validateInstagram}
                 disabled={isValidatingInstagram || !instagramConnection}
-                className="inline-flex items-center gap-2 rounded-2xl border border-amber-100/18 bg-white/8 px-5 py-2.5 text-sm font-semibold text-amber-50/80 transition hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                variant="ghost"
+                className="rounded-2xl"
               >
                 {isValidatingInstagram ? (
                   <>
@@ -542,16 +546,16 @@ function SettingsContent() {
                     <ShieldCheck size={14} /> Validate Connection
                   </>
                 )}
-              </button>
-              <button
-                type="button"
+              </LiquidButton>
+              <LiquidButton
                 onClick={disconnectInstagram}
                 disabled={
                   isDisconnectingInstagram ||
                   !instagramConnection ||
                   instagramConnection.status === "disconnected"
                 }
-                className="inline-flex items-center gap-2 rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="danger"
+                className="rounded-2xl"
               >
                 {isDisconnectingInstagram ? (
                   <>
@@ -562,25 +566,34 @@ function SettingsContent() {
                     <Unplug size={14} /> Disconnect Instagram
                   </>
                 )}
-              </button>
+              </LiquidButton>
+              {isConnectingInstagram || isValidatingInstagram ? (
+                <RippleCircles compact className="shrink-0" />
+              ) : null}
             </div>
           </div>
 
-          <div className="space-y-1 text-sm text-amber-50/72">
+          <div className="space-y-1 text-sm text-slate-600">
             {instagramConnection?.selectedPageName ? (
               <p>
-                Connected Page: <span className="font-semibold text-amber-50">{instagramConnection.selectedPageName}</span>
+                Connected Page:{" "}
+                <span className="font-semibold text-slate-900">
+                  {instagramConnection.selectedPageName}
+                </span>
               </p>
             ) : null}
             {instagramConnection?.selectedPageId ? (
               <p>
-                Page ID: <span className="font-mono text-xs text-amber-50/75">{instagramConnection.selectedPageId}</span>
+                Page ID:{" "}
+                <span className="font-mono text-xs text-slate-500">
+                  {instagramConnection.selectedPageId}
+                </span>
               </p>
             ) : null}
             {instagramConnection?.selectedInstagramBusinessAccountId ? (
               <p>
                 Instagram Business Account ID:{" "}
-                <span className="font-mono text-xs text-amber-50/75">
+                <span className="font-mono text-xs text-slate-500">
                   {instagramConnection.selectedInstagramBusinessAccountId}
                 </span>
               </p>
@@ -616,10 +629,12 @@ function SettingsContent() {
 
           {instagramConnection?.status === "selection_required" &&
           instagramConnection.candidates.length > 0 ? (
-            <div className="rounded-2xl border border-amber-300/20 bg-amber-300/8 p-4 space-y-3">
+            <div className="rounded-2xl border border-amber-300/60 bg-amber-50 p-4 space-y-3">
               <div>
-                <p className="text-sm font-semibold text-amber-50">Choose the Instagram account to use</p>
-                <p className="text-xs text-amber-50/65">
+                <p className="text-sm font-semibold text-amber-700">
+                  Choose the Instagram account to use
+                </p>
+                <p className="text-xs text-amber-700/80">
                   Select the Page and Instagram account FlowCart should publish to for this user.
                 </p>
               </div>
@@ -638,17 +653,17 @@ function SettingsContent() {
                         )
                       }
                       disabled={Boolean(selectingCandidateKey)}
-                      className="flex w-full items-center justify-between rounded-2xl border border-amber-100/16 bg-white/10 px-4 py-3 text-left transition hover:border-amber-300/35 hover:bg-white/15"
+                      className="flex w-full items-center justify-between rounded-2xl border border-amber-200 bg-white px-4 py-3 text-left transition hover:border-amber-300 hover:bg-amber-50"
                     >
                       <span>
-                        <span className="block text-sm font-semibold text-amber-50">
+                        <span className="block text-sm font-semibold text-slate-900">
                           {candidate.pageName || "Untitled Facebook Page"}
                         </span>
-                        <span className="block text-xs text-amber-50/65">
+                        <span className="block text-xs text-slate-500">
                           Page {candidate.pageId} · Instagram {candidate.instagramBusinessAccountId}
                         </span>
                       </span>
-                      <span className="text-sm font-semibold text-amber-100">
+                      <span className="text-sm font-semibold text-amber-700">
                         {selecting ? "Selecting..." : "Use this account"}
                       </span>
                     </button>
@@ -659,16 +674,16 @@ function SettingsContent() {
           ) : null}
 
           {instagramDebugFieldModeEnabled ? (
-            <div className="rounded-2xl border border-amber-100/16 bg-white/5 p-4 space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
               <div>
-                <p className="text-sm font-semibold text-amber-50">Admin Debug Fields</p>
-                <p className="text-xs text-amber-50/65">
+                <p className="text-sm font-semibold text-slate-800">Admin Debug Fields</p>
+                <p className="text-xs text-slate-600">
                   Hidden from production users. These fields remain only as a temporary fallback.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="space-y-2 text-sm">
-                  <span className="text-amber-50/70">Legacy Access Token</span>
+                  <span className="text-slate-600">Legacy Access Token</span>
                   <input
                     type="password"
                     value={form.instagramAccessToken}
@@ -683,7 +698,7 @@ function SettingsContent() {
                   />
                 </label>
                 <label className="space-y-2 text-sm">
-                  <span className="text-amber-50/70">Legacy Business Account ID</span>
+                  <span className="text-slate-600">Legacy Business Account ID</span>
                   <input
                     value={form.instagramBusinessAccountId}
                     onChange={(event) =>
@@ -701,35 +716,33 @@ function SettingsContent() {
           ) : null}
         </motion.div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
+        <div className="relative z-10 flex flex-wrap items-center gap-3">
+          <LiquidButton
             onClick={save}
             disabled={isSaving || isLoading}
-            className="btn-warm inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+            size="lg"
+            className="rounded-2xl"
           >
-            <span className="flex items-center gap-2">
-              {isSaving ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" /> Saving...
-                </>
-              ) : (
-                <>
-                  <Save size={14} /> Save Settings
-                </>
-              )}
-            </span>
-          </button>
+            {isSaving ? (
+              <>
+                <Loader2 size={14} className="animate-spin" /> Saving...
+              </>
+            ) : (
+              <>
+                <Save size={14} /> Save Settings
+              </>
+            )}
+          </LiquidButton>
           <button
             type="button"
             onClick={loadSettings}
             disabled={isSaving}
-            className="inline-flex items-center gap-2 rounded-2xl border border-amber-100/18 bg-white/8 px-5 py-2.5 text-sm font-semibold text-amber-50/80 transition hover:bg-white/15 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw size={14} /> Refresh
           </button>
           {isDirty ? (
-            <span className="rounded-full border border-amber-300/30 bg-amber-300/14 px-3 py-1 text-xs font-semibold text-amber-100">
+            <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
               Unsaved changes
             </span>
           ) : null}
@@ -739,7 +752,7 @@ function SettingsContent() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-emerald-300/25 bg-emerald-500/14 px-4 py-3 text-sm text-emerald-100"
+            className="rounded-2xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-700"
           >
             {message}
           </motion.div>
@@ -748,7 +761,7 @@ function SettingsContent() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-red-300/30 bg-red-500/16 px-4 py-3 text-sm text-red-100"
+            className="rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-700"
           >
             {errorMessage}
           </motion.div>

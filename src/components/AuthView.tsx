@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { ArrowRight, Loader2, Lock, Mail, Sparkles } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
-import { Zap, Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
+import { AnimatedCharactersLoginPage } from "@/src/components/ui/animated-characters-login-page";
 
 type AuthMode = "login" | "signup" | "reset";
 
@@ -58,10 +60,7 @@ export function AuthView({ redirectTo }: AuthViewProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password }),
         });
-        const payload = await readApiResponse<{
-          message?: string;
-          needsConfirmation?: boolean;
-        }>(response);
+        const payload = await readApiResponse<{ message?: string; needsConfirmation?: boolean }>(response);
 
         if (!response.ok || !payload?.ok || !payload.data) {
           setStatus(apiErrorMessage(payload, "Authentication failed."));
@@ -77,9 +76,7 @@ export function AuthView({ redirectTo }: AuthViewProps) {
         await refreshSession();
         router.replace(redirectTo);
       } catch (error) {
-        setStatus(
-          error instanceof Error ? error.message : "Something went wrong."
-        );
+        setStatus(error instanceof Error ? error.message : "Something went wrong.");
       }
     });
   };
@@ -91,39 +88,31 @@ export function AuthView({ redirectTo }: AuthViewProps) {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-1 items-center justify-center px-4 py-10">
+    <div className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 py-10">
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="grid w-full gap-6 rounded-[2rem] border border-[#2B1B12]/[0.08] bg-white/60 p-6 shadow-lg backdrop-blur-2xl lg:grid-cols-[1.05fr_0.95fr] lg:p-8"
+        transition={{ duration: 0.55 }}
+        className="grid w-full gap-6 rounded-[2rem] border border-slate-200/80 bg-white/74 p-5 shadow-[0_26px_54px_rgba(15,23,42,0.1)] backdrop-blur-2xl lg:grid-cols-[1.1fr_0.9fr] lg:p-8"
       >
-        {/* Left panel */}
-        <section className="relative overflow-hidden rounded-[1.75rem] border border-[#C47A2C]/[0.12] bg-gradient-to-br from-[#C47A2C]/[0.06] via-[#D4943F]/[0.04] to-[#F5F1E8] p-8">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(196,122,44,0.08),transparent_50%)]" />
-          <div className="relative space-y-5">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C47A2C]/20 bg-[#C47A2C]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[#C47A2C]">
-              <Zap size={12} /> FlowCart
+        <section className="space-y-5">
+          <div className="rounded-3xl border border-slate-200/80 bg-white/72 p-6 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700">
+              <Sparkles size={12} /> FlowCart Access
             </span>
-            <h1 className="text-4xl font-bold tracking-tight text-[#2B1B12]">
-              Upload once.
-              <br />
-              <span className="gradient-text-warm">Launch everywhere.</span>
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-900">
+              Start your launch flow.
             </h1>
-            <p className="text-sm leading-7 text-[#2B1B12]/50">
-              Sign in to access your dashboard, configure integrations, and
-              launch products to Shopify and Instagram with one click.
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Sign in to continue your upload-once launch pipeline and manage Shopify + Instagram
+              publishing from one control center.
             </p>
-            <div className="rounded-2xl border border-[#2B1B12]/[0.06] bg-white/40 p-4 text-sm text-[#2B1B12]/50">
-              After login, FlowCart routes you straight into the dashboard.
-            </div>
           </div>
+          <AnimatedCharactersLoginPage />
         </section>
 
-        {/* Right panel */}
-        <section className="rounded-[1.75rem] p-6">
-          {/* Tab switcher */}
-          <div className="flex gap-1 rounded-2xl border border-[#2B1B12]/[0.06] bg-white/40 p-1 text-sm">
+        <section className="rounded-[1.75rem] border border-slate-200/80 bg-white/88 p-5 shadow-[0_16px_34px_rgba(15,23,42,0.09)] sm:p-6">
+          <div className="mb-6 flex gap-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-1 text-sm">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -132,10 +121,10 @@ export function AuthView({ redirectTo }: AuthViewProps) {
                   setMode(tab.key);
                   setStatus("");
                 }}
-                className={`flex-1 rounded-xl px-3 py-3 font-semibold transition-all duration-200 ${
+                className={`flex-1 rounded-xl px-3 py-2.5 font-semibold transition ${
                   mode === tab.key
-                    ? "bg-[#C47A2C]/10 text-[#C47A2C] shadow-sm"
-                    : "text-[#2B1B12]/40 hover:text-[#2B1B12]/60"
+                    ? "bg-white text-slate-900 shadow-[0_8px_16px_rgba(15,23,42,0.12)]"
+                    : "text-slate-500 hover:text-slate-700"
                 }`}
               >
                 {tab.label}
@@ -143,67 +132,75 @@ export function AuthView({ redirectTo }: AuthViewProps) {
             ))}
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="space-y-4">
             <label className="block space-y-2 text-sm">
-              <span className="text-[#2B1B12]/60">Email</span>
+              <span className="text-slate-600">Email</span>
               <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#2B1B12]/25" />
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   type="email"
                   autoComplete="email"
-                  className="warm-input w-full rounded-2xl pl-11 pr-4 py-3 text-sm"
+                  className="warm-input w-full rounded-2xl py-3 pl-11 pr-4 text-sm"
                   placeholder="you@example.com"
                 />
               </div>
             </label>
 
-            {mode !== "reset" && (
+            {mode !== "reset" ? (
               <label className="block space-y-2 text-sm">
-                <span className="text-[#2B1B12]/60">Password</span>
+                <span className="text-slate-600">Password</span>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#2B1B12]/25" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     type="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    className="warm-input w-full rounded-2xl pl-11 pr-4 py-3 text-sm"
+                    className="warm-input w-full rounded-2xl py-3 pl-11 pr-4 text-sm"
                     placeholder={mode === "login" ? "Your password" : "At least 8 characters"}
                   />
                 </div>
               </label>
-            )}
+            ) : null}
 
-            <button
+            <LiquidButton
               type="button"
               disabled={isPending}
               onClick={handleSubmit}
-              className="btn-warm inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              size="lg"
+              className="mt-1 w-full"
+              contentClassName="justify-center"
             >
-              <span className="flex items-center gap-2">
-                {isPending ? (
-                  <><Loader2 size={16} className="animate-spin" /> Working...</>
-                ) : mode === "login" ? (
-                  <>Log in <ArrowRight size={16} /></>
-                ) : mode === "signup" ? (
-                  <>Create account <ArrowRight size={16} /></>
-                ) : (
-                  <>Send reset link <ArrowRight size={16} /></>
-                )}
-              </span>
-            </button>
+              {isPending ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Working...
+                </>
+              ) : mode === "login" ? (
+                <>
+                  Log in <ArrowRight size={16} />
+                </>
+              ) : mode === "signup" ? (
+                <>
+                  Create account <ArrowRight size={16} />
+                </>
+              ) : (
+                <>
+                  Send reset link <ArrowRight size={16} />
+                </>
+              )}
+            </LiquidButton>
 
-            {status && (
+            {status ? (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-[#2B1B12]/[0.06] bg-white/40 px-4 py-3 text-sm text-[#2B1B12]/60"
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
               >
                 {status}
               </motion.div>
-            )}
+            ) : null}
           </div>
         </section>
       </motion.div>

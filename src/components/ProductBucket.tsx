@@ -26,6 +26,8 @@ import {
   getBucketTrashLabel,
   shouldShowBucketTrashControl,
 } from "@/src/lib/bucket-ui";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
+import { RippleCircles } from "@/src/components/ui/ripple-circles";
 
 interface ProductBucketProps {
   bucket: Bucket;
@@ -70,36 +72,36 @@ function statusStyle(status: Bucket["status"]): { classes: string; badge: string
   if (status === "DONE")
     return {
       classes:
-        "border border-amber-300/45 bg-amber-300/10 text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.22)]",
+        "border border-amber-200 bg-amber-50 text-amber-700 shadow-[0_0_24px_rgba(245,158,11,0.16)]",
       badge: "badge-gold",
     };
   if (status === "FAILED")
     return {
       classes:
-        "border border-red-300/35 bg-red-400/12 text-red-100 shadow-[0_0_20px_rgba(248,113,113,0.2)]",
+        "border border-rose-200 bg-rose-50 text-rose-700 shadow-[0_0_20px_rgba(248,113,113,0.15)]",
       badge: "badge-red",
     };
   if (status === "PROCESSING")
     return {
       classes:
-        "border border-sky-300/35 bg-sky-400/12 text-sky-100 shadow-[0_0_20px_rgba(56,189,248,0.25)]",
+        "border border-sky-200 bg-sky-50 text-sky-700 shadow-[0_0_20px_rgba(56,189,248,0.14)]",
       badge: "pulse-blue",
     };
   if (status === "ENHANCING")
     return {
       classes:
-        "border border-violet-300/35 bg-violet-400/12 text-violet-100 shadow-[0_0_20px_rgba(167,139,250,0.2)]",
+        "border border-violet-200 bg-violet-50 text-violet-700 shadow-[0_0_20px_rgba(167,139,250,0.13)]",
       badge: "badge-purple",
     };
   if (status === "READY")
     return {
       classes:
-        "border border-emerald-300/35 bg-emerald-400/12 text-emerald-100 shadow-[0_0_20px_rgba(16,185,129,0.2)]",
+        "border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-[0_0_20px_rgba(16,185,129,0.13)]",
       badge: "badge-green",
     };
 
   return {
-    classes: "border border-amber-100/15 bg-white/8 text-amber-50/65",
+    classes: "border border-slate-200 bg-white/80 text-slate-600",
     badge: "",
   };
 }
@@ -206,16 +208,15 @@ export function ProductBucket({
 
   const isEmptyTrash = bucket.status === "EMPTY";
   const trashContainerClass = isEmptyTrash
-    ? "border-amber-100/20 bg-white/6"
-    : "border-red-300/30 bg-red-500/12";
+    ? "border-slate-200 bg-white/75"
+    : "border-rose-200 bg-rose-50/75";
   const trashPrimaryClass = isEmptyTrash
-    ? "border-amber-100/25 bg-white/10 text-amber-50 hover:bg-white/15"
-    : "border-red-400/40 bg-red-500/20 text-red-100 hover:bg-red-500/30";
-  const trashDescriptionClass = isEmptyTrash ? "text-amber-50/70" : "text-red-100/85";
+    ? "border-slate-200 bg-white/95 text-slate-800 hover:bg-slate-50"
+    : "border-rose-200 bg-rose-100 text-rose-700 hover:bg-rose-200";
+  const trashDescriptionClass = isEmptyTrash ? "text-slate-600" : "text-rose-700";
 
   const { classes: statusClasses, badge: statusBadge } = statusStyle(bucket.status);
-  const inputClass =
-    "cinematic-input w-full rounded-2xl px-3 py-2.5 text-sm";
+  const inputClass = "cinematic-input w-full rounded-2xl px-3 py-2.5 text-sm";
 
   const doneSummaryTitle = doneBucketHeadline(bucket, bucketNumber);
 
@@ -230,18 +231,18 @@ export function ProductBucket({
         transition={{ duration: 0.24 }}
         className={`cinematic-card rounded-3xl p-4 sm:p-5 ${
           isHighlighted
-            ? "ring-2 ring-amber-300/75 shadow-[0_0_0_6px_rgba(245,158,11,0.14)]"
+            ? "ring-2 ring-cyan-300 shadow-[0_0_0_6px_rgba(14,165,233,0.14)]"
             : ""
         }`}
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-amber-50/45">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
                 Bucket {bucketNumber}
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-amber-50">{doneSummaryTitle}</h2>
-              <p className="mt-1 text-xs text-amber-50/45">Updated {new Date(bucket.updatedAt).toLocaleString()}</p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-900">{doneSummaryTitle}</h2>
+              <p className="mt-1 text-xs text-slate-500">Updated {new Date(bucket.updatedAt).toLocaleString()}</p>
             </div>
             <span
               className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${statusClasses} ${statusBadge}`}
@@ -255,7 +256,7 @@ export function ProductBucket({
               {bucket.imageUrls.slice(0, 3).map((imageUrl) => (
                 <div
                   key={`${bucket.id}-thumb-${imageUrl}`}
-                  className="h-14 w-14 overflow-hidden rounded-xl border border-amber-100/20 bg-black/30"
+                  className="h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
                 >
                   <Image
                     src={imageUrl}
@@ -268,7 +269,7 @@ export function ProductBucket({
                 </div>
               ))}
               {bucket.imageUrls.length === 0 ? (
-                <span className="rounded-xl border border-amber-100/15 bg-white/6 px-3 py-2 text-xs text-amber-50/55">
+                <span className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
                   No images
                 </span>
               ) : null}
@@ -277,7 +278,7 @@ export function ProductBucket({
               type="button"
               data-testid={`bucket-edit-${bucket.id}`}
               onClick={() => onToggleDoneExpanded(bucket.id)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200/30 bg-amber-300/16 px-4 py-2.5 text-sm font-semibold text-amber-100 transition hover:bg-amber-300/25"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-100"
             >
               <PencilLine size={14} />
               Edit
@@ -285,8 +286,8 @@ export function ProductBucket({
           </div>
 
           <div className="grid gap-2 text-xs sm:grid-cols-2">
-            <div className="rounded-xl border border-emerald-300/25 bg-emerald-400/12 px-3 py-2 text-emerald-100/95">
-              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-emerald-100/70">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-700">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-emerald-700/70">
                 <ShoppingBag size={12} />
                 Shopify
               </div>
@@ -295,17 +296,17 @@ export function ProductBucket({
                   href={bucket.shopifyProductUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-emerald-100 hover:text-white"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-emerald-700 hover:text-emerald-800"
                 >
                   <span className="truncate">{bucket.shopifyProductUrl}</span>
                   <ExternalLink size={12} className="shrink-0" />
                 </a>
               ) : (
-                <span className="text-emerald-100/65">No link</span>
+                <span className="text-emerald-700/65">No link</span>
               )}
             </div>
-            <div className="rounded-xl border border-amber-300/25 bg-amber-300/12 px-3 py-2 text-amber-100/95">
-              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-amber-100/70">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-amber-700">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-amber-700/70">
                 <Camera size={12} />
                 Instagram
               </div>
@@ -314,24 +315,24 @@ export function ProductBucket({
                   href={bucket.instagramPostUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-amber-100 hover:text-white"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-amber-700 hover:text-amber-800"
                 >
                   <span className="truncate">{bucket.instagramPostUrl}</span>
                   <ExternalLink size={12} className="shrink-0" />
                 </a>
               ) : (
-                <span className="text-amber-100/65">No link</span>
+                <span className="text-amber-700/65">No link</span>
               )}
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-amber-50/85">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">
               Price:{" "}
-              <span className="font-semibold text-amber-50">
+              <span className="font-semibold text-slate-900">
                 {typeof bucket.price === "number" ? `$${bucket.price.toFixed(2)}` : "—"}
               </span>
             </div>
-            <div className="rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-amber-50/85">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">
               Quantity:{" "}
-              <span className="font-semibold text-amber-50">
+              <span className="font-semibold text-slate-900">
                 {typeof bucket.quantity === "number" ? bucket.quantity : "—"}
               </span>
             </div>
@@ -351,14 +352,14 @@ export function ProductBucket({
       transition={{ duration: 0.24 }}
       className={`cinematic-card rounded-3xl p-5 ${
         isHighlighted
-          ? "ring-2 ring-amber-300/75 shadow-[0_0_0_6px_rgba(245,158,11,0.14)]"
+          ? "ring-2 ring-cyan-300 shadow-[0_0_0_6px_rgba(14,165,233,0.14)]"
           : ""
       }`}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-amber-50">Bucket {bucketNumber}</h2>
-          <p className="mt-1 text-xs text-amber-50/35">ID: {bucket.id}</p>
+          <h2 className="text-lg font-semibold text-slate-900">Bucket {bucketNumber}</h2>
+          <p className="mt-1 text-xs text-slate-500">ID: {bucket.id}</p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${statusClasses} ${statusBadge}`}
@@ -368,14 +369,14 @@ export function ProductBucket({
       </div>
 
       {isDoneBucket ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-100/15 bg-white/6 px-3 py-2">
-          <p className="text-xs text-amber-50/70">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2">
+          <p className="text-xs text-slate-600">
             Editing a launched bucket uses in-place sync on the same Shopify product and never republishes Instagram silently.
           </p>
           <button
             type="button"
             onClick={() => onToggleDoneExpanded(bucket.id)}
-            className="inline-flex items-center gap-1 rounded-xl border border-amber-100/20 bg-white/8 px-3 py-1.5 text-xs font-semibold text-amber-100 transition hover:bg-white/15"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <ChevronDown size={13} className="rotate-180" />
             Collapse
@@ -385,23 +386,30 @@ export function ProductBucket({
 
       <div className="space-y-4">
         <label className="block space-y-2 text-sm">
-          <span className="flex items-center gap-1.5 text-amber-50/65">
+          <span className="flex items-center gap-1.5 text-slate-600">
             <ImagePlus size={14} /> Product Images
           </span>
-          <input
-            type="file"
-            multiple
-            accept="image/*"
-            disabled={controlsLocked}
-            onChange={(event) => onImagesChange(bucket.id, event.target.files)}
-            className="block w-full rounded-xl border border-amber-100/18 bg-black/25 px-3 py-2 text-sm text-amber-50/80 file:mr-3 file:rounded-lg file:border-0 file:bg-amber-300/25 file:px-3 file:py-2 file:text-amber-50 file:font-medium file:text-sm hover:file:bg-amber-300/35 transition"
-          />
+          <div className="relative">
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              disabled={controlsLocked}
+              onChange={(event) => onImagesChange(bucket.id, event.target.files)}
+              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-cyan-100 file:px-3 file:py-2 file:text-cyan-700 file:font-medium file:text-sm hover:file:bg-cyan-200 transition"
+            />
+            {isUploading ? (
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                <RippleCircles compact />
+              </div>
+            ) : null}
+          </div>
           {bucket.imageUrls.length > 0 ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {bucket.imageUrls.map((imageUrl) => (
                 <div
                   key={`${bucket.id}-${imageUrl}`}
-                  className="overflow-hidden rounded-xl border border-amber-100/15"
+                  className="overflow-hidden rounded-xl border border-slate-200"
                 >
                   <Image
                     src={imageUrl}
@@ -415,12 +423,12 @@ export function ProductBucket({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-amber-50/35">Upload at least one image.</p>
+            <p className="text-xs text-slate-500">Upload at least one image.</p>
           )}
         </label>
 
         <div className="space-y-2 text-sm">
-          <span className="text-amber-50/65">Title</span>
+          <span className="text-slate-600">Title</span>
           <div className="flex gap-2">
             <input
               value={isDoneBucket ? doneDraft.titleRaw : bucket.titleRaw}
@@ -445,7 +453,7 @@ export function ProductBucket({
                 type="button"
                 onClick={() => onEnhanceTitle(bucket.id)}
                 disabled={controlsLocked || !bucket.titleRaw.trim()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-violet-300/30 bg-violet-400/14 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:bg-violet-400/24 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isEnhancingTitle ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -459,7 +467,7 @@ export function ProductBucket({
         </div>
 
         <div className="space-y-2 text-sm">
-          <span className="text-amber-50/65">Description</span>
+          <span className="text-slate-600">Description</span>
           <div className="flex gap-2">
             <textarea
               value={isDoneBucket ? doneDraft.descriptionRaw : bucket.descriptionRaw}
@@ -488,7 +496,7 @@ export function ProductBucket({
                 type="button"
                 onClick={() => onEnhanceDescription(bucket.id)}
                 disabled={controlsLocked || !bucket.descriptionRaw.trim()}
-                className="h-fit inline-flex items-center gap-1.5 rounded-xl border border-violet-300/30 bg-violet-400/14 px-3 py-2 text-xs font-semibold text-violet-100 transition hover:bg-violet-400/24 disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-fit inline-flex items-center gap-1.5 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isEnhancingDescription ? (
                   <Loader2 size={12} className="animate-spin" />
@@ -503,7 +511,7 @@ export function ProductBucket({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-2 text-sm">
-            <span className="text-amber-50/65">Quantity</span>
+            <span className="text-slate-600">Quantity</span>
             <input
               type="number"
               min="1"
@@ -527,7 +535,7 @@ export function ProductBucket({
             />
           </label>
           <label className="space-y-2 text-sm">
-            <span className="text-amber-50/65">Price ($)</span>
+            <span className="text-slate-600">Price ($)</span>
             <input
               type="number"
               min="0"
@@ -558,7 +566,7 @@ export function ProductBucket({
             href={bucket.shopifyProductUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-emerald-300/30 bg-emerald-400/12 px-3 py-2 text-sm text-emerald-100 transition hover:bg-emerald-400/20"
+            className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 transition hover:bg-emerald-100"
           >
             <ShoppingBag size={14} />
             <span className="truncate">Shopify: {bucket.shopifyProductUrl}</span>
@@ -571,7 +579,7 @@ export function ProductBucket({
             href={bucket.instagramPostUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-amber-300/30 bg-amber-300/12 px-3 py-2 text-sm text-amber-100 transition hover:bg-amber-300/20"
+            className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 transition hover:bg-amber-100"
           >
             <Camera size={14} />
             <span className="truncate">Instagram: {bucket.instagramPostUrl}</span>
@@ -580,7 +588,7 @@ export function ProductBucket({
         ) : null}
 
         {bucket.errorMessage ? (
-          <div className="flex items-start gap-2 rounded-xl border border-red-300/30 bg-red-500/16 px-3 py-2 text-sm text-red-100">
+          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <span>{bucket.errorMessage}</span>
           </div>
@@ -612,7 +620,7 @@ export function ProductBucket({
                       onMoveToTrash(bucket.id);
                     }}
                     disabled={controlsLocked}
-                    className="inline-flex items-center gap-2 rounded-lg border border-amber-100/20 bg-white/12 px-3 py-2 text-sm font-semibold text-amber-50 transition hover:bg-white/18 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isTrashing ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -629,7 +637,7 @@ export function ProductBucket({
                       onDeletePermanently(bucket.id);
                     }}
                     disabled={controlsLocked}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-400/45 bg-red-500/20 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-100 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isDeleting ? (
                       <Loader2 size={14} className="animate-spin" />
@@ -653,10 +661,10 @@ export function ProductBucket({
               exit={{ opacity: 0, y: -8 }}
               className={`rounded-xl border px-3 py-2 text-sm ${
                 doneSyncMessage.toLowerCase().includes("failed")
-                  ? "border-red-300/30 bg-red-500/16 text-red-100"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
                   : doneSyncMessage.toLowerCase().includes("does not allow editing")
-                    ? "border-amber-300/30 bg-amber-300/14 text-amber-100"
-                    : "border-emerald-300/30 bg-emerald-400/14 text-emerald-100"
+                    ? "border-amber-200 bg-amber-50 text-amber-700"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
               }`}
             >
               {doneSyncMessage}
@@ -665,7 +673,7 @@ export function ProductBucket({
         </AnimatePresence>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs text-amber-50/45">
+          <div className="flex items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <ShoppingBag size={12} />{" "}
               {bucket.shopifyCreated ? "Created" : "Pending"}
@@ -681,12 +689,12 @@ export function ProductBucket({
           </div>
 
           {isDoneBucket ? (
-            <button
-              type="button"
+            <LiquidButton
               data-testid={`bucket-sync-${bucket.id}`}
               onClick={() => onSyncDone(bucket.id, donePatch)}
               disabled={controlsLocked || isSyncingDone || !hasDoneChanges}
-              className="btn-warm inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-55"
+              size="md"
+              className="rounded-xl"
             >
               <span className="flex items-center gap-2">
                 {isSyncingDone ? (
@@ -699,13 +707,13 @@ export function ProductBucket({
                   </>
                 )}
               </span>
-            </button>
+            </LiquidButton>
           ) : (
-            <button
-              type="button"
+            <LiquidButton
               onClick={() => onGo(bucket.id)}
               disabled={bucket.status !== "READY" || controlsLocked}
-              className="btn-warm inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-55"
+              size="md"
+              className="rounded-xl"
             >
               <span className="flex items-center gap-2">
                 {isLaunching ? (
@@ -718,12 +726,12 @@ export function ProductBucket({
                   </>
                 )}
               </span>
-            </button>
+            </LiquidButton>
           )}
         </div>
 
         {isSaving ? (
-          <div className="flex items-center gap-1.5 text-xs text-amber-50/45">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
             <Loader2 size={12} className="animate-spin" /> Saving changes...
           </div>
         ) : null}

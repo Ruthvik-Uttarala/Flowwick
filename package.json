@@ -13,8 +13,10 @@
     "smoke:live": "node --preserve-symlinks --preserve-symlinks-main scripts/live-smoke-test.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
     "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.99.3",
+    "class-variance-authority": "^0.7.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^1.7.0",
     "next": "16.2.0",
