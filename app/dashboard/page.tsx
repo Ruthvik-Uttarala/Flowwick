@@ -357,7 +357,7 @@ export default function DashboardPage() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-black/70" />
+        <Loader2 size={24} className="animate-spin text-[color:var(--fc-primary)]" />
       </div>
     );
   }
@@ -763,33 +763,33 @@ export default function DashboardPage() {
       label: "Ready",
       value: readyCount,
       icon: Clock,
-      accent: "border-black/15 bg-white/92 text-black",
+      accent: "border-[color:rgba(15,108,189,0.22)] bg-[rgba(15,108,189,0.1)] text-[color:#0d4f8a]",
     },
     {
       label: "Done",
       value: doneCount,
       icon: CheckCircle2,
-      accent: "border-black/15 bg-white/92 text-black",
+      accent: "border-[color:rgba(18,122,89,0.24)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]",
     },
     {
       label: "Failed",
       value: failedCount,
       icon: XCircle,
-      accent: "border-black/15 bg-white/92 text-black",
+      accent: "border-[color:rgba(194,65,58,0.26)] bg-[rgba(194,65,58,0.1)] text-[color:#942a26]",
     },
     {
       label: "Trash",
       value: trashCount,
       icon: Trash2,
-      accent: "border-slate-200 bg-slate-50/90 text-slate-700",
+      accent: "border-[color:rgba(15,108,189,0.14)] bg-white/92 text-[color:var(--fc-text-primary)]",
     },
     {
       label: "AI",
       value: runtimeHealth.openaiConfigured ? "Live" : "Missing",
       icon: Zap,
       accent: runtimeHealth.openaiConfigured
-        ? "border-black/20 bg-white text-black"
-        : "border-slate-200 bg-slate-50/90 text-slate-700",
+        ? "border-[color:rgba(15,108,189,0.28)] bg-[rgba(15,108,189,0.12)] text-[color:#0d4f8a]"
+        : "border-[color:rgba(15,108,189,0.14)] bg-white/92 text-[color:var(--fc-text-muted)]",
     },
   ];
 
@@ -802,18 +802,18 @@ export default function DashboardPage() {
         className="cinematic-card relative overflow-hidden rounded-3xl p-6"
       >
         <WebGLShader className="opacity-55" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-black/8 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[rgba(76,200,255,0.2)] blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-[rgba(106,84,209,0.14)] blur-3xl" />
 
         <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-black/55">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:rgba(19,26,34,0.56)]">
               Launch Console
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-black">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
               FlowCart Dashboard
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-black/65">
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--fc-text-muted)]">
               Build once, launch everywhere, and edit launched buckets without duplicate Shopify
               products or duplicate Instagram posts.
             </p>
@@ -878,10 +878,10 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-4 py-3"
+            className="flex items-center gap-2 rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/84 px-4 py-3"
           >
-            <Loader2 size={14} className="animate-spin text-black/70" />
-            <span className="text-sm text-slate-700">Loading buckets...</span>
+            <Loader2 size={14} className="animate-spin text-[color:var(--fc-primary)]" />
+            <span className="text-sm text-[color:var(--fc-text-muted)]">Loading buckets...</span>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -892,12 +892,12 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-black/18 bg-white px-4 py-3 text-sm text-black"
+            className="rounded-2xl border border-[color:rgba(15,108,189,0.18)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-primary)]"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span>{summaryMessage}</span>
               {goAllSummary ? (
-                <span className="rounded-full border border-black/15 bg-white/85 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-black/75">
+                <span className="rounded-full border border-[color:rgba(15,108,189,0.16)] bg-white/85 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-[color:rgba(19,26,34,0.7)]">
                   Success {goAllSummary.succeeded} · Failed {goAllSummary.failed}
                 </span>
               ) : null}
@@ -912,7 +912,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-black/25 bg-white px-4 py-3 text-sm text-black"
+            className="rounded-2xl border border-[color:rgba(194,65,58,0.34)] bg-[rgba(194,65,58,0.1)] px-4 py-3 text-sm text-[color:#942a26]"
           >
             {pageError}
           </motion.div>
@@ -921,7 +921,7 @@ export default function DashboardPage() {
 
       {buckets.length === 0 && !loading ? (
         <div className="cinematic-card rounded-3xl p-8 text-center">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-[color:var(--fc-text-muted)]">
             No buckets yet. Create your first bucket to start the launch flow.
           </p>
         </div>
@@ -998,18 +998,18 @@ export default function DashboardPage() {
       >
         <div className="mb-4 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900">Trash</h2>
-            <p className="text-xs text-slate-500">
+            <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Trash</h2>
+            <p className="text-xs text-[color:var(--fc-text-muted)]">
               Empty and failed buckets stay recoverable here for 30 days.
             </p>
           </div>
-          <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-semibold text-slate-700">
+          <span className="rounded-full border border-[color:rgba(15,108,189,0.14)] bg-white/82 px-3 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)]">
             {trashCount} item{trashCount === 1 ? "" : "s"}
           </span>
         </div>
 
         {trashedBuckets.length === 0 ? (
-          <p className="rounded-2xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-600">
+          <p className="rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/82 px-4 py-3 text-sm text-[color:var(--fc-text-muted)]">
             No trashed buckets.
           </p>
         ) : (
@@ -1031,13 +1031,13 @@ export default function DashboardPage() {
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className="rounded-2xl border border-slate-200 bg-white/86 p-4"
+                    className="rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/88 p-4"
                   >
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                       <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-900">{label}</p>
-                        <p className="text-xs text-slate-500">Bucket ID: {bucket.id}</p>
-                        <p className="text-xs text-slate-600">
+                        <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">{label}</p>
+                        <p className="text-xs text-[color:var(--fc-text-muted)]">Bucket ID: {bucket.id}</p>
+                        <p className="text-xs text-[color:var(--fc-text-muted)]">
                           Trashed: {trashedDate} · {daysRemaining} day
                           {daysRemaining === 1 ? "" : "s"} remaining
                         </p>

@@ -404,8 +404,7 @@ function buildDoneSyncChips(
       id: "instagram-unchanged",
       label: "Instagram unchanged",
       tone: "warning",
-      detail:
-        instagram.helperText || "Published post can't be edited in place for this media type.",
+      detail: instagram.helperText || "Instagram API can't edit this published post.",
     });
   } else {
     chips.push({
@@ -520,15 +519,15 @@ export async function syncDoneBucket(
   const instagramSync = normalizeInstagramDoneSyncStatus({
     outcome: instagramEdit.outcome,
     reason: instagramEdit.reason,
-    errorMessage:
-      instagramEdit.outcome === "updated"
-        ? ""
-        : instagramEdit.errorMessage ||
-          (instagramEdit.outcome === "unchanged"
-            ? "Published post can't be edited in place for this media type."
-            : instagramEdit.outcome === "skipped"
-              ? "Instagram update was skipped."
-              : "Instagram update failed unexpectedly."),
+      errorMessage:
+        instagramEdit.outcome === "updated"
+          ? ""
+          : instagramEdit.errorMessage ||
+            (instagramEdit.outcome === "unchanged"
+              ? "Instagram API can't edit this published post."
+              : instagramEdit.outcome === "skipped"
+                ? "Instagram update was skipped."
+                : "Instagram update failed unexpectedly."),
   });
 
   const chips = buildDoneSyncChips(shopifySync, instagramSync);

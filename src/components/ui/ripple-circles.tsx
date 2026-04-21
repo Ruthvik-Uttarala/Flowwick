@@ -13,12 +13,12 @@ export function RippleCircles({ className, compact = false }: RippleCirclesProps
   const ringClass = compact ? "border" : "border-[1.5px]";
   const rings = [40, 32, 24, 16, 8, 0];
   const palette = [
-    "rgba(0, 208, 255, 0.85)",
-    "rgba(66, 255, 172, 0.82)",
-    "rgba(255, 214, 87, 0.78)",
-    "rgba(255, 120, 204, 0.72)",
-    "rgba(87, 130, 255, 0.68)",
-    "rgba(16, 16, 16, 0.32)",
+    "rgba(76, 200, 255, 0.78)",
+    "rgba(15, 108, 189, 0.66)",
+    "rgba(106, 84, 209, 0.56)",
+    "rgba(76, 200, 255, 0.46)",
+    "rgba(15, 108, 189, 0.38)",
+    "rgba(19, 26, 34, 0.2)",
   ];
 
   return (
@@ -32,13 +32,13 @@ export function RippleCircles({ className, compact = false }: RippleCirclesProps
             borderColor: palette[index],
             background:
               index < 5
-                ? "linear-gradient(120deg, rgba(255,255,255,0.22), rgba(255,255,255,0.03))"
-                : "linear-gradient(120deg, rgba(255,255,255,0.2), rgba(255,255,255,0.08))",
+                ? "linear-gradient(120deg, rgba(255,255,255,0.24), rgba(255,255,255,0.05))"
+                : "linear-gradient(120deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08))",
             animation: `contourBreath 2.2s ease-in-out infinite ${index * 0.14}s`,
             boxShadow:
               index < 5
                 ? `0 0 ${8 + index * 2}px ${palette[index]}`
-                : "0 0 8px rgba(0,0,0,0.09)",
+                : "0 0 8px rgba(16, 46, 78, 0.08)",
           }}
         />
       ))}

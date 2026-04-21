@@ -42,7 +42,7 @@ export function LimelightNav({ items, activeKey, className }: LimelightNavProps)
   return (
     <ul
       className={cn(
-        "relative inline-flex list-none items-center rounded-2xl border border-black/15 bg-white/88 p-1 shadow-[0_10px_26px_rgba(0,0,0,0.1)] backdrop-blur",
+        "relative inline-flex list-none items-center rounded-2xl border border-[color:rgba(15,108,189,0.2)] bg-white/90 p-1 shadow-[0_10px_24px_rgba(26,64,110,0.12)] backdrop-blur",
         className
       )}
       onMouseLeave={() => {
@@ -65,15 +65,15 @@ export function LimelightNav({ items, activeKey, className }: LimelightNavProps)
       <motion.li
         animate={cursor}
         transition={{ type: "spring", stiffness: 340, damping: 30, mass: 0.6 }}
-        className="pointer-events-none absolute inset-y-1 z-0 rounded-xl bg-black"
+        className="pointer-events-none absolute inset-y-1 z-0 rounded-xl bg-[linear-gradient(145deg,#0f6cbd,#0c5fa8)]"
       />
       <motion.li
         animate={{
-          left: cursor.left + cursor.width / 2 - 26,
+          left: cursor.left + cursor.width / 2 - 24,
           opacity: cursor.opacity,
         }}
         transition={{ type: "spring", stiffness: 280, damping: 28 }}
-        className="pointer-events-none absolute top-0 z-0 h-[4px] w-[52px] rounded-full bg-[linear-gradient(90deg,#00d4ff,#41ff8f,#ffd84d,#ff4ecd)] blur-[0.3px]"
+        className="pointer-events-none absolute top-0 z-0 h-[3px] w-[48px] rounded-full bg-[linear-gradient(90deg,#4cc8ff,#6a54d1)]"
       />
 
       {items.map((item) => {
@@ -81,7 +81,9 @@ export function LimelightNav({ items, activeKey, className }: LimelightNavProps)
           <span
             className={cn(
               "relative z-10 inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
-              activeKey === item.key ? "text-white" : "text-black/60 hover:text-black"
+              activeKey === item.key
+                ? "text-white"
+                : "text-[color:rgba(19,26,34,0.65)] hover:text-[color:var(--fc-text-primary)]"
             )}
           >
             {item.icon}

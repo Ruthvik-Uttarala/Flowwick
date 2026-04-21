@@ -62,7 +62,7 @@ export default function SettingsPage() {
     <Suspense
       fallback={
         <div className="flex w-full items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-black/70" />
+          <Loader2 size={24} className="animate-spin text-[color:var(--fc-primary)]" />
         </div>
       }
     >
@@ -75,16 +75,16 @@ function getInstagramBadgeClass(status: InstagramConnectionSummary | null): stri
   switch (status?.status) {
     case "connected":
     case "legacy_fallback":
-      return "border border-black/20 bg-white text-black";
+      return "border border-[color:rgba(18,122,89,0.3)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]";
     case "needs_reconnect":
     case "invalid_expired_token":
     case "missing_page_linkage":
     case "missing_instagram_business_account":
-      return "border border-black/25 bg-white text-black";
+      return "border border-[color:rgba(185,133,19,0.35)] bg-[rgba(185,133,19,0.14)] text-[color:#4f3a0b]";
     case "selection_required":
-      return "border border-black/20 bg-black/[0.03] text-black";
+      return "border border-[color:rgba(15,108,189,0.28)] bg-[rgba(15,108,189,0.1)] text-[color:#0d4f8a]";
     default:
-      return "border border-slate-200 bg-slate-50 text-slate-600";
+      return "border border-[color:rgba(15,108,189,0.16)] bg-white text-[color:var(--fc-text-muted)]";
   }
 }
 
@@ -194,7 +194,7 @@ function SettingsContent() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-black/70" />
+        <Loader2 size={24} className="animate-spin text-[color:var(--fc-primary)]" />
       </div>
     );
   }
@@ -383,11 +383,11 @@ function SettingsContent() {
     >
       <section className="cinematic-card relative overflow-hidden rounded-3xl p-6 space-y-6">
         <WebGLShader className="opacity-45" />
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-black/10 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-black/8 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[rgba(76,200,255,0.2)] blur-3xl" />
+        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-[rgba(106,84,209,0.14)] blur-3xl" />
         <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="mb-3 inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-black/15 bg-white shadow-[0_10px_24px_rgba(0,0,0,0.12)]">
+            <div className="mb-3 inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-[color:rgba(15,108,189,0.2)] bg-white shadow-[0_10px_24px_rgba(22,62,112,0.12)]">
               <Image
                 src="/brand/flowcart-logo-clean.png"
                 alt="FlowCart logo"
@@ -396,10 +396,10 @@ function SettingsContent() {
                 className="h-full w-full object-contain p-1"
               />
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
+            <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
               Integration Settings
             </h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-[color:var(--fc-text-muted)]">
               Connect both channels once, then keep launches synced from one control surface.
             </p>
           </div>
@@ -407,8 +407,8 @@ function SettingsContent() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                 openaiLive
-                  ? "border border-black/20 bg-white text-black"
-                  : "border border-slate-200 bg-slate-50 text-slate-600"
+                  ? "border border-[color:rgba(15,108,189,0.28)] bg-[rgba(15,108,189,0.1)] text-[color:#0d4f8a]"
+                  : "border border-[color:rgba(15,108,189,0.16)] bg-white text-[color:var(--fc-text-muted)]"
               }`}
             >
               <Zap size={12} /> AI: {openaiLive ? "Live" : "Missing"}
@@ -416,8 +416,8 @@ function SettingsContent() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
                 launchReady
-                  ? "border border-black/20 bg-white text-black"
-                  : "border border-black/25 bg-white text-black"
+                  ? "border border-[color:rgba(18,122,89,0.28)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]"
+                  : "border border-[color:rgba(194,65,58,0.3)] bg-[rgba(194,65,58,0.1)] text-[color:#942a26]"
               }`}
             >
               {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
@@ -430,33 +430,33 @@ function SettingsContent() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.03 }}
-          className="relative z-10 rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4"
+          className="relative z-10 rounded-2xl border border-[color:rgba(15,108,189,0.16)] bg-white/84 p-5 space-y-4"
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <ShoppingBag size={18} className="text-black" />
-              <h2 className="text-lg font-semibold text-slate-900">Shopify</h2>
+              <ShoppingBag size={18} className="text-[color:var(--fc-primary)]" />
+              <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Shopify</h2>
             </div>
             <div className="flex flex-wrap gap-2">
               {shopifyDomainSaved ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-black/20 bg-black/[0.03] px-3 py-1 text-xs font-semibold text-black">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:rgba(15,108,189,0.24)] bg-[rgba(15,108,189,0.1)] px-3 py-1 text-xs font-semibold text-[color:#0d4f8a]">
                   <ShoppingBag size={12} /> Domain Saved
                 </span>
               ) : null}
               {shopifyConnected ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-black/20 bg-white px-3 py-1 text-xs font-semibold text-black">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:rgba(18,122,89,0.28)] bg-[rgba(18,122,89,0.1)] px-3 py-1 text-xs font-semibold text-[color:#0c5e45]">
                   <CheckCircle2 size={12} /> Authorized
                 </span>
               ) : null}
               {shopifyReauthorizationRequired ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-black/25 bg-white px-3 py-1 text-xs font-semibold text-black">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:rgba(185,133,19,0.34)] bg-[rgba(185,133,19,0.14)] px-3 py-1 text-xs font-semibold text-[color:#4f3a0b]">
                   <XCircle size={12} /> Reauthorization Required
                 </span>
               ) : null}
             </div>
           </div>
           <label className="block space-y-2 text-sm">
-            <span className="text-slate-600">Store Domain</span>
+            <span className="text-[color:var(--fc-text-muted)]">Store Domain</span>
             <input
               value={form.shopifyStoreDomain}
               onChange={(event) =>
@@ -490,7 +490,7 @@ function SettingsContent() {
             </LiquidButton>
             {isConnectingShopify ? <RippleCircles compact /> : null}
           </div>
-          <div className="space-y-1 text-xs text-slate-600">
+          <div className="space-y-1 text-xs text-[color:var(--fc-text-muted)]">
             {domainChangedSinceSave ? (
               <p>Save or connect with this new domain to clear the old Shopify authorization.</p>
             ) : null}
@@ -508,12 +508,12 @@ function SettingsContent() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.35, delay: 0.08 }}
-          className="relative z-10 rounded-2xl border border-slate-200 bg-white/80 p-5 space-y-4"
+          className="relative z-10 rounded-2xl border border-[color:rgba(15,108,189,0.16)] bg-white/84 p-5 space-y-4"
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
-              <Camera size={18} className="text-black" />
-              <h2 className="text-lg font-semibold text-slate-900">Instagram</h2>
+              <Camera size={18} className="text-[color:var(--fc-primary)]" />
+              <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Instagram</h2>
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${getInstagramBadgeClass(
                   instagramConnection
@@ -582,11 +582,11 @@ function SettingsContent() {
             </div>
           </div>
 
-          <div className="space-y-1 text-sm text-slate-600">
+          <div className="space-y-1 text-sm text-[color:var(--fc-text-muted)]">
             {instagramConnection?.selectedPageName ? (
               <p>
                 Connected Page:{" "}
-                <span className="font-semibold text-slate-900">
+                <span className="font-semibold text-[color:var(--fc-text-primary)]">
                   {instagramConnection.selectedPageName}
                 </span>
               </p>
@@ -594,7 +594,7 @@ function SettingsContent() {
             {instagramConnection?.selectedPageId ? (
               <p>
                 Page ID:{" "}
-                <span className="font-mono text-xs text-slate-500">
+                <span className="font-mono text-xs text-[color:var(--fc-text-muted)]">
                   {instagramConnection.selectedPageId}
                 </span>
               </p>
@@ -602,7 +602,7 @@ function SettingsContent() {
             {instagramConnection?.selectedInstagramBusinessAccountId ? (
               <p>
                 Instagram Business Account ID:{" "}
-                <span className="font-mono text-xs text-slate-500">
+                <span className="font-mono text-xs text-[color:var(--fc-text-muted)]">
                   {instagramConnection.selectedInstagramBusinessAccountId}
                 </span>
               </p>
@@ -638,12 +638,12 @@ function SettingsContent() {
 
           {instagramConnection?.status === "selection_required" &&
           instagramConnection.candidates.length > 0 ? (
-            <div className="rounded-2xl border border-black/18 bg-black/[0.03] p-4 space-y-3">
+            <div className="rounded-2xl border border-[color:rgba(15,108,189,0.2)] bg-[rgba(15,108,189,0.08)] p-4 space-y-3">
               <div>
-                <p className="text-sm font-semibold text-black">
+                <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
                   Choose the Instagram account to use
                 </p>
-                <p className="text-xs text-black/65">
+                <p className="text-xs text-[color:var(--fc-text-muted)]">
                   Select the Page and Instagram account FlowCart should publish to for this user.
                 </p>
               </div>
@@ -662,17 +662,17 @@ function SettingsContent() {
                         )
                       }
                       disabled={Boolean(selectingCandidateKey)}
-                      className="flex w-full items-center justify-between rounded-2xl border border-black/15 bg-white px-4 py-3 text-left transition hover:border-black/30 hover:bg-black/[0.03]"
+                      className="flex w-full items-center justify-between rounded-2xl border border-[color:rgba(15,108,189,0.2)] bg-white px-4 py-3 text-left transition hover:border-[color:rgba(15,108,189,0.36)] hover:bg-[rgba(15,108,189,0.06)]"
                     >
                       <span>
-                        <span className="block text-sm font-semibold text-slate-900">
+                        <span className="block text-sm font-semibold text-[color:var(--fc-text-primary)]">
                           {candidate.pageName || "Untitled Facebook Page"}
                         </span>
-                        <span className="block text-xs text-slate-500">
+                        <span className="block text-xs text-[color:var(--fc-text-muted)]">
                           Page {candidate.pageId} · Instagram {candidate.instagramBusinessAccountId}
                         </span>
                       </span>
-                      <span className="text-sm font-semibold text-black">
+                      <span className="text-sm font-semibold text-[color:var(--fc-primary)]">
                         {selecting ? "Selecting..." : "Use this account"}
                       </span>
                     </button>
@@ -683,16 +683,16 @@ function SettingsContent() {
           ) : null}
 
           {instagramDebugFieldModeEnabled ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 space-y-4">
+            <div className="rounded-2xl border border-[color:rgba(106,84,209,0.2)] bg-[rgba(106,84,209,0.08)] p-4 space-y-4">
               <div>
-                <p className="text-sm font-semibold text-slate-800">Admin Debug Fields</p>
-                <p className="text-xs text-slate-600">
+                <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">Admin Debug Fields</p>
+                <p className="text-xs text-[color:var(--fc-text-muted)]">
                   Hidden from production users. These fields remain only as a temporary fallback.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="space-y-2 text-sm">
-                  <span className="text-slate-600">Legacy Access Token</span>
+                  <span className="text-[color:var(--fc-text-muted)]">Legacy Access Token</span>
                   <input
                     type="password"
                     value={form.instagramAccessToken}
@@ -707,7 +707,7 @@ function SettingsContent() {
                   />
                 </label>
                 <label className="space-y-2 text-sm">
-                  <span className="text-slate-600">Legacy Business Account ID</span>
+                  <span className="text-[color:var(--fc-text-muted)]">Legacy Business Account ID</span>
                   <input
                     value={form.instagramBusinessAccountId}
                     onChange={(event) =>
@@ -752,7 +752,7 @@ function SettingsContent() {
             <RefreshCw size={14} /> Refresh
           </LiquidButton>
           {isDirty ? (
-            <span className="rounded-full border border-black/20 bg-black/[0.03] px-3 py-1 text-xs font-semibold text-black">
+            <span className="rounded-full border border-[color:rgba(106,84,209,0.24)] bg-[rgba(106,84,209,0.1)] px-3 py-1 text-xs font-semibold text-[color:#4d3bb0]">
               Unsaved changes
             </span>
           ) : null}
@@ -762,7 +762,7 @@ function SettingsContent() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-black/20 bg-white px-4 py-3 text-sm text-black"
+            className="rounded-2xl border border-[color:rgba(18,122,89,0.3)] bg-[rgba(18,122,89,0.1)] px-4 py-3 text-sm text-[color:#0c5e45]"
           >
             {message}
           </motion.div>
@@ -771,7 +771,7 @@ function SettingsContent() {
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-black/25 bg-white px-4 py-3 text-sm text-black"
+            className="rounded-2xl border border-[color:rgba(194,65,58,0.34)] bg-[rgba(194,65,58,0.1)] px-4 py-3 text-sm text-[color:#942a26]"
           >
             {errorMessage}
           </motion.div>

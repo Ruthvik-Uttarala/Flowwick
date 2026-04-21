@@ -122,6 +122,7 @@ export type InstagramEditReason =
   | "updated_in_place"
   | "unsupported_media_type"
   | "unsupported_edit_path"
+  | "official_api_does_not_support_published_caption_edit"
   | "missing_post_id"
   | "credentials_missing"
   | "disabled"

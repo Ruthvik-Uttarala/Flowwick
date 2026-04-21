@@ -9,13 +9,13 @@ type LiquidButtonSize = "sm" | "md" | "lg" | "xl" | "icon";
 
 const variantClass: Record<LiquidButtonVariant, string> = {
   primary:
-    "border border-black/35 bg-[linear-gradient(158deg,#101010,#000)] text-white shadow-[0_14px_28px_rgba(0,0,0,0.26),inset_0_1px_0_rgba(255,255,255,0.24),inset_0_-10px_24px_rgba(255,255,255,0.04)]",
+    "border border-[color:rgba(12,95,168,0.92)] bg-[linear-gradient(155deg,#0f6cbd_0%,#0c5fa8_58%,#0a4f8a_100%)] text-white shadow-[0_14px_28px_rgba(15,108,189,0.32),inset_0_1px_0_rgba(255,255,255,0.26)]",
   secondary:
-    "border border-black/20 bg-[linear-gradient(165deg,rgba(255,255,255,0.98),rgba(246,246,246,0.9))] text-black shadow-[0_10px_22px_rgba(0,0,0,0.14),inset_0_1px_0_rgba(255,255,255,0.9)]",
+    "border border-[color:rgba(106,84,209,0.34)] bg-[linear-gradient(155deg,rgba(255,255,255,0.98),rgba(242,238,255,0.94))] text-[color:var(--fc-text-primary)] shadow-[0_10px_22px_rgba(58,79,117,0.14),inset_0_1px_0_rgba(255,255,255,0.94)]",
   ghost:
-    "border border-black/16 bg-white/78 text-black shadow-[0_8px_18px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.84)]",
+    "border border-[color:rgba(15,108,189,0.18)] bg-white/86 text-[color:var(--fc-text-primary)] shadow-[0_8px_18px_rgba(42,72,110,0.11),inset_0_1px_0_rgba(255,255,255,0.86)]",
   danger:
-    "border border-black/35 bg-[linear-gradient(162deg,#2c2c2c,#121212)] text-white shadow-[0_12px_24px_rgba(0,0,0,0.24),inset_0_1px_0_rgba(255,255,255,0.2)]",
+    "border border-[color:rgba(194,65,58,0.54)] bg-[linear-gradient(155deg,#c2413a_0%,#a43631_100%)] text-white shadow-[0_12px_24px_rgba(194,65,58,0.27),inset_0_1px_0_rgba(255,255,255,0.18)]",
 };
 
 const sizeClass: Record<LiquidButtonSize, string> = {
@@ -53,13 +53,13 @@ export const LiquidButton = React.forwardRef<HTMLButtonElement, LiquidButtonProp
         ref={ref}
         type={asChild ? undefined : type}
         className={cn(
-          "group relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold tracking-[0.01em] outline-none backdrop-blur-sm transition-[transform,box-shadow,filter] duration-200 ease-out",
-          "focus-visible:ring-2 focus-visible:ring-black/45 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
-          "disabled:pointer-events-none disabled:brightness-[0.96] disabled:saturate-50 disabled:opacity-70 disabled:shadow-[inset_0_1px_0_rgba(255,255,255,0.3)]",
-          "before:pointer-events-none before:absolute before:inset-0 before:rounded-full before:bg-[radial-gradient(circle_at_22%_18%,rgba(255,255,255,0.52),rgba(255,255,255,0)_58%)]",
+          "group relative inline-flex items-center justify-center overflow-hidden rounded-full font-semibold tracking-[0.01em] outline-none backdrop-blur-sm transition-[transform,box-shadow,filter,border-color] duration-200 ease-out",
+          "focus-visible:ring-2 focus-visible:ring-[color:var(--fc-focus-ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[color:var(--fc-background)]",
+          "disabled:pointer-events-none disabled:opacity-65 disabled:saturate-50 disabled:brightness-[0.98]",
+          "before:pointer-events-none before:absolute before:inset-0 before:rounded-full before:bg-[radial-gradient(circle_at_22%_14%,rgba(255,255,255,0.52),rgba(255,255,255,0)_56%)]",
           "after:pointer-events-none after:absolute after:inset-0 after:rounded-full after:opacity-0 after:transition-opacity after:duration-300",
-          "after:bg-[linear-gradient(105deg,rgba(0,212,255,0),rgba(0,212,255,0.38),rgba(93,255,162,0.4),rgba(255,208,86,0.36),rgba(255,104,220,0.3),rgba(0,212,255,0))] after:bg-[length:220%_100%]",
-          "hover:-translate-y-0.5 hover:brightness-[1.02] hover:shadow-[0_12px_24px_rgba(0,0,0,0.18)] hover:after:opacity-100 hover:after:animate-[shimmer_0.9s_ease-out_1] active:translate-y-px active:scale-[0.99]",
+          "after:bg-[linear-gradient(110deg,rgba(76,200,255,0),rgba(76,200,255,0.28),rgba(106,84,209,0.22),rgba(76,200,255,0))] after:bg-[length:220%_100%]",
+          "hover:-translate-y-0.5 hover:brightness-[1.02] hover:shadow-[0_14px_30px_rgba(33,73,120,0.22)] hover:after:opacity-100 hover:after:animate-[shimmer_0.95s_ease-out_1] active:translate-y-px active:scale-[0.992]",
           variantClass[variant],
           sizeClass[size],
           className

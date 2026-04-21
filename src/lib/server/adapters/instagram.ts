@@ -58,6 +58,11 @@ interface InstagramEditMetadataResponse {
   error?: unknown;
 }
 
+interface InstagramMediaListResponse {
+  data?: InstagramEditMetadataResponse[];
+  error?: unknown;
+}
+
 type InstagramPublishStage = "create" | "container-status" | "publish" | "permalink";
 type InstagramPublishMode = "single" | "carousel";
 type InstagramContainerRole = "single" | "child" | "parent";
@@ -656,6 +661,22 @@ function normalizeCaptionForComparison(value: string): string {
   return value.replace(/\r\n?/g, "\n").replace(/\u00a0/g, " ").trim();
 }
 
+function normalizePermalink(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  try {
+    const parsed = new URL(trimmed);
+    parsed.search = "";
+    parsed.hash = "";
+    const normalizedPath = parsed.pathname.replace(/\/+$/, "");
+    return `${parsed.origin.toLowerCase()}${normalizedPath.toLowerCase()}`;
+  } catch {
+    return trimmed.replace(/[?#].*$/, "").replace(/\/+$/, "").toLowerCase();
+  }
+}
+
 function resolveInstagramEditMediaType(metadata: InstagramEditMetadataResponse): {
   mediaType: string;
   mediaProductType: string;
@@ -723,6 +744,7 @@ export async function updateInstagramPostArtifact(input: {
   }
 
   const accessToken = input.instagramCredentials.publishAccessToken.trim();
+  const businessAccountId = input.instagramCredentials.instagramBusinessAccountId.trim();
   if (!accessToken) {
     return buildInstagramEditOutcome({
       instagramUpdated: false,
@@ -739,25 +761,83 @@ export async function updateInstagramPostArtifact(input: {
   const caption = buildInstagramCaption(input.payload, input.shopifyProductUrl);
   const graphBase = `https://graph.facebook.com/${INSTAGRAM_GRAPH_API_VERSION}`;
   const metadataFields = "id,caption,permalink,media_type,media_product_type,comment_enabled";
-  const metadataUrl = `${graphBase}/${instagramPostId}?${new URLSearchParams({
-    fields: metadataFields,
-    access_token: accessToken,
-  })}`;
 
   let mediaType = "";
   let mediaProductType = "";
   let instagramPostUrl = preservedPostUrl;
   let existingCommentEnabled: boolean | undefined;
-  const requestPath = `/${instagramPostId}`;
+  let targetInstagramPostId = instagramPostId;
+  let requestPath = `/${targetInstagramPostId}`;
+
+  const readMetadata = async (postId: string) => {
+    const metadataUrlForPost = `${graphBase}/${postId}?${new URLSearchParams({
+      fields: metadataFields,
+      access_token: accessToken,
+    })}`;
+    const response = await fetch(metadataUrlForPost);
+    const payload = await readInstagramJsonResponse<InstagramEditMetadataResponse>(response);
+    const hasGraphError = Boolean(payload && typeof payload === "object" && "error" in payload);
+    return { response, payload, hasGraphError };
+  };
 
   try {
-    const metadataResponse = await fetch(metadataUrl);
-    const metadataPayload = await readInstagramJsonResponse<InstagramEditMetadataResponse>(
-      metadataResponse
-    );
-    const metadataHasGraphError = Boolean(
-      metadataPayload && typeof metadataPayload === "object" && "error" in metadataPayload
-    );
+    let metadataResult = await readMetadata(targetInstagramPostId);
+    let metadataResponse = metadataResult.response;
+    let metadataPayload = metadataResult.payload;
+    let metadataHasGraphError = metadataResult.hasGraphError;
+
+    if (
+      (!metadataResponse.ok || metadataHasGraphError) &&
+      businessAccountId &&
+      preservedPostUrl
+    ) {
+      const mediaLookupResponse = await fetch(
+        `${graphBase}/${businessAccountId}/media?${new URLSearchParams({
+          fields: metadataFields,
+          limit: "50",
+          access_token: accessToken,
+        })}`
+      );
+      const mediaLookupPayload = await readInstagramJsonResponse<InstagramMediaListResponse>(
+        mediaLookupResponse
+      );
+      const mediaLookupHasGraphError = Boolean(
+        mediaLookupPayload &&
+          typeof mediaLookupPayload === "object" &&
+          "error" in mediaLookupPayload
+      );
+      if (
+        mediaLookupResponse.ok &&
+        !mediaLookupHasGraphError &&
+        mediaLookupPayload &&
+        typeof mediaLookupPayload === "object"
+      ) {
+        const normalizedSavedPermalink = normalizePermalink(preservedPostUrl);
+        const match = (mediaLookupPayload.data ?? []).find((item) => {
+          if (!item?.id?.trim()) {
+            return false;
+          }
+          return normalizePermalink(String(item.permalink ?? "")) === normalizedSavedPermalink;
+        });
+        const resolvedId = match?.id?.trim() ?? "";
+        if (resolvedId && resolvedId !== targetInstagramPostId) {
+          targetInstagramPostId = resolvedId;
+          requestPath = `/${targetInstagramPostId}`;
+          metadataResult = await readMetadata(targetInstagramPostId);
+          metadataResponse = metadataResult.response;
+          metadataPayload = metadataResult.payload;
+          metadataHasGraphError = metadataResult.hasGraphError;
+          console.info("[flowcart:instagram:update]", {
+            stage: "resolve-target",
+            outcome: "resolved-by-permalink",
+            instagramPostId,
+            targetInstagramPostId,
+            requestPath,
+            businessAccountId,
+          });
+        }
+      }
+    }
 
     if (metadataResponse.ok && !metadataHasGraphError && metadataPayload) {
       const resolvedTypes = resolveInstagramEditMediaType(metadataPayload);
@@ -773,6 +853,7 @@ export async function updateInstagramPostArtifact(input: {
       console.info("[flowcart:instagram:update]", {
         stage: "metadata",
         instagramPostId,
+        targetInstagramPostId,
         requestPath,
         mediaType,
         mediaProductType,
@@ -784,8 +865,8 @@ export async function updateInstagramPostArtifact(input: {
           instagramPostId,
           instagramPostUrl,
           outcome: "unchanged",
-          reason: "unsupported_media_type",
-          errorMessage: "Published post can't be edited in place for this media type.",
+          reason: "official_api_does_not_support_published_caption_edit",
+          errorMessage: "Instagram API can't edit this published post.",
           mediaType,
           mediaProductType,
         });
@@ -795,6 +876,7 @@ export async function updateInstagramPostArtifact(input: {
         stage: "metadata",
         outcome: "warning",
         instagramPostId,
+        targetInstagramPostId,
         requestPath,
         message: "Metadata read failed; proceeding with same-id edit attempt.",
       });
@@ -807,17 +889,17 @@ export async function updateInstagramPostArtifact(input: {
         graphMessage: metadataError.graphMessage,
         code: metadataError.code,
       });
-      if (unsupportedMetadata) {
-        return buildInstagramEditOutcome({
-          instagramUpdated: false,
-          instagramPostId,
-          instagramPostUrl,
-          outcome: "unchanged",
-          reason: "unsupported_edit_path",
-          errorMessage: "Published post can't be edited in place for this media type.",
-          mediaType,
-          mediaProductType,
-        });
+        if (unsupportedMetadata) {
+          return buildInstagramEditOutcome({
+            instagramUpdated: false,
+            instagramPostId,
+            instagramPostUrl,
+            outcome: "unchanged",
+            reason: "official_api_does_not_support_published_caption_edit",
+            errorMessage: "Instagram API can't edit this published post.",
+            mediaType,
+            mediaProductType,
+          });
       }
     }
     const executeEditAttempt = async (input: {
@@ -835,7 +917,7 @@ export async function updateInstagramPostArtifact(input: {
         editParams.set("comment_enabled", input.commentEnabled ? "true" : "false");
       }
 
-      const response = await fetch(`${graphBase}/${instagramPostId}`, {
+      const response = await fetch(`${graphBase}/${targetInstagramPostId}`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: editParams.toString(),
@@ -849,6 +931,7 @@ export async function updateInstagramPostArtifact(input: {
           attempt: input.attempt,
           outcome: "success",
           instagramPostId,
+          targetInstagramPostId,
           requestPath,
           mediaType,
           mediaProductType,
@@ -864,6 +947,7 @@ export async function updateInstagramPostArtifact(input: {
         attempt: input.attempt,
         outcome: "failure",
         instagramPostId,
+        targetInstagramPostId,
         requestPath,
         mediaType,
         mediaProductType,
@@ -909,8 +993,8 @@ export async function updateInstagramPostArtifact(input: {
           instagramPostId,
           instagramPostUrl,
           outcome: "unchanged",
-          reason: "unsupported_edit_path",
-          errorMessage: "Published post can't be edited in place for this media type.",
+          reason: "official_api_does_not_support_published_caption_edit",
+          errorMessage: "Instagram API can't edit this published post.",
           mediaType,
           mediaProductType,
         });
@@ -929,7 +1013,7 @@ export async function updateInstagramPostArtifact(input: {
     }
 
     const verificationResponse = await fetch(
-      `${graphBase}/${instagramPostId}?${new URLSearchParams({
+      `${graphBase}/${targetInstagramPostId}?${new URLSearchParams({
         fields: "caption,permalink",
         access_token: accessToken,
       })}`
@@ -954,6 +1038,7 @@ export async function updateInstagramPostArtifact(input: {
       console.info("[flowcart:instagram:update]", {
         stage: "verification",
         instagramPostId,
+        targetInstagramPostId,
         requestPath,
         mediaType,
         mediaProductType,
@@ -984,20 +1069,24 @@ export async function updateInstagramPostArtifact(input: {
         instagramPostId,
         instagramPostUrl: verifiedUrl,
         outcome: "unchanged",
-        reason: "unsupported_edit_path",
-        errorMessage: "Published post can't be edited in place for this media type.",
+        reason: "official_api_does_not_support_published_caption_edit",
+        errorMessage: "Instagram API can't edit this published post.",
         mediaType,
         mediaProductType,
       });
     }
-
+    const verificationError = normalizeInstagramGraphError(
+      verificationPayload,
+      verificationResponse.status,
+      "publish"
+    );
     return buildInstagramEditOutcome({
       instagramUpdated: false,
       instagramPostId,
       instagramPostUrl,
-      outcome: "unchanged",
-      reason: "unsupported_edit_path",
-      errorMessage: "Published post couldn't be confirmed as updated and was left unchanged.",
+      outcome: "failed",
+      reason: "unexpected_error",
+      errorMessage: verificationError.message,
       mediaType,
       mediaProductType,
     });

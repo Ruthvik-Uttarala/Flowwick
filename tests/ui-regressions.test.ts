@@ -7,6 +7,19 @@ function readSource(relativePath: string): string {
 }
 
 describe("ui regressions", () => {
+  it("defines the FlowCart brand token system in globals.css", () => {
+    const globalsSource = readSource("app/globals.css");
+
+    expect(globalsSource).toContain("--fc-primary: #0f6cbd;");
+    expect(globalsSource).toContain("--fc-secondary: #6a54d1;");
+    expect(globalsSource).toContain("--fc-accent: #b98513;");
+    expect(globalsSource).toContain("--fc-background: #f7f7f7;");
+    expect(globalsSource).toContain("--fc-text-primary: #131a22;");
+    expect(globalsSource).toContain("--fc-success: #127a59;");
+    expect(globalsSource).toContain("--fc-error: #c2413a;");
+    expect(globalsSource).toContain("--fc-highlight: #4cc8ff;");
+  });
+
   it("keeps homepage brand assets wired into the real app surfaces", () => {
     const homeSource = readSource("src/components/HomeLanding.tsx");
     const navSource = readSource("src/components/Navbar.tsx");
@@ -21,6 +34,7 @@ describe("ui regressions", () => {
     const dashboardSource = readSource("app/dashboard/page.tsx");
     const settingsSource = readSource("app/settings/page.tsx");
     const bucketSource = readSource("src/components/ProductBucket.tsx");
+    const buttonSource = readSource("src/components/ui/liquid-glass-button.tsx");
 
     expect(dashboardSource).toMatch(/<LiquidButton[\s\S]*Create Bucket/);
     expect(dashboardSource).toMatch(/<LiquidButton[\s\S]*GO ALL/);
@@ -30,6 +44,9 @@ describe("ui regressions", () => {
     expect(bucketSource).toMatch(/<LiquidButton[\s\S]*Sync Updates/);
     expect(bucketSource).toMatch(/<LiquidButton[\s\S]*\bGO\b/);
     expect(bucketSource).toMatch(/<LiquidButton[\s\S]*\bEdit\b/);
+    expect(buttonSource).toContain("bg-[linear-gradient(155deg,#0f6cbd_0%,#0c5fa8_58%,#0a4f8a_100%)]");
+    expect(buttonSource).toContain("bg-[linear-gradient(155deg,#c2413a_0%,#a43631_100%)]");
+    expect(buttonSource).not.toContain("bg-[linear-gradient(158deg,#101010,#000)]");
   });
 
   it("keeps settings ripple visuals gated behind active async states only", () => {
@@ -68,9 +85,10 @@ describe("ui regressions", () => {
   it("keeps the homepage scroll story path aligned and responsive", () => {
     const scrollSource = readSource("src/components/ui/svg-follow-scroll.tsx");
 
-    expect(scrollSource).toContain("h-[220vh]");
-    expect(scrollSource).toContain("sticky top-20");
-    expect(scrollSource).toContain("lg:grid-cols-[minmax(220px,280px)_1fr]");
-    expect(scrollSource).toContain("M40 78 C130 78");
+    expect(scrollSource).toContain("offset: [\"start 85%\", \"end 30%\"]");
+    expect(scrollSource).toContain("sticky top-24");
+    expect(scrollSource).toContain("lg:grid-cols-[220px_1fr]");
+    expect(scrollSource).toContain("origin-top");
+    expect(scrollSource).not.toContain("h-[220vh]");
   });
 });

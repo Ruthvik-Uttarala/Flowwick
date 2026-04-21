@@ -382,8 +382,8 @@ describe("launch workflow", () => {
       instagramPostId: "ig-post-1",
       instagramPostUrl: "https://instagram.com/p/ig-post-1",
       outcome: "unchanged",
-      reason: "unsupported_edit_path",
-      errorMessage: "Published post can't be edited in place for this media type.",
+      reason: "official_api_does_not_support_published_caption_edit",
+      errorMessage: "Instagram API can't edit this published post.",
       mediaType: "CAROUSEL_ALBUM",
       mediaProductType: "FEED",
     });
@@ -411,11 +411,17 @@ describe("launch workflow", () => {
     expect(result.result?.bucket.shopifyProductId).toBe("gid://shopify/Product/42");
     expect(result.result?.bucket.instagramPostId).toBe("ig-post-1");
     expect(result.result?.instagram.outcome).toBe("unchanged");
-    expect(result.result?.instagram.reason).toBe("unsupported_edit_path");
+    expect(result.result?.instagram.reason).toBe(
+      "official_api_does_not_support_published_caption_edit"
+    );
     expect(result.result?.chips).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ label: "Shopify updated", tone: "success" }),
-        expect.objectContaining({ label: "Instagram unchanged", tone: "warning" }),
+        expect.objectContaining({
+          label: "Instagram unchanged",
+          tone: "warning",
+          detail: "Instagram API can't edit this published post.",
+        }),
       ])
     );
     expect(updateShopifyProductArtifact).toHaveBeenCalledWith(

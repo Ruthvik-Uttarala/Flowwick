@@ -8,10 +8,10 @@ interface WebGLShaderProps {
 }
 
 const STROKE_COLORS = [
-  "rgba(0, 212, 255, 0.35)",
-  "rgba(129, 232, 255, 0.28)",
-  "rgba(171, 147, 255, 0.26)",
-  "rgba(88, 198, 255, 0.24)",
+  "rgba(15, 108, 189, 0.26)",
+  "rgba(76, 200, 255, 0.22)",
+  "rgba(106, 84, 209, 0.2)",
+  "rgba(15, 108, 189, 0.16)",
 ];
 
 export function WebGLShader({ className }: WebGLShaderProps) {
@@ -81,9 +81,9 @@ export function WebGLShader({ className }: WebGLShaderProps) {
       context.clearRect(0, 0, width, height);
 
       const baseGradient = context.createLinearGradient(0, 0, width, height);
-      baseGradient.addColorStop(0, "rgba(255,255,255,0.82)");
-      baseGradient.addColorStop(0.5, "rgba(255,255,255,0.70)");
-      baseGradient.addColorStop(1, "rgba(248,248,248,0.82)");
+      baseGradient.addColorStop(0, "rgba(255,255,255,0.86)");
+      baseGradient.addColorStop(0.5, "rgba(247,251,255,0.78)");
+      baseGradient.addColorStop(1, "rgba(243,248,255,0.84)");
       context.fillStyle = baseGradient;
       context.fillRect(0, 0, width, height);
 
@@ -96,7 +96,7 @@ export function WebGLShader({ className }: WebGLShaderProps) {
         width * 0.78
       );
       vignette.addColorStop(0, "rgba(255,255,255,0)");
-      vignette.addColorStop(1, "rgba(0,0,0,0.18)");
+      vignette.addColorStop(1, "rgba(14,55,96,0.08)");
       context.fillStyle = vignette;
       context.fillRect(0, 0, width, height);
 

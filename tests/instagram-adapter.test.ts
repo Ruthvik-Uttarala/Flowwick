@@ -542,6 +542,43 @@ describe("instagram adapter", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toContain("/17895695668004550");
   });
 
+  it("marks Instagram as unchanged when readback caption does not match the requested update", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "17895695668004550",
+          media_type: "IMAGE",
+          media_product_type: "FEED",
+          comment_enabled: true,
+          caption: "Old caption",
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          caption: "Some other caption",
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
+      );
+
+    const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await updateInstagramPostArtifact({
+      payload: makePayload({ description: "Updated caption body." }),
+      instagramCredentials: resolvedInstagramCredentials,
+      instagramPostId: "17895695668004550",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+    });
+
+    expect(result.instagramUpdated).toBe(false);
+    expect(result.outcome).toBe("unchanged");
+    expect(result.reason).toBe("official_api_does_not_support_published_caption_edit");
+    expect(result.errorMessage).toBe("Instagram API can't edit this published post.");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("blocks duplicates truthfully when Meta rejects same-post edits as unsupported", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
@@ -578,8 +615,8 @@ describe("instagram adapter", () => {
 
     expect(result.instagramUpdated).toBe(false);
     expect(result.outcome).toBe("unchanged");
-    expect(result.reason).toBe("unsupported_edit_path");
-    expect(result.errorMessage).toContain("can't be edited in place");
+    expect(result.reason).toBe("official_api_does_not_support_published_caption_edit");
+    expect(result.errorMessage).toBe("Instagram API can't edit this published post.");
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
     expect(calledUrls.every((url) => url.includes("/17895695668004550"))).toBe(true);
@@ -673,8 +710,78 @@ describe("instagram adapter", () => {
 
     expect(result.instagramUpdated).toBe(false);
     expect(result.outcome).toBe("unchanged");
-    expect(result.reason).toBe("unsupported_media_type");
-    expect(result.errorMessage).toContain("can't be edited in place");
+    expect(result.reason).toBe("official_api_does_not_support_published_caption_edit");
+    expect(result.errorMessage).toBe("Instagram API can't edit this published post.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolves the editable object by permalink when the saved id cannot be read directly", async () => {
+    const expectedCaption =
+      "FlowCart Hat\n\nUpdated caption body.\n\nPrice: $49.99\nQuantity: 8\n\nShop now: https://demo.myshopify.com/products/flowcart-hat";
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            error: {
+              message: "Unsupported post request.",
+              code: 100,
+            },
+          },
+          400
+        )
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: [
+            {
+              id: "17895695668009999",
+              media_type: "IMAGE",
+              media_product_type: "FEED",
+              comment_enabled: true,
+              permalink: "https://instagram.com/p/ig-post-1",
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: "17895695668009999",
+          media_type: "IMAGE",
+          media_product_type: "FEED",
+          comment_enabled: true,
+          caption: "Old caption",
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ success: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          caption: expectedCaption,
+          permalink: "https://instagram.com/p/ig-post-1",
+        })
+      );
+
+    const { updateInstagramPostArtifact } = await import("@/src/lib/server/adapters/instagram");
+    const result = await updateInstagramPostArtifact({
+      payload: makePayload({ description: "Updated caption body." }),
+      instagramCredentials: resolvedInstagramCredentials,
+      instagramPostId: "17895695668004550",
+      instagramPostUrl: "https://instagram.com/p/ig-post-1",
+      shopifyProductUrl: "https://demo.myshopify.com/products/flowcart-hat",
+    });
+
+    expect(result.instagramUpdated).toBe(true);
+    expect(result.outcome).toBe("updated");
+    expect(result.reason).toBe("updated_in_place");
+    expect(result.instagramPostId).toBe("17895695668004550");
+
+    const calledUrls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(calledUrls.some((url) => url.includes("/1789/media"))).toBe(true);
+    expect(calledUrls.some((url) => url.includes("/17895695668009999"))).toBe(true);
+    expect(calledUrls.some((url) => url.includes("/media_publish"))).toBe(false);
+    expect(calledUrls.some((url) => /\/media(\?|$)/.test(url) && !url.includes("/1789/media"))).toBe(
+      false
+    );
   });
 });

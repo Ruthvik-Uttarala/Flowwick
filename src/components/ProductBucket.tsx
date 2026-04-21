@@ -73,36 +73,36 @@ function statusStyle(status: Bucket["status"]): { classes: string; badge: string
   if (status === "DONE")
     return {
       classes:
-        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
+        "border border-[color:rgba(18,122,89,0.28)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]",
       badge: "badge-gold",
     };
   if (status === "FAILED")
     return {
       classes:
-        "border border-black/25 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
+        "border border-[color:rgba(194,65,58,0.35)] bg-[rgba(194,65,58,0.1)] text-[color:#942a26]",
       badge: "badge-red",
     };
   if (status === "PROCESSING")
     return {
       classes:
-        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
+        "border border-[color:rgba(15,108,189,0.3)] bg-[rgba(15,108,189,0.12)] text-[color:#0d4f8a]",
       badge: "pulse-blue",
     };
   if (status === "ENHANCING")
     return {
       classes:
-        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
+        "border border-[color:rgba(106,84,209,0.32)] bg-[rgba(106,84,209,0.12)] text-[color:#4d3bb0]",
       badge: "badge-purple",
     };
   if (status === "READY")
     return {
       classes:
-        "border border-black/20 bg-white text-black shadow-[0_0_0_rgba(0,0,0,0)]",
+        "border border-[color:rgba(15,108,189,0.28)] bg-[rgba(15,108,189,0.1)] text-[color:#0d4f8a]",
       badge: "badge-green",
     };
 
   return {
-    classes: "border border-slate-200 bg-white/80 text-slate-600",
+    classes: "border border-[color:rgba(15,108,189,0.14)] bg-white/80 text-[color:var(--fc-text-muted)]",
     badge: "",
   };
 }
@@ -152,12 +152,12 @@ function doneBucketHeadline(bucket: Bucket, bucketNumber: number): string {
 
 function syncChipClassName(tone: SyncStatusChip["tone"]): string {
   if (tone === "success") {
-    return "border-emerald-500/35 bg-emerald-50 text-emerald-900";
+    return "border-[color:rgba(18,122,89,0.34)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]";
   }
   if (tone === "warning") {
-    return "border-amber-500/35 bg-amber-50 text-amber-900";
+    return "border-[color:rgba(185,133,19,0.35)] bg-[rgba(185,133,19,0.16)] text-[color:#4f3a0b]";
   }
-  return "border-rose-500/35 bg-rose-50 text-rose-900";
+  return "border-[color:rgba(194,65,58,0.35)] bg-[rgba(194,65,58,0.1)] text-[color:#942a26]";
 }
 
 export function ProductBucket({
@@ -219,12 +219,14 @@ export function ProductBucket({
 
   const isEmptyTrash = bucket.status === "EMPTY";
   const trashContainerClass = isEmptyTrash
-    ? "border-slate-200 bg-white/75"
-    : "border-black/20 bg-white";
-  const trashDescriptionClass = isEmptyTrash ? "text-slate-600" : "text-black";
+    ? "border-[color:rgba(15,108,189,0.14)] bg-white/75"
+    : "border-[color:rgba(15,108,189,0.2)] bg-white";
+  const trashDescriptionClass = isEmptyTrash
+    ? "text-[color:var(--fc-text-muted)]"
+    : "text-[color:var(--fc-text-primary)]";
 
   const { classes: statusClasses, badge: statusBadge } = statusStyle(bucket.status);
-  const inputClass = "cinematic-input w-full rounded-2xl px-3 py-2.5 text-sm";
+  const inputClass = "cinematic-input w-full rounded-2xl px-3 py-2.5 text-sm text-[color:var(--fc-text-primary)]";
 
   const doneSummaryTitle = doneBucketHeadline(bucket, bucketNumber);
 
@@ -239,18 +241,20 @@ export function ProductBucket({
         transition={{ duration: 0.24 }}
         className={`cinematic-card rounded-3xl p-4 sm:p-5 ${
           isHighlighted
-            ? "ring-2 ring-black/20 shadow-[0_0_0_6px_rgba(0,0,0,0.06)]"
+            ? "ring-2 ring-[color:rgba(15,108,189,0.24)] shadow-[0_0_0_6px_rgba(15,108,189,0.08)]"
             : ""
         }`}
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[color:var(--fc-text-muted)]">
                 Bucket {bucketNumber}
               </p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-900">{doneSummaryTitle}</h2>
-              <p className="mt-1 text-xs text-slate-500">Updated {new Date(bucket.updatedAt).toLocaleString()}</p>
+              <h2 className="mt-1 text-lg font-semibold text-[color:var(--fc-text-primary)]">{doneSummaryTitle}</h2>
+              <p className="mt-1 text-xs text-[color:var(--fc-text-muted)]">
+                Updated {new Date(bucket.updatedAt).toLocaleString()}
+              </p>
             </div>
             <span
               className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wider ${statusClasses} ${statusBadge}`}
@@ -264,7 +268,7 @@ export function ProductBucket({
               {bucket.imageUrls.slice(0, 3).map((imageUrl) => (
                 <div
                   key={`${bucket.id}-thumb-${imageUrl}`}
-                  className="h-14 w-14 overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+                  className="h-14 w-14 overflow-hidden rounded-xl border border-[color:rgba(15,108,189,0.14)] bg-[rgba(15,108,189,0.06)]"
                 >
                   <Image
                     src={imageUrl}
@@ -277,7 +281,7 @@ export function ProductBucket({
                 </div>
               ))}
               {bucket.imageUrls.length === 0 ? (
-                <span className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+                <span className="rounded-xl border border-[color:rgba(15,108,189,0.14)] bg-white px-3 py-2 text-xs text-[color:var(--fc-text-muted)]">
                   No images
                 </span>
               ) : null}
@@ -295,8 +299,8 @@ export function ProductBucket({
           </div>
 
           <div className="grid gap-2 text-xs sm:grid-cols-2">
-            <div className="rounded-xl border border-black/18 bg-white px-3 py-2 text-black">
-              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-black/55">
+            <div className="rounded-xl border border-[color:rgba(15,108,189,0.16)] bg-white px-3 py-2 text-[color:var(--fc-text-primary)]">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-[color:rgba(19,26,34,0.55)]">
                 <ShoppingBag size={12} />
                 Shopify
               </div>
@@ -305,17 +309,17 @@ export function ProductBucket({
                   href={bucket.shopifyProductUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-black hover:text-black"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-[color:var(--fc-primary)] hover:text-[color:var(--fc-primary-hover)]"
                 >
                   <span className="truncate">{bucket.shopifyProductUrl}</span>
                   <ExternalLink size={12} className="shrink-0" />
                 </a>
               ) : (
-                <span className="text-black/55">No link</span>
+                <span className="text-[color:var(--fc-text-muted)]">No link</span>
               )}
             </div>
-            <div className="rounded-xl border border-black/18 bg-white px-3 py-2 text-black">
-              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-black/55">
+            <div className="rounded-xl border border-[color:rgba(15,108,189,0.16)] bg-white px-3 py-2 text-[color:var(--fc-text-primary)]">
+              <div className="mb-1 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-[10px] text-[color:rgba(19,26,34,0.55)]">
                 <Camera size={12} />
                 Instagram
               </div>
@@ -324,24 +328,24 @@ export function ProductBucket({
                   href={bucket.instagramPostUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-black hover:text-black"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-[color:var(--fc-primary)] hover:text-[color:var(--fc-primary-hover)]"
                 >
                   <span className="truncate">{bucket.instagramPostUrl}</span>
                   <ExternalLink size={12} className="shrink-0" />
                 </a>
               ) : (
-                <span className="text-black/55">No link</span>
+                <span className="text-[color:var(--fc-text-muted)]">No link</span>
               )}
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">
+            <div className="rounded-xl border border-[color:rgba(15,108,189,0.14)] bg-white px-3 py-2 text-[color:var(--fc-text-muted)]">
               Price:{" "}
-              <span className="font-semibold text-slate-900">
+              <span className="font-semibold text-[color:var(--fc-text-primary)]">
                 {typeof bucket.price === "number" ? `$${bucket.price.toFixed(2)}` : "—"}
               </span>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700">
+            <div className="rounded-xl border border-[color:rgba(15,108,189,0.14)] bg-white px-3 py-2 text-[color:var(--fc-text-muted)]">
               Quantity:{" "}
-              <span className="font-semibold text-slate-900">
+              <span className="font-semibold text-[color:var(--fc-text-primary)]">
                 {typeof bucket.quantity === "number" ? bucket.quantity : "—"}
               </span>
             </div>
@@ -361,14 +365,14 @@ export function ProductBucket({
       transition={{ duration: 0.24 }}
       className={`cinematic-card rounded-3xl p-5 ${
         isHighlighted
-          ? "ring-2 ring-black/20 shadow-[0_0_0_6px_rgba(0,0,0,0.06)]"
+          ? "ring-2 ring-[color:rgba(15,108,189,0.24)] shadow-[0_0_0_6px_rgba(15,108,189,0.08)]"
           : ""
       }`}
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Bucket {bucketNumber}</h2>
-          <p className="mt-1 text-xs text-slate-500">ID: {bucket.id}</p>
+          <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Bucket {bucketNumber}</h2>
+          <p className="mt-1 text-xs text-[color:var(--fc-text-muted)]">ID: {bucket.id}</p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${statusClasses} ${statusBadge}`}
@@ -378,8 +382,8 @@ export function ProductBucket({
       </div>
 
       {isDoneBucket ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-slate-200 bg-white/80 px-3 py-2">
-          <p className="text-xs text-slate-600">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/86 px-3 py-2">
+          <p className="text-xs text-[color:var(--fc-text-muted)]">
             Editing a launched bucket uses in-place sync on the same Shopify product and never republishes Instagram silently.
           </p>
           <LiquidButton
@@ -396,7 +400,7 @@ export function ProductBucket({
 
       <div className="space-y-4">
         <label className="block space-y-2 text-sm">
-          <span className="flex items-center gap-1.5 text-slate-600">
+          <span className="flex items-center gap-1.5 text-[color:var(--fc-text-muted)]">
             <ImagePlus size={14} /> Product Images
           </span>
           <div className="relative">
@@ -406,7 +410,7 @@ export function ProductBucket({
               accept="image/*"
               disabled={controlsLocked}
               onChange={(event) => onImagesChange(bucket.id, event.target.files)}
-              className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-black file:px-3 file:py-2 file:text-white file:font-medium file:text-sm hover:file:bg-black/85 transition"
+              className="block w-full rounded-xl border border-[color:rgba(15,108,189,0.16)] bg-white px-3 py-2 text-sm text-[color:var(--fc-text-primary)] file:mr-3 file:rounded-lg file:border-0 file:bg-[color:var(--fc-primary)] file:px-3 file:py-2 file:text-white file:font-medium file:text-sm hover:file:bg-[color:var(--fc-primary-hover)] transition"
             />
             {isUploading ? (
               <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
@@ -419,7 +423,7 @@ export function ProductBucket({
               {bucket.imageUrls.map((imageUrl) => (
                 <div
                   key={`${bucket.id}-${imageUrl}`}
-                  className="overflow-hidden rounded-xl border border-slate-200"
+                   className="overflow-hidden rounded-xl border border-[color:rgba(15,108,189,0.14)]"
                 >
                   <Image
                     src={imageUrl}
@@ -433,12 +437,12 @@ export function ProductBucket({
               ))}
             </div>
           ) : (
-            <p className="text-xs text-slate-500">Upload at least one image.</p>
+            <p className="text-xs text-[color:var(--fc-text-muted)]">Upload at least one image.</p>
           )}
         </label>
 
         <div className="space-y-2 text-sm">
-          <span className="text-slate-600">Title</span>
+          <span className="text-[color:var(--fc-text-muted)]">Title</span>
           <div className="flex gap-2">
             <input
               value={isDoneBucket ? doneDraft.titleRaw : bucket.titleRaw}
@@ -478,7 +482,7 @@ export function ProductBucket({
         </div>
 
         <div className="space-y-2 text-sm">
-          <span className="text-slate-600">Description</span>
+          <span className="text-[color:var(--fc-text-muted)]">Description</span>
           <div className="flex gap-2">
             <textarea
               value={isDoneBucket ? doneDraft.descriptionRaw : bucket.descriptionRaw}
@@ -523,7 +527,7 @@ export function ProductBucket({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="space-y-2 text-sm">
-            <span className="text-slate-600">Quantity</span>
+            <span className="text-[color:var(--fc-text-muted)]">Quantity</span>
             <input
               type="number"
               min="1"
@@ -547,7 +551,7 @@ export function ProductBucket({
             />
           </label>
           <label className="space-y-2 text-sm">
-            <span className="text-slate-600">Price ($)</span>
+            <span className="text-[color:var(--fc-text-muted)]">Price ($)</span>
             <input
               type="number"
               min="0"
@@ -578,7 +582,7 @@ export function ProductBucket({
             href={bucket.shopifyProductUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm text-black transition hover:bg-black/[0.04]"
+            className="flex items-center gap-2 rounded-xl border border-[color:rgba(15,108,189,0.16)] bg-white px-3 py-2 text-sm text-[color:var(--fc-primary)] transition hover:bg-[rgba(15,108,189,0.06)]"
           >
             <ShoppingBag size={14} />
             <span className="truncate">Shopify: {bucket.shopifyProductUrl}</span>
@@ -591,7 +595,7 @@ export function ProductBucket({
             href={bucket.instagramPostUrl}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-xl border border-black/20 bg-white px-3 py-2 text-sm text-black transition hover:bg-black/[0.04]"
+            className="flex items-center gap-2 rounded-xl border border-[color:rgba(15,108,189,0.16)] bg-white px-3 py-2 text-sm text-[color:var(--fc-primary)] transition hover:bg-[rgba(15,108,189,0.06)]"
           >
             <Camera size={14} />
             <span className="truncate">Instagram: {bucket.instagramPostUrl}</span>
@@ -600,7 +604,7 @@ export function ProductBucket({
         ) : null}
 
         {bucket.errorMessage ? (
-          <div className="flex items-start gap-2 rounded-xl border border-black/25 bg-white px-3 py-2 text-sm text-black">
+          <div className="flex items-start gap-2 rounded-xl border border-[color:rgba(194,65,58,0.34)] bg-[rgba(194,65,58,0.08)] px-3 py-2 text-sm text-[color:#942a26]">
             <AlertCircle size={14} className="mt-0.5 shrink-0" />
             <span>{bucket.errorMessage}</span>
           </div>
@@ -674,7 +678,7 @@ export function ProductBucket({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="flex flex-wrap items-center gap-2 rounded-2xl border border-black/15 bg-white/90 px-3 py-2"
+              className="flex flex-wrap items-center gap-2 rounded-2xl border border-[color:rgba(15,108,189,0.16)] bg-white/92 px-3 py-2"
             >
               {doneSyncChips.map((chip) => (
                 <span
@@ -690,7 +694,7 @@ export function ProductBucket({
         </AnimatePresence>
 
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 text-xs text-slate-500">
+          <div className="flex items-center gap-3 text-xs text-[color:var(--fc-text-muted)]">
             <span className="flex items-center gap-1">
               <ShoppingBag size={12} />{" "}
               {bucket.shopifyCreated ? "Created" : "Pending"}
@@ -748,7 +752,7 @@ export function ProductBucket({
         </div>
 
         {isSaving ? (
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <div className="flex items-center gap-1.5 text-xs text-[color:var(--fc-text-muted)]">
             <Loader2 size={12} className="animate-spin" /> Saving changes...
           </div>
         ) : null}

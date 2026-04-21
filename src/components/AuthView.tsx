@@ -4,11 +4,10 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, Lock, Mail, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Loader2, Lock, Mail, Sparkles } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
 import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
-import { AnimatedCharactersLoginPage } from "@/src/components/ui/animated-characters-login-page";
 
 type AuthMode = "login" | "signup" | "reset";
 
@@ -88,28 +87,34 @@ export function AuthView({ redirectTo }: AuthViewProps) {
     { key: "reset", label: "Reset" },
   ];
 
+  const highlights = [
+    "One dashboard for Shopify and Instagram launch flow",
+    "Edit-safe DONE sync with clear status acknowledgements",
+    "No duplicate product or post creation path",
+  ];
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 items-center justify-center px-4 py-10">
       <motion.div
         initial={{ opacity: 0, y: 26 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.55 }}
-        className="grid w-full gap-6 rounded-[2rem] border border-black/12 bg-white/88 p-5 shadow-[0_24px_48px_rgba(0,0,0,0.11)] backdrop-blur lg:grid-cols-[1.1fr_0.9fr] lg:p-8"
+        className="grid w-full gap-6 rounded-[2rem] border border-[color:rgba(15,108,189,0.16)] bg-white/90 p-5 shadow-[0_24px_48px_rgba(19,57,102,0.12)] backdrop-blur lg:grid-cols-[1.08fr_0.92fr] lg:p-8"
       >
-        <section className="relative space-y-5 overflow-hidden rounded-[1.75rem] border border-black/12 bg-white/90 p-4 sm:p-5">
+        <section className="relative space-y-5 overflow-hidden rounded-[1.75rem] border border-[color:rgba(15,108,189,0.16)] bg-white/92 p-4 sm:p-5">
           <Image
             src="/brand/flowcart-background.png"
             alt="FlowCart background"
             fill
-            className="object-cover opacity-22"
+            className="object-cover opacity-26"
             priority
           />
-          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(255,255,255,0.88))]" />
-          <div className="rounded-3xl border border-black/12 bg-white/92 p-6 shadow-[0_14px_30px_rgba(0,0,0,0.08)]">
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(252,254,255,0.95),rgba(248,252,255,0.9))]" />
+          <div className="relative z-10 rounded-3xl border border-[color:rgba(15,108,189,0.16)] bg-white/94 p-6 shadow-[0_14px_30px_rgba(24,67,118,0.1)]">
             <span className="mono-pill">
               <Sparkles size={12} /> FlowCart Access
             </span>
-            <div className="mt-4 inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-black/15 bg-white shadow-[0_10px_20px_rgba(0,0,0,0.12)]">
+            <div className="mt-4 inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-[color:rgba(15,108,189,0.2)] bg-white shadow-[0_10px_20px_rgba(24,67,118,0.1)]">
               <Image
                 src="/brand/flowcart-logo-clean.png"
                 alt="FlowCart logo"
@@ -118,20 +123,30 @@ export function AuthView({ redirectTo }: AuthViewProps) {
                 className="h-full w-full object-contain p-1"
               />
             </div>
-            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-black">
+            <h1 className="mt-4 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
               Start your launch flow.
             </h1>
-            <p className="mt-3 text-sm leading-7 text-black/65">
+            <p className="mt-3 text-sm leading-7 text-[color:var(--fc-text-muted)]">
               Sign in to continue your connected launch pipeline.
             </p>
           </div>
-          <div className="relative z-10">
-            <AnimatedCharactersLoginPage />
+          <div className="relative z-10 rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/86 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:rgba(19,26,34,0.56)]">
+              Why teams use FlowCart
+            </p>
+            <ul className="mt-3 space-y-2.5">
+              {highlights.map((item) => (
+                <li key={item} className="flex items-start gap-2 text-sm text-[color:var(--fc-text-muted)]">
+                  <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[color:var(--fc-primary)]" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
-        <section className="rounded-[1.75rem] border border-black/12 bg-white/95 p-5 shadow-[0_16px_34px_rgba(0,0,0,0.09)] sm:p-6">
-          <div className="mb-6 flex gap-1 rounded-2xl border border-black/12 bg-black/[0.03] p-1 text-sm">
+        <section className="rounded-[1.75rem] border border-[color:rgba(15,108,189,0.16)] bg-white/95 p-5 shadow-[0_16px_34px_rgba(24,67,118,0.1)] sm:p-6">
+          <div className="mb-6 flex gap-1 rounded-2xl border border-[color:rgba(15,108,189,0.16)] bg-[rgba(15,108,189,0.06)] p-1 text-sm">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -142,8 +157,8 @@ export function AuthView({ redirectTo }: AuthViewProps) {
                 }}
                 className={`flex-1 rounded-xl px-3 py-2.5 font-semibold transition ${
                   mode === tab.key
-                    ? "bg-black text-white shadow-[0_8px_16px_rgba(0,0,0,0.18)]"
-                    : "text-black/55 hover:text-black"
+                    ? "bg-[color:var(--fc-primary)] text-white shadow-[0_8px_16px_rgba(15,108,189,0.24)]"
+                    : "text-[color:rgba(19,26,34,0.6)] hover:text-[color:var(--fc-text-primary)]"
                 }`}
               >
                 {tab.label}
@@ -153,9 +168,9 @@ export function AuthView({ redirectTo }: AuthViewProps) {
 
           <div className="space-y-4">
             <label className="block space-y-2 text-sm">
-              <span className="text-black/65">Email</span>
+              <span className="text-[color:var(--fc-text-muted)]">Email</span>
               <div className="relative">
-                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40" />
+                <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[color:rgba(19,26,34,0.4)]" />
                 <input
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
@@ -169,9 +184,9 @@ export function AuthView({ redirectTo }: AuthViewProps) {
 
             {mode !== "reset" ? (
               <label className="block space-y-2 text-sm">
-                <span className="text-black/65">Password</span>
+                <span className="text-[color:var(--fc-text-muted)]">Password</span>
                 <div className="relative">
-                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-black/40" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[color:rgba(19,26,34,0.4)]" />
                   <input
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -215,7 +230,7 @@ export function AuthView({ redirectTo }: AuthViewProps) {
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-black/15 bg-black/[0.03] px-4 py-3 text-sm text-black/78"
+                className="rounded-2xl border border-[color:rgba(15,108,189,0.2)] bg-[rgba(15,108,189,0.08)] px-4 py-3 text-sm text-[color:var(--fc-text-primary)]"
               >
                 {status}
               </motion.div>

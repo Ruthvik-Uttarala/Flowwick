@@ -7,27 +7,27 @@ import { cn } from "@/src/lib/cn";
 const FLOW_STEPS = [
   {
     title: "Sign in",
-    body: "Open your workspace and resume your launch queue.",
+    body: "Open your workspace and continue the launch queue without losing context.",
     impact: "One login, one flow",
   },
   {
     title: "Connect Shopify",
-    body: "Authorize your store once and keep product identity stable.",
+    body: "Authorize once so product updates stay tied to one stable Shopify product.",
     impact: "No duplicate listings",
   },
   {
     title: "Connect Instagram",
-    body: "Validate Meta linkage before you publish anything.",
-    impact: "Fewer publish failures",
+    body: "Validate publishing credentials before launch to avoid noisy post failures.",
+    impact: "Predictable publish path",
   },
   {
-    title: "Upload details",
-    body: "Drop images, title, description, quantity, and price in one place.",
+    title: "Upload product details",
+    body: "Provide image, title, description, quantity, and price in one clean input surface.",
     impact: "No repetitive data entry",
   },
   {
-    title: "Enhance + launch",
-    body: "Apply AI polish, then launch both channels from one action surface.",
+    title: "Enhance and launch",
+    body: "Apply AI polish and launch to Shopify + Instagram from one control point.",
     impact: "Hours saved each cycle",
   },
 ] as const;
@@ -40,88 +40,61 @@ export function SvgFollowScroll({ className }: SvgFollowScrollProps) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start start", "end end"],
+    offset: ["start 85%", "end 30%"],
   });
 
-  const pathLength = useTransform(scrollYProgress, [0, 1], [0.04, 1]);
-  const barScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const barScale = useTransform(scrollYProgress, [0, 1], [0.02, 1]);
 
   return (
     <section
       ref={sectionRef}
       className={cn(
-        "surface-shell relative h-[220vh] overflow-hidden rounded-[2rem] border border-black/12 p-5 sm:p-8",
+        "surface-shell relative overflow-hidden rounded-[2rem] p-5 sm:p-8",
         className
       )}
     >
-      <div className="sticky top-20">
-        <div className="mb-6 space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-black/55">Flow story</p>
-          <h2 className="text-3xl font-semibold tracking-tight text-black sm:text-4xl">
-            A clean five-step launch path.
+      <div className="pointer-events-none absolute -right-16 top-1/3 h-64 w-64 rounded-full bg-[rgba(76,200,255,0.16)] blur-3xl" />
+      <div className="pointer-events-none absolute -left-20 bottom-8 h-64 w-64 rounded-full bg-[rgba(106,84,209,0.12)] blur-3xl" />
+
+      <div className="relative z-10 space-y-6">
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:rgba(19,26,34,0.56)]">
+            Flow story
+          </p>
+          <h2 className="text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
+            A polished five-step launch path.
           </h2>
-          <p className="max-w-3xl text-sm leading-7 text-black/65 sm:text-base">
-            Scroll the sequence to see FlowCart compress manual listing work into one connected
-            pipeline.
+          <p className="max-w-3xl text-sm leading-7 text-[color:var(--fc-text-muted)] sm:text-base">
+            FlowCart compresses manual launch work into one connected, reliable sequence with clean sync feedback.
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(220px,280px)_1fr]">
-          <div className="relative hidden min-h-[560px] lg:block">
-            <svg
-              viewBox="0 0 260 580"
-              className="absolute inset-0 h-full w-full"
-              role="presentation"
-              aria-hidden="true"
-            >
-              <path
-                d="M40 78 C130 78, 130 158, 220 158 C130 158, 130 238, 40 238 C130 238, 130 318, 220 318 C130 318, 130 398, 40 398 C130 398, 130 498, 220 498"
-                stroke="rgba(0,0,0,0.22)"
-                strokeWidth="10"
-                strokeLinecap="round"
-                fill="none"
+        <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+          <div className="relative hidden lg:block">
+            <div className="sticky top-24 min-h-[520px] rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/84 p-4">
+              <div className="absolute left-8 top-8 bottom-8 w-[2px] rounded-full bg-[rgba(15,108,189,0.16)]" />
+              <motion.div
+                className="absolute left-8 top-8 bottom-8 w-[2px] origin-top rounded-full bg-[linear-gradient(180deg,#0f6cbd_0%,#4cc8ff_48%,#6a54d1_100%)]"
+                style={{ scaleY: barScale }}
               />
-              <motion.path
-                d="M40 78 C130 78, 130 158, 220 158 C130 158, 130 238, 40 238 C130 238, 130 318, 220 318 C130 318, 130 398, 40 398 C130 398, 130 498, 220 498"
-                stroke="url(#flowcartProgress)"
-                strokeWidth="10"
-                strokeLinecap="round"
-                fill="none"
-                style={{ pathLength }}
-              />
-              {[
-                [40, 78],
-                [220, 158],
-                [40, 238],
-                [220, 318],
-                [40, 398],
-                [220, 498],
-              ].map(([x, y]) => (
-                <circle
-                  key={`${x}-${y}`}
-                  cx={x}
-                  cy={y}
-                  r="7"
-                  fill="white"
-                  stroke="rgba(0,0,0,0.25)"
-                  strokeWidth="2"
-                />
-              ))}
-              <defs>
-                <linearGradient id="flowcartProgress" x1="40" y1="78" x2="220" y2="498" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#00d4ff" />
-                  <stop offset="0.28" stopColor="#75f0ff" />
-                  <stop offset="0.58" stopColor="#a794ff" />
-                  <stop offset="1" stopColor="#4cc8ff" />
-                </linearGradient>
-              </defs>
-            </svg>
+              <ol className="relative z-10 space-y-6">
+                {FLOW_STEPS.map((step, index) => (
+                  <li key={step.title} className="flex items-start gap-3">
+                    <span className="story-number mt-0.5">{index + 1}</span>
+                    <div>
+                      <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">{step.title}</p>
+                      <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">{step.impact}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
           </div>
 
-          <div className="space-y-4">
-            <div className="relative h-1 overflow-hidden rounded-full bg-black/10">
+          <div className="space-y-3">
+            <div className="relative h-1 overflow-hidden rounded-full bg-[rgba(15,108,189,0.14)] lg:hidden">
               <motion.div
-                className="h-full origin-left rounded-full bg-[linear-gradient(90deg,#00d4ff,#7ee7ff,#a894ff,#4fc9ff)]"
+                className="h-full origin-left rounded-full bg-[linear-gradient(90deg,#0f6cbd,#4cc8ff,#6a54d1)]"
                 style={{ scaleX: barScale }}
               />
             </div>
@@ -129,18 +102,18 @@ export function SvgFollowScroll({ className }: SvgFollowScrollProps) {
             {FLOW_STEPS.map((step, index) => (
               <motion.article
                 key={step.title}
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 10 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.25 }}
-                transition={{ duration: 0.35, delay: index * 0.05 }}
-                className="rounded-2xl border border-black/12 bg-white/92 p-4 shadow-[0_8px_18px_rgba(0,0,0,0.06)]"
+                viewport={{ once: true, amount: 0.18 }}
+                transition={{ duration: 0.34, delay: index * 0.04 }}
+                className="rounded-2xl border border-[color:rgba(15,108,189,0.15)] bg-white/92 p-4 shadow-[0_10px_20px_rgba(22,62,112,0.08)]"
               >
                 <div className="flex items-start gap-3">
-                  <span className="story-number">{index + 1}</span>
+                  <span className="story-number lg:hidden">{index + 1}</span>
                   <div>
-                    <h3 className="text-base font-semibold text-black">{step.title}</h3>
-                    <p className="mt-1 text-sm text-black/65">{step.body}</p>
-                    <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-black/55">
+                    <h3 className="text-base font-semibold text-[color:var(--fc-text-primary)]">{step.title}</h3>
+                    <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">{step.body}</p>
+                    <p className="mt-2 text-xs font-semibold uppercase tracking-wider text-[color:rgba(19,26,34,0.58)]">
                       {step.impact}
                     </p>
                   </div>

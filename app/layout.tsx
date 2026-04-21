@@ -15,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="cinematic-shell relative isolate flex min-h-full flex-col text-black">
+      <body className="cinematic-shell relative isolate flex min-h-full flex-col text-[color:var(--fc-text-primary)]">
         <div className="app-atmosphere" />
         <div className="app-grain" />
 
