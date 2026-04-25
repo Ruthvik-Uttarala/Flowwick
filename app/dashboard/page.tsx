@@ -11,6 +11,8 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/src/context/AuthContext";
 import { ProductBucket } from "@/src/components/ProductBucket";
+import { PostTile } from "@/src/components/PostTile";
+import { PostDetailDrawer } from "@/src/components/PostDetailDrawer";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
 import {
   applyCreatedBucket,
@@ -20,7 +22,6 @@ import {
   applyPermanentDelete,
   applyRestoreFromTrash,
   getBucketPollIntervalMs,
-  getTrashDaysRemaining,
   hasActiveBucketWork,
   runBoundedQueue,
   upsertBucketById,
@@ -29,12 +30,10 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
-  Plus,
-  RotateCcw,
+  PlusSquare,
   Send,
-  Trash2,
+  Sparkles,
   XCircle,
-  Zap,
 } from "lucide-react";
 import type {
   ApiResponseShape,
@@ -111,21 +110,12 @@ export default function DashboardPage() {
   const [isRunningGoAll, setIsRunningGoAll] = useState(false);
   const [pendingScrollBucketId, setPendingScrollBucketId] = useState("");
   const [highlightedBucketId, setHighlightedBucketId] = useState("");
+  const [openBucketId, setOpenBucketId] = useState<string>("");
   const bucketRefs = useRef<Record<string, HTMLElement | null>>({});
   const highlightTimeoutRef = useRef<number | null>(null);
   const bucketsRef = useRef<Bucket[]>([]);
   const trashedBucketsRef = useRef<Bucket[]>([]);
   const goAllInFlightRef = useRef(false);
-
-  const trashDateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-    []
-  );
 
   const setBucketActionState = (
     bucketId: string,

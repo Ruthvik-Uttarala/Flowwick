@@ -4,22 +4,25 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/src/lib/cn";
 
-type LiquidButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type LiquidButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "success";
 type LiquidButtonSize = "sm" | "md" | "lg" | "xl" | "icon";
 
 const variantClass: Record<LiquidButtonVariant, string> = {
-  // Instagram action blue, solid pill
+  // Primary: solid black, white text — Vercel/GitHub clean
   primary:
-    "border border-transparent bg-[#0095f6] text-white hover:bg-[#1877f2] active:bg-[#1877f2]",
-  // Soft white pill with strong text — Instagram secondary style
+    "border border-transparent bg-[#111111] text-white hover:bg-[#000000] active:bg-[#000000]",
+  // Secondary: white surface, strong border, dark text
   secondary:
     "border border-[color:var(--fc-border-strong)] bg-white text-[color:var(--fc-text-primary)] hover:bg-[color:var(--fc-surface-muted)]",
-  // Quiet ghost button
+  // Ghost: minimal, subtle borders
   ghost:
     "border border-[color:var(--fc-border-subtle)] bg-white text-[color:var(--fc-text-primary)] hover:bg-[color:var(--fc-surface-muted)]",
-  // Instagram red destructive
+  // Destructive: black outline (per brief — not red by default)
   danger:
-    "border border-transparent bg-[#ed4956] text-white hover:bg-[#dd3a47] active:bg-[#dd3a47]",
+    "border border-[color:var(--fc-text-primary)] bg-white text-[color:var(--fc-text-primary)] hover:bg-[color:var(--fc-text-primary)] hover:text-white active:bg-[#000000] active:text-white",
+  // Success: clean green for confirmations
+  success:
+    "border border-transparent bg-[#16a34a] text-white hover:bg-[#15803d] active:bg-[#15803d]",
 };
 
 const sizeClass: Record<LiquidButtonSize, string> = {

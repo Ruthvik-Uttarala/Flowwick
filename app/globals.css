@@ -1,57 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  /* Instagram-inspired surface palette */
-  --fc-background: #ffffff;
+  /* Monochrome surface palette — Vercel/GitHub clean */
+  --fc-background: #fafafa;
   --fc-surface: #ffffff;
   --fc-surface-elevated: #ffffff;
-  --fc-surface-muted: #fafafa;
-  --fc-text-primary: #262626;
-  --fc-text-muted: rgba(38, 38, 38, 0.62);
-  --fc-text-soft: rgba(38, 38, 38, 0.4);
-  --fc-border-subtle: #efefef;
+  --fc-surface-muted: #f5f5f5;
+  --fc-text-primary: #111111;
+  --fc-text-muted: #737373;
+  --fc-text-soft: #a3a3a3;
+  --fc-border-subtle: #ececec;
   --fc-border-strong: #dbdbdb;
 
-  /* Instagram action blue (primary CTA) */
-  --fc-primary: #0095f6;
-  --fc-primary-hover: #1877f2;
+  /* Primary action: solid black, white text */
+  --fc-primary: #111111;
+  --fc-primary-hover: #000000;
 
-  /* Instagram gradient stops (purple -> pink -> orange) */
-  --fc-secondary: #833ab4;
-  --fc-accent: #fd1d1d;
-  --fc-success: #46a96f;
-  --fc-error: #ed4956;
-  --fc-highlight: #fcaf45;
-  --fc-focus-ring: rgba(0, 149, 246, 0.32);
+  /* Restrained status colors */
+  --fc-success: #16a34a;
+  --fc-success-soft: rgba(22, 163, 74, 0.1);
+  --fc-error: #dc2626;
+  --fc-error-soft: rgba(220, 38, 38, 0.08);
+  --fc-warning: #b45309;
+  --fc-warning-soft: rgba(180, 83, 9, 0.08);
+
+  --fc-focus-ring: rgba(17, 17, 17, 0.16);
 
   --fc-radius-sm: 0.5rem;
-  --fc-radius-md: 0.75rem;
-  --fc-radius-lg: 1rem;
-  --fc-radius-xl: 1.25rem;
-  --fc-radius-2xl: 1.5rem;
+  --fc-radius-md: 0.625rem;
+  --fc-radius-lg: 0.875rem;
+  --fc-radius-xl: 1.125rem;
+  --fc-radius-2xl: 1.375rem;
 
   --fc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --fc-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
-  --fc-shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.08);
-
-  /* The signature Instagram gradient */
-  --fc-gradient-hero: linear-gradient(
-    135deg,
-    #feda75 0%,
-    #fa7e1e 20%,
-    #d62976 50%,
-    #962fbf 80%,
-    #4f5bd5 100%
-  );
-  --fc-gradient-line: linear-gradient(
-    90deg,
-    #f09433 0%,
-    #e6683c 25%,
-    #dc2743 50%,
-    #cc2366 75%,
-    #bc1888 100%
-  );
-  --fc-gradient-surface: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
+  --fc-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.05);
+  --fc-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 @theme inline {
@@ -63,11 +46,8 @@
   --color-border-strong: var(--fc-border-strong);
   --color-primary: var(--fc-primary);
   --color-primary-hover: var(--fc-primary-hover);
-  --color-secondary: var(--fc-secondary);
-  --color-accent: var(--fc-accent);
   --color-success: var(--fc-success);
   --color-error: var(--fc-error);
-  --color-highlight: var(--fc-highlight);
   --font-sans:
     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -102,7 +82,7 @@ body {
 }
 
 ::selection {
-  background: rgba(0, 149, 246, 0.18);
+  background: rgba(17, 17, 17, 0.12);
   color: var(--fc-text-primary);
 }
 
@@ -117,16 +97,15 @@ h4 {
   font-family:
     "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.018em;
   font-weight: 600;
 }
 
+/* Legacy shells kept as no-ops so unrelated component markup stays stable. */
 .cinematic-shell {
   background: transparent;
 }
 
-/* The atmosphere layers are kept as no-ops so existing layout markup stays
-   stable but we render a clean Instagram-style white canvas. */
 .app-atmosphere,
 .app-grain {
   display: none;
@@ -159,8 +138,8 @@ h4 {
 .cinematic-input,
 .warm-input,
 .glass-input {
-  background: var(--fc-surface-muted);
-  border: 1px solid var(--fc-border-subtle);
+  background: var(--fc-surface);
+  border: 1px solid var(--fc-border-strong);
   color: var(--fc-text-primary);
   border-radius: var(--fc-radius-md);
   transition:
@@ -179,40 +158,35 @@ h4 {
 .warm-input:focus,
 .glass-input:focus {
   outline: none;
-  border-color: var(--fc-border-strong);
-  background: #ffffff;
+  border-color: var(--fc-text-primary);
+  background: var(--fc-surface);
   box-shadow: 0 0 0 3px var(--fc-focus-ring);
 }
 
-/* Instagram-style status chips */
+/* Status chips — restrained, monochrome-friendly */
 .badge-green {
-  border: 1px solid rgba(70, 169, 111, 0.32);
-  background: rgba(70, 169, 111, 0.1);
-  color: #2f7c52;
+  border: 1px solid rgba(22, 163, 74, 0.32);
+  background: rgba(22, 163, 74, 0.08);
+  color: #15803d;
 }
 
 .badge-red {
-  border: 1px solid rgba(237, 73, 86, 0.32);
-  background: rgba(237, 73, 86, 0.08);
-  color: #c83641;
+  border: 1px solid rgba(220, 38, 38, 0.32);
+  background: rgba(220, 38, 38, 0.06);
+  color: #b91c1c;
 }
 
 .badge-gold {
-  border: 1px solid rgba(252, 175, 69, 0.4);
-  background: rgba(252, 175, 69, 0.14);
-  color: #8a5a10;
+  border: 1px solid rgba(180, 83, 9, 0.32);
+  background: rgba(180, 83, 9, 0.08);
+  color: #92400e;
 }
 
-.badge-blue {
-  border: 1px solid rgba(0, 149, 246, 0.34);
-  background: rgba(0, 149, 246, 0.08);
-  color: #0867b5;
-}
-
+.badge-blue,
 .badge-purple {
-  border: 1px solid rgba(131, 58, 180, 0.32);
-  background: rgba(131, 58, 180, 0.08);
-  color: #5d2c81;
+  border: 1px solid var(--fc-border-strong);
+  background: var(--fc-surface-muted);
+  color: var(--fc-text-primary);
 }
 
 .glow-green,
@@ -229,11 +203,11 @@ h4 {
   gap: 0.35rem;
   border-radius: 9999px;
   border: 1px solid var(--fc-border-subtle);
-  background: var(--fc-surface-muted);
+  background: var(--fc-surface);
   color: var(--fc-text-muted);
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
   text-transform: none;
   padding: 0.3rem 0.7rem;
 }
@@ -245,13 +219,12 @@ h4 {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: var(--fc-gradient-line);
+  background: var(--fc-text-primary);
   color: #ffffff;
   font-size: 0.78rem;
   font-weight: 700;
 }
 
-/* Instagram-style ring around an avatar (used for "Create Post" tile etc.) */
 .ig-ring {
   position: relative;
   isolation: isolate;
@@ -260,10 +233,10 @@ h4 {
 .ig-ring::before {
   content: "";
   position: absolute;
-  inset: -3px;
+  inset: -2px;
   border-radius: 9999px;
-  padding: 2px;
-  background: var(--fc-gradient-line);
+  padding: 1.5px;
+  background: var(--fc-border-strong);
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -275,48 +248,15 @@ h4 {
 @keyframes pulseGlow {
   0%,
   100% {
-    box-shadow: 0 0 0 rgba(0, 149, 246, 0);
+    box-shadow: 0 0 0 rgba(17, 17, 17, 0);
   }
   50% {
-    box-shadow: 0 0 0 4px rgba(0, 149, 246, 0.16);
+    box-shadow: 0 0 0 4px rgba(17, 17, 17, 0.08);
   }
 }
 
 .pulse-blue {
   animation: pulseGlow 2s ease-in-out infinite;
-}
-
-@keyframes floatAura {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(-14px, 14px) scale(1.05);
-  }
-}
-
-@keyframes ripple {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.95;
-  }
-  50% {
-    transform: scale(1.16);
-    opacity: 0.45;
-  }
-}
-
-@keyframes contourBreath {
-  0%,
-  100% {
-    transform: scale(0.96);
-    opacity: 0.72;
-  }
-  50% {
-    transform: scale(1.08);
-    opacity: 1;
-  }
 }
 
 @keyframes shimmer {
@@ -351,8 +291,19 @@ h4 {
 }
 
 .gradient-text-warm {
-  background: var(--fc-gradient-hero);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--fc-text-primary);
+}
+
+/* Scrollbar polish for tile grids */
+.scrollbar-thin {
+  scrollbar-width: thin;
+}
+
+/* Tile hover overlay */
+.tile-overlay {
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0) 50%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
 }

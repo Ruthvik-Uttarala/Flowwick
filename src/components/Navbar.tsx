@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Home, LogOut, PlusSquare, Settings } from "lucide-react";
+import { Grid3x3, Home, Info, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 
 interface NavLink {
@@ -19,56 +19,102 @@ export function Navbar() {
 
   const navLinks: NavLink[] = user
     ? [
-        { key: "home", href: "/", label: "Home", icon: <Home size={22} strokeWidth={1.8} /> },
+        {
+          key: "home",
+          href: "/",
+          label: "Home",
+          icon: <Home size={20} strokeWidth={1.8} />,
+        },
         {
           key: "dashboard",
           href: "/dashboard",
           label: "Posts",
-          icon: <PlusSquare size={22} strokeWidth={1.8} />,
+          icon: <Grid3x3 size={20} strokeWidth={1.8} />,
+        },
+        {
+          key: "info",
+          href: "/info",
+          label: "Info",
+          icon: <Info size={20} strokeWidth={1.8} />,
         },
         {
           key: "settings",
           href: "/settings",
           label: "Settings",
-          icon: <Settings size={22} strokeWidth={1.8} />,
+          icon: <Settings size={20} strokeWidth={1.8} />,
         },
       ]
     : [
-        { key: "home", href: "/", label: "Home", icon: <Home size={22} strokeWidth={1.8} /> },
-        { key: "auth", href: "/auth", label: "Login", icon: <LogOut size={22} strokeWidth={1.8} /> },
+        {
+          key: "home",
+          href: "/",
+          label: "Home",
+          icon: <Home size={20} strokeWidth={1.8} />,
+        },
+        {
+          key: "info",
+          href: "/info",
+          label: "Info",
+          icon: <Info size={20} strokeWidth={1.8} />,
+        },
+        {
+          key: "auth",
+          href: "/auth",
+          label: "Login",
+          icon: <LogOut size={20} strokeWidth={1.8} />,
+        },
       ];
 
   const activeKey = pathname.startsWith("/dashboard")
     ? "dashboard"
-    : pathname.startsWith("/settings")
-      ? "settings"
-      : pathname.startsWith("/auth")
-        ? "auth"
-        : "home";
+    : pathname.startsWith("/info")
+      ? "info"
+      : pathname.startsWith("/settings")
+        ? "settings"
+        : pathname.startsWith("/auth")
+          ? "auth"
+          : "home";
 
   return (
     <>
-      {/* Top bar — Instagram-style clean header */}
-      <header className="sticky top-0 z-30 border-b border-[color:var(--fc-border-subtle)] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[975px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="group inline-flex items-center gap-2.5">
-            <span className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-[color:var(--fc-border-subtle)] bg-white">
+      {/* Top bar — clean, sticky, off-white */}
+      <header className="sticky top-0 z-30 border-b border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-background)]/92 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <Link
+            href="/"
+            aria-label="FlowCart home"
+            className="group inline-flex items-center"
+          >
+            {/* Desktop: horizontal symbol + wordmark */}
+            <Image
+              src="/brand/flowcart-horizontal.png"
+              alt="FlowCart"
+              width={520}
+              height={160}
+              priority
+              className="hidden h-8 w-auto sm:block"
+            />
+            {/* Mobile: stacked symbol + wordmark renders compactly */}
+            <span className="flex items-center gap-2 sm:hidden">
               <Image
-                src="/brand/flowcart-logo-clean.png"
-                alt="FlowCart logo"
+                src="/brand/flowcart-symbol.png"
+                alt=""
                 width={64}
                 height={64}
-                className="h-full w-full object-contain p-1"
                 priority
+                className="h-7 w-auto"
               />
-            </span>
-            <span className="text-lg font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
-              FlowCart
+              <span className="text-lg font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
+                FlowCart
+              </span>
             </span>
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+          <nav
+            className="hidden items-center gap-1 md:flex"
+            aria-label="Primary"
+          >
             {navLinks.map((item) => {
               const isActive = item.key === activeKey;
               return (
@@ -82,7 +128,11 @@ export function Navbar() {
                   }`}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <span className={isActive ? "text-[color:var(--fc-text-primary)]" : ""}>
+                  <span
+                    className={
+                      isActive ? "text-[color:var(--fc-text-primary)]" : ""
+                    }
+                  >
                     {item.icon}
                   </span>
                   <span>{item.label}</span>
@@ -95,27 +145,27 @@ export function Navbar() {
                 onClick={signOut}
                 className="ml-1 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[color:var(--fc-text-muted)] transition hover:bg-[color:var(--fc-surface-muted)] hover:text-[color:var(--fc-text-primary)]"
               >
-                <LogOut size={20} strokeWidth={1.8} />
+                <LogOut size={18} strokeWidth={1.8} />
                 <span>Logout</span>
               </button>
             ) : null}
           </nav>
 
-          {/* Mobile: just show user-mail or login link to keep header clean */}
+          {/* Mobile top-right: Logout for signed-in users, Login pill otherwise */}
           <div className="flex items-center md:hidden">
             {!loading && user ? (
               <button
                 type="button"
                 onClick={signOut}
                 aria-label="Logout"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full text-[color:var(--fc-text-primary)]"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--fc-text-primary)]"
               >
                 <LogOut size={22} strokeWidth={1.8} />
               </button>
             ) : (
               <Link
                 href="/auth"
-                className="rounded-lg bg-[#0095f6] px-3 py-1.5 text-sm font-semibold text-white"
+                className="rounded-lg bg-[#111111] px-3 py-1.5 text-sm font-semibold text-white"
               >
                 Login
               </Link>
@@ -124,47 +174,45 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Mobile bottom tab bar — Instagram-style */}
-      {user ? (
-        <nav
-          aria-label="Mobile primary"
-          className="fixed bottom-0 left-0 right-0 z-30 border-t border-[color:var(--fc-border-subtle)] bg-white/98 backdrop-blur md:hidden"
-        >
-          <ul className="mx-auto flex w-full max-w-[600px] items-center justify-around px-2 py-2">
-            {navLinks.map((item) => {
-              const isActive = item.key === activeKey;
-              return (
-                <li key={item.key} className="flex-1">
-                  <Link
-                    href={item.href}
-                    className="flex flex-col items-center justify-center gap-0.5 py-1.5"
-                    aria-current={isActive ? "page" : undefined}
+      {/* Mobile bottom tab bar — Instagram-simple, thumb-friendly */}
+      <nav
+        aria-label="Mobile primary"
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-[color:var(--fc-border-subtle)] bg-white/96 backdrop-blur md:hidden"
+      >
+        <ul className="mx-auto flex w-full max-w-[600px] items-center justify-around px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1.5">
+          {navLinks.map((item) => {
+            const isActive = item.key === activeKey;
+            return (
+              <li key={item.key} className="flex-1">
+                <Link
+                  href={item.href}
+                  className="flex min-h-[52px] flex-col items-center justify-center gap-0.5 py-1.5"
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  <span
+                    className={
+                      isActive
+                        ? "text-[color:var(--fc-text-primary)]"
+                        : "text-[color:var(--fc-text-muted)]"
+                    }
                   >
-                    <span
-                      className={
-                        isActive
-                          ? "text-[color:var(--fc-text-primary)]"
-                          : "text-[color:var(--fc-text-muted)]"
-                      }
-                    >
-                      {item.icon}
-                    </span>
-                    <span
-                      className={`text-[10px] font-medium ${
-                        isActive
-                          ? "text-[color:var(--fc-text-primary)]"
-                          : "text-[color:var(--fc-text-muted)]"
-                      }`}
-                    >
-                      {item.label}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-      ) : null}
+                    {item.icon}
+                  </span>
+                  <span
+                    className={`text-[10px] font-medium ${
+                      isActive
+                        ? "text-[color:var(--fc-text-primary)]"
+                        : "text-[color:var(--fc-text-muted)]"
+                    }`}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
     </>
   );
 }

@@ -5,7 +5,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FlowCart",
-  description: "Post once. Share everywhere.",
+  description: "Post once. Share to Shopify and Instagram.",
 };
 
 export default function RootLayout({
@@ -14,11 +14,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full antialiased bg-white">
-      <body className="relative isolate flex min-h-full flex-col bg-white text-[color:var(--fc-text-primary)]">
+    <html
+      lang="en"
+      className="h-full antialiased bg-[color:var(--fc-background)]"
+    >
+      <body className="relative isolate flex min-h-full flex-col bg-[color:var(--fc-background)] text-[color:var(--fc-text-primary)]">
         <AuthProvider>
           <Navbar />
-          <main className="relative z-10 mx-auto flex w-full max-w-[975px] flex-1 px-0 pb-24 pt-4 sm:px-6 sm:pb-8">
+          <main className="relative z-10 mx-auto flex w-full max-w-[1280px] flex-1 px-4 pb-24 pt-5 sm:px-6 sm:pb-10 lg:px-8">
             {children}
           </main>
         </AuthProvider>

@@ -2,121 +2,458 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, CheckCircle2, Sparkles, UploadCloud } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Grid3x3,
+  Info as InfoIcon,
+  Loader2,
+  PlusSquare,
+  Sparkles,
+} from "lucide-react";
+import { useAuth } from "@/src/context/AuthContext";
 import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
-import { SvgFollowScroll } from "@/src/components/ui/svg-follow-scroll";
+import {
+  ShopifyMark,
+  InstagramMark,
+} from "@/src/components/ui/brand-icons";
+import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
+import type {
+  ProductBucket as Bucket,
+  InstagramConnectionSummary,
+  RuntimeConfigSnapshot,
+  SafeSettingsStatus,
+} from "@/src/lib/types";
 
-const flowCards = [
-  { label: "Add your photos", detail: "One simple post" },
-  { label: "Share to Shopify", detail: "No duplicate listings" },
-  { label: "Share to Instagram", detail: "Same post, easy edits" },
-];
+interface SettingsPayload {
+  status: SafeSettingsStatus;
+  runtime: RuntimeConfigSnapshot;
+  instagramConnection: InstagramConnectionSummary;
+}
 
 export function HomeLanding() {
-  return (
-    <div className="w-full space-y-8 pb-6">
-      <motion.section
-        initial={{ opacity: 0, y: 24 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.55 }}
-        className="surface-shell relative overflow-hidden rounded-[2.4rem] px-6 py-9 sm:px-10 sm:py-12"
-      >
-        <Image
-          src="/brand/flowcart-background.png"
-          alt="FlowCart launch flow background"
-          fill
-          priority
-          className="object-cover object-center"
+  const { user, loading: authLoading } = useAuth();
+  const [buckets, setBuckets] = useState<Bucket[]>([]);
+  const [status, setStatus] = useState<SafeSettingsStatus | null>(null);
+  const [instagramConnection, setInstagramConnection] =
+    useState<InstagramConnectionSummary | null>(null);
+  const [aiLive, setAiLive] = useState<boolean>(false);
+  const [isLoadingFeed, setIsLoadingFeed] = useState<boolean>(false);
+  const [creating, setCreating] = useState<boolean>(false);
+  const [pageError, setPageError] = useState<string>("");
+
+  const loadHomeData = useCallback(async () => {
+    setIsLoadingFeed(true);
+    try {
+      const [bucketsRes, settingsRes] = await Promise.all([
+        fetch("/api/buckets", { cache: "no-store" }),
+        fetch("/api/settings", { cache: "no-store" }),
+      ]);
+
+      const bucketsPayload = await readApiResponse<{ buckets?: Bucket[] }>(
+        bucketsRes
+      );
+      if (bucketsRes.ok && bucketsPayload?.ok) {
+        setBuckets(
+          Array.isArray(bucketsPayload.data?.buckets)
+            ? bucketsPayload.data!.buckets
+            : []
+        );
+      }
+
+      const settingsPayload =
+        await readApiResponse<SettingsPayload>(settingsRes);
+      if (settingsRes.ok && settingsPayload?.ok && settingsPayload.data) {
+        setStatus(settingsPayload.data.status);
+        setInstagramConnection(settingsPayload.data.instagramConnection);
+        setAiLive(Boolean(settingsPayload.data.runtime?.openaiConfigured));
+      }
+    } catch (error) {
+      // Home page tolerates failures — Posts page surfaces the real error.
+      console.warn("[flowcart:home] failed to load summary data", error);
+    } finally {
+      setIsLoadingFeed(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || !user) {
+      return;
+    }
+    void loadHomeData();
+  }, [authLoading, user, loadHomeData]);
+
+  const handleCreate = useCallback(async () => {
+    setCreating(true);
+    setPageError("");
+    try {
+      const response = await fetch("/api/buckets/create", { method: "POST" });
+      const payload = await readApiResponse<{ bucket?: Bucket }>(response);
+      if (!response.ok || !payload?.ok || !payload.data?.bucket) {
+        throw new Error(apiErrorMessage(payload, "Failed to create post."));
+      }
+      // Hand off to /dashboard where the create-post flow continues.
+      window.location.href = `/dashboard#bucket-${payload.data.bucket.id}`;
+    } catch (error) {
+      setPageError(
+        error instanceof Error ? error.message : "Failed to create post."
+      );
+      setCreating(false);
+    }
+  }, []);
+
+  // ----- Logged-out state -----
+  if (!authLoading && !user) {
+    return <SignedOutHero />;
+  }
+
+  if (authLoading) {
+    return (
+      <div className="flex w-full items-center justify-center py-16">
+        <Loader2
+          size={22}
+          className="animate-spin text-[color:var(--fc-text-muted)]"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(108deg,rgba(250,252,255,0.96)_0%,rgba(248,252,255,0.88)_46%,rgba(244,248,255,0.54)_70%,rgba(239,246,255,0.38)_100%)]" />
+      </div>
+    );
+  }
 
-        <div className="pointer-events-none absolute -top-20 -right-16 h-72 w-72 rounded-full bg-[rgba(76,200,255,0.2)] blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 -left-12 h-72 w-72 rounded-full bg-[rgba(106,84,209,0.12)] blur-3xl" />
+  const readyCount = buckets.filter((b) => b.status === "READY").length;
+  const postedCount = buckets.filter((b) => b.status === "DONE").length;
+  const draftCount = buckets.filter((b) => b.status === "EMPTY").length;
+  const recentBuckets = [...buckets].slice(0, 8);
 
-        <div className="relative z-10 grid gap-7 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
-          <div className="max-w-3xl space-y-5">
-            <span className="mono-pill">
-              <Sparkles size={12} /> FlowCart for creators
-            </span>
+  const shopifyConnected = Boolean(status?.shopifyConnected);
+  const instagramConnected = Boolean(instagramConnection?.canPublish);
 
-            <div className="space-y-3">
-              <h1 className="text-4xl leading-[0.95] font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-5xl lg:text-6xl">
-                Post once.
-                <br />
-                Share everywhere.
+  return (
+    <div className="w-full space-y-6">
+      <motion.section
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-6 sm:p-8"
+      >
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <Image
+              src="/brand/flowcart-symbol.png"
+              alt=""
+              width={88}
+              height={88}
+              priority
+              className="hidden h-12 w-12 object-contain sm:block"
+            />
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fc-text-soft)]">
+                {user?.email
+                  ? `Signed in as ${user.email}`
+                  : "Welcome back"}
+              </p>
+              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
+                Ready to post?
               </h1>
-              <p className="max-w-2xl text-sm leading-7 text-[color:var(--fc-text-muted)] sm:text-base">
-                Add your photos and a caption once. FlowCart shares your post to Shopify and Instagram together, and keeps them in sync when you edit.
+              <p className="mt-2 max-w-xl text-sm leading-6 text-[color:var(--fc-text-muted)] sm:text-base">
+                Create once. Share to Shopify and Instagram.
               </p>
             </div>
-
-            <div className="flex flex-wrap items-center gap-3 pt-1">
-              <LiquidButton asChild size="xl" className="min-w-44">
-                <Link href="/dashboard">
-                  Open Posts <ArrowRight size={16} />
-                </Link>
-              </LiquidButton>
-              <LiquidButton asChild variant="secondary" size="xl" className="min-w-36">
-                <Link href="/auth">Sign in</Link>
-              </LiquidButton>
-            </div>
-
-            <div className="grid gap-2 pt-1 sm:grid-cols-3">
-              <span className="mono-pill justify-center sm:justify-start">No duplicate Shopify listings</span>
-              <span className="mono-pill justify-center sm:justify-start">No duplicate Instagram posts</span>
-              <span className="mono-pill justify-center sm:justify-start">AI captions in seconds</span>
-            </div>
           </div>
 
-          <div className="rounded-[1.6rem] border border-[color:rgba(15,108,189,0.2)] bg-white/88 p-4 shadow-[0_18px_36px_rgba(22,62,112,0.14)] backdrop-blur-sm">
-            <div className="mb-3 flex items-center gap-3">
-              <div className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[color:rgba(15,108,189,0.2)] bg-white">
-                <Image
-                  src="/brand/flowcart-logo-clean.png"
-                  alt="FlowCart logo"
-                  width={52}
-                  height={52}
-                  className="h-full w-full object-contain p-1"
-                />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:rgba(19,26,34,0.56)]">
-                  How it works
-                </p>
-                <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">One post. Two places. Zero hassle.</p>
-              </div>
-            </div>
-
-            <div className="space-y-2.5">
-              {flowCards.map((card, index) => (
-                <motion.div
-                  key={card.label}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.34, delay: 0.12 + index * 0.08 }}
-                  className="rounded-xl border border-[color:rgba(15,108,189,0.16)] bg-white/92 px-3 py-2.5"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[color:rgba(19,26,34,0.52)]">
-                    Step {index + 1}
-                  </p>
-                  <p className="mt-0.5 flex items-center gap-2 text-sm font-semibold text-[color:var(--fc-text-primary)]">
-                    <UploadCloud size={14} className="text-[color:var(--fc-primary)]" />
-                    {card.label}
-                  </p>
-                  <p className="mt-1 text-xs text-[color:var(--fc-text-muted)]">{card.detail}</p>
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-[rgba(70,169,111,0.32)] bg-[rgba(70,169,111,0.08)] px-3 py-2 text-xs font-semibold text-[#2f7c52]">
-              <CheckCircle2 size={13} /> Ready when you are
-            </div>
+          <div className="flex flex-wrap gap-2 lg:flex-nowrap">
+            <LiquidButton
+              variant="primary"
+              size="lg"
+              onClick={handleCreate}
+              disabled={creating}
+              aria-label="Create post"
+              className="flex-1 sm:flex-none"
+            >
+              {creating ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <PlusSquare size={16} />
+              )}
+              <span>Create</span>
+            </LiquidButton>
+            <LiquidButton
+              asChild
+              variant="secondary"
+              size="lg"
+              className="flex-1 sm:flex-none"
+            >
+              <Link href="/dashboard" aria-label="Open posts">
+                <Grid3x3 size={16} />
+                <span>Posts</span>
+              </Link>
+            </LiquidButton>
           </div>
         </div>
+
+        {pageError ? (
+          <p className="mt-4 rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-4 py-2.5 text-sm text-[color:var(--fc-text-primary)]">
+            {pageError}
+          </p>
+        ) : null}
       </motion.section>
 
-      <SvgFollowScroll />
+      {/* Connection / readiness summary */}
+      <section
+        aria-label="Connection status"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+      >
+        <StatusCell
+          label="Shopify"
+          icon={<ShopifyMark size={18} />}
+          state={shopifyConnected ? "ok" : "off"}
+          valueLabel={shopifyConnected ? "Connected" : "Not set"}
+        />
+        <StatusCell
+          label="Instagram"
+          icon={<InstagramMark size={18} />}
+          state={instagramConnected ? "ok" : "off"}
+          valueLabel={instagramConnected ? "Connected" : "Not set"}
+        />
+        <StatusCell
+          label="AI"
+          icon={<Sparkles size={18} strokeWidth={1.8} />}
+          state={aiLive ? "ok" : "off"}
+          valueLabel={aiLive ? "Live" : "Off"}
+        />
+        <StatusCell
+          label="Ready"
+          icon={<CheckCircle2 size={18} strokeWidth={1.8} />}
+          state={readyCount > 0 ? "ok" : "neutral"}
+          valueLabel={`${readyCount} post${readyCount === 1 ? "" : "s"}`}
+        />
+      </section>
+
+      {/* Recent posts preview */}
+      <section
+        aria-label="Recent posts"
+        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-4 sm:p-5"
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">
+              Recent posts
+            </h2>
+            <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
+              {buckets.length === 0
+                ? "Your posts will appear here."
+                : `${postedCount} posted · ${readyCount} ready · ${draftCount} draft`}
+            </p>
+          </div>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--fc-text-primary)] hover:underline"
+          >
+            View all
+            <ArrowRight size={14} />
+          </Link>
+        </div>
+
+        {isLoadingFeed && buckets.length === 0 ? (
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="aspect-square animate-pulse rounded-md bg-[color:var(--fc-surface-muted)]"
+              />
+            ))}
+          </div>
+        ) : recentBuckets.length === 0 ? (
+          <EmptyHomeState onCreate={handleCreate} creating={creating} />
+        ) : (
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
+            {recentBuckets.map((bucket) => (
+              <RecentTile key={bucket.id} bucket={bucket} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SignedOutHero() {
+  return (
+    <div className="w-full">
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-8 sm:p-12">
+        <div className="mx-auto max-w-2xl text-center">
+          <Image
+            src="/brand/flowcart-stacked.png"
+            alt="FlowCart"
+            width={520}
+            height={520}
+            priority
+            className="mx-auto h-24 w-auto"
+          />
+          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
+            Post once. Share everywhere.
+          </h1>
+          <p className="mt-3 text-sm text-[color:var(--fc-text-muted)] sm:text-base">
+            Create one product post and FlowCart shares it to Shopify and
+            Instagram together.
+          </p>
+
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <LiquidButton asChild variant="primary" size="lg">
+              <Link href="/auth">
+                <span>Sign in</span>
+                <ArrowRight size={16} />
+              </Link>
+            </LiquidButton>
+            <LiquidButton asChild variant="secondary" size="lg">
+              <Link href="/info">
+                <InfoIcon size={16} />
+                <span>How it works</span>
+              </Link>
+            </LiquidButton>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function StatusCell({
+  label,
+  icon,
+  state,
+  valueLabel,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  state: "ok" | "off" | "neutral";
+  valueLabel: string;
+}) {
+  const stateClass =
+    state === "ok"
+      ? "text-[color:var(--fc-text-primary)]"
+      : state === "off"
+        ? "text-[color:var(--fc-text-soft)]"
+        : "text-[color:var(--fc-text-muted)]";
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-[color:var(--fc-border-subtle)] bg-white px-3 py-3 sm:px-4">
+      <div
+        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] ${stateClass}`}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">
+          {label}
+        </p>
+        <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
+          {valueLabel}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RecentTile({ bucket }: { bucket: Bucket }) {
+  const firstImage = bucket.imageUrls[0] ?? null;
+  const headline =
+    bucket.titleEnhanced.trim() ||
+    bucket.titleRaw.trim() ||
+    "Untitled post";
+  return (
+    <Link
+      href={`/dashboard#bucket-${bucket.id}`}
+      className="group relative aspect-square overflow-hidden rounded-md border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] transition hover:border-[color:var(--fc-border-strong)]"
+      aria-label={headline}
+    >
+      {firstImage ? (
+        <Image
+          src={firstImage}
+          alt={headline}
+          fill
+          unoptimized
+          className="object-cover"
+          sizes="(max-width: 640px) 33vw, (max-width: 1024px) 25vw, 16vw"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-[color:var(--fc-text-soft)]">
+          <PlusSquare size={20} strokeWidth={1.5} />
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end p-2 opacity-0 transition group-hover:opacity-100">
+        <p className="line-clamp-1 text-[10px] font-semibold text-white">
+          {bucket.status === "DONE" ? "Posted" : statusToLabel(bucket.status)}
+        </p>
+      </div>
+      <span
+        className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
+          bucket.status === "DONE"
+            ? "bg-white text-[color:var(--fc-text-primary)] shadow-sm"
+            : bucket.status === "FAILED"
+              ? "bg-white text-[#b91c1c] shadow-sm"
+              : "bg-black/70 text-white"
+        }`}
+      >
+        {statusToLabel(bucket.status)}
+      </span>
+    </Link>
+  );
+}
+
+function statusToLabel(status: Bucket["status"]): string {
+  switch (status) {
+    case "DONE":
+      return "Posted";
+    case "READY":
+      return "Ready";
+    case "PROCESSING":
+      return "Posting";
+    case "ENHANCING":
+      return "Polishing";
+    case "FAILED":
+      return "Issue";
+    default:
+      return "Draft";
+  }
+}
+
+function EmptyHomeState({
+  onCreate,
+  creating,
+}: {
+  onCreate: () => void;
+  creating: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] px-6 py-10 text-center">
+      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white">
+        <PlusSquare
+          size={22}
+          strokeWidth={1.6}
+          className="text-[color:var(--fc-text-primary)]"
+        />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
+          No posts yet
+        </p>
+        <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
+          Create your first post and share it to Shopify and Instagram.
+        </p>
+      </div>
+      <LiquidButton
+        variant="primary"
+        size="md"
+        onClick={onCreate}
+        disabled={creating}
+      >
+        {creating ? (
+          <Loader2 size={14} className="animate-spin" />
+        ) : (
+          <PlusSquare size={14} />
+        )}
+        <span>Create post</span>
+      </LiquidButton>
     </div>
   );
 }
