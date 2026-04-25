@@ -1,35 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --fc-background: #f7f7f7;
+  /* Instagram-inspired surface palette */
+  --fc-background: #ffffff;
   --fc-surface: #ffffff;
-  --fc-surface-elevated: #fbfdff;
-  --fc-text-primary: #131a22;
-  --fc-text-muted: rgba(19, 26, 34, 0.68);
-  --fc-border-subtle: rgba(15, 108, 189, 0.16);
-  --fc-border-strong: rgba(15, 108, 189, 0.3);
-  --fc-primary: #0f6cbd;
-  --fc-primary-hover: #0c5fa8;
-  --fc-secondary: #6a54d1;
-  --fc-accent: #b98513;
-  --fc-success: #127a59;
-  --fc-error: #c2413a;
-  --fc-highlight: #4cc8ff;
-  --fc-focus-ring: rgba(15, 108, 189, 0.34);
+  --fc-surface-elevated: #ffffff;
+  --fc-surface-muted: #fafafa;
+  --fc-text-primary: #262626;
+  --fc-text-muted: rgba(38, 38, 38, 0.62);
+  --fc-text-soft: rgba(38, 38, 38, 0.4);
+  --fc-border-subtle: #efefef;
+  --fc-border-strong: #dbdbdb;
 
-  --fc-radius-sm: 0.75rem;
-  --fc-radius-md: 1rem;
-  --fc-radius-lg: 1.375rem;
-  --fc-radius-xl: 1.75rem;
-  --fc-radius-2xl: 2rem;
+  /* Instagram action blue (primary CTA) */
+  --fc-primary: #0095f6;
+  --fc-primary-hover: #1877f2;
 
-  --fc-shadow-sm: 0 6px 16px rgba(15, 34, 62, 0.08);
-  --fc-shadow-md: 0 14px 28px rgba(12, 41, 72, 0.1);
-  --fc-shadow-lg: 0 22px 44px rgba(11, 37, 66, 0.12);
+  /* Instagram gradient stops (purple -> pink -> orange) */
+  --fc-secondary: #833ab4;
+  --fc-accent: #fd1d1d;
+  --fc-success: #46a96f;
+  --fc-error: #ed4956;
+  --fc-highlight: #fcaf45;
+  --fc-focus-ring: rgba(0, 149, 246, 0.32);
 
-  --fc-gradient-hero: linear-gradient(130deg, #0f6cbd 0%, #4cc8ff 42%, #6a54d1 100%);
-  --fc-gradient-line: linear-gradient(90deg, #0f6cbd 0%, #4cc8ff 40%, #6a54d1 100%);
-  --fc-gradient-surface: linear-gradient(155deg, rgba(255, 255, 255, 0.98), rgba(249, 252, 255, 0.94));
+  --fc-radius-sm: 0.5rem;
+  --fc-radius-md: 0.75rem;
+  --fc-radius-lg: 1rem;
+  --fc-radius-xl: 1.25rem;
+  --fc-radius-2xl: 1.5rem;
+
+  --fc-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --fc-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+  --fc-shadow-lg: 0 10px 28px rgba(0, 0, 0, 0.08);
+
+  /* The signature Instagram gradient */
+  --fc-gradient-hero: linear-gradient(
+    135deg,
+    #feda75 0%,
+    #fa7e1e 20%,
+    #d62976 50%,
+    #962fbf 80%,
+    #4f5bd5 100%
+  );
+  --fc-gradient-line: linear-gradient(
+    90deg,
+    #f09433 0%,
+    #e6683c 25%,
+    #dc2743 50%,
+    #cc2366 75%,
+    #bc1888 100%
+  );
+  --fc-gradient-surface: linear-gradient(180deg, #ffffff 0%, #ffffff 100%);
 }
 
 @theme inline {
@@ -46,8 +68,12 @@
   --color-success: var(--fc-success);
   --color-error: var(--fc-error);
   --color-highlight: var(--fc-highlight);
-  --font-sans: Inter, "Helvetica Neue", Arial, ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-heading: Inter, "Helvetica Neue", Arial, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-heading:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
@@ -64,17 +90,19 @@ body {
   min-height: 100vh;
   overflow-x: hidden;
   margin: 0;
-  background:
-    radial-gradient(circle at 8% -20%, rgba(76, 200, 255, 0.22), transparent 34%),
-    radial-gradient(circle at 102% 0%, rgba(106, 84, 209, 0.14), transparent 38%),
-    linear-gradient(180deg, #fcfdff 0%, #f7f7f7 58%, #f2f6fb 100%);
+  background: var(--fc-background);
   color: var(--fc-text-primary);
-  font-family: Inter, "Helvetica Neue", Arial, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  font-feature-settings: "ss01", "cv11";
   line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: rgba(15, 108, 189, 0.2);
+  background: rgba(0, 149, 246, 0.18);
   color: var(--fc-text-primary);
 }
 
@@ -86,136 +114,105 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: Inter, "Helvetica Neue", Arial, ui-sans-serif, system-ui, -apple-system, sans-serif;
-  letter-spacing: -0.02em;
+  font-family:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: -0.015em;
+  font-weight: 600;
 }
 
 .cinematic-shell {
   background: transparent;
 }
 
-.app-atmosphere {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-
-.app-atmosphere::before,
-.app-atmosphere::after {
-  content: "";
-  position: absolute;
-  border-radius: 9999px;
-  filter: blur(100px);
-}
-
-.app-atmosphere::before {
-  top: -160px;
-  right: -120px;
-  width: 380px;
-  height: 360px;
-  background: rgba(76, 200, 255, 0.22);
-  animation: floatAura 22s ease-in-out infinite alternate;
-}
-
-.app-atmosphere::after {
-  left: -120px;
-  bottom: -170px;
-  width: 360px;
-  height: 360px;
-  background: rgba(106, 84, 209, 0.12);
-  animation: floatAura 20s ease-in-out infinite alternate-reverse;
-}
-
+/* The atmosphere layers are kept as no-ops so existing layout markup stays
+   stable but we render a clean Instagram-style white canvas. */
+.app-atmosphere,
 .app-grain {
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.03;
-  mix-blend-mode: multiply;
-  background-image: radial-gradient(rgba(9, 30, 55, 0.4) 0.5px, transparent 0.5px);
-  background-size: 3px 3px;
+  display: none;
 }
 
 .cinematic-card,
 .warm-card,
 .glass-card,
 .surface-shell {
-  background: var(--fc-gradient-surface), var(--fc-surface);
+  background: var(--fc-surface);
   border: 1px solid var(--fc-border-subtle);
-  border-radius: var(--fc-radius-xl);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--fc-shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  border-radius: var(--fc-radius-lg);
+  box-shadow: none;
 }
 
 .warm-card-hover,
 .glass-card-hover {
-  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .warm-card-hover:hover,
 .glass-card-hover:hover {
-  transform: translateY(-2px);
   border-color: var(--fc-border-strong);
-  box-shadow: 0 16px 34px rgba(10, 49, 88, 0.16);
+  box-shadow: var(--fc-shadow-md);
 }
 
 .cinematic-input,
 .warm-input,
 .glass-input {
-  background: rgba(255, 255, 255, 0.96);
-  border: 1px solid rgba(15, 108, 189, 0.22);
+  background: var(--fc-surface-muted);
+  border: 1px solid var(--fc-border-subtle);
   color: var(--fc-text-primary);
   border-radius: var(--fc-radius-md);
-  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
 }
 
 .cinematic-input::placeholder,
 .warm-input::placeholder,
 .glass-input::placeholder {
-  color: rgba(19, 26, 34, 0.45);
+  color: var(--fc-text-soft);
 }
 
 .cinematic-input:focus,
 .warm-input:focus,
 .glass-input:focus {
   outline: none;
-  border-color: rgba(15, 108, 189, 0.5);
+  border-color: var(--fc-border-strong);
   background: #ffffff;
   box-shadow: 0 0 0 3px var(--fc-focus-ring);
 }
 
+/* Instagram-style status chips */
 .badge-green {
-  border: 1px solid rgba(18, 122, 89, 0.35);
-  background: rgba(18, 122, 89, 0.12);
-  color: #0c5e45;
+  border: 1px solid rgba(70, 169, 111, 0.32);
+  background: rgba(70, 169, 111, 0.1);
+  color: #2f7c52;
 }
 
 .badge-red {
-  border: 1px solid rgba(194, 65, 58, 0.35);
-  background: rgba(194, 65, 58, 0.1);
-  color: #942a26;
+  border: 1px solid rgba(237, 73, 86, 0.32);
+  background: rgba(237, 73, 86, 0.08);
+  color: #c83641;
 }
 
 .badge-gold {
-  border: 1px solid rgba(185, 133, 19, 0.4);
-  background: rgba(185, 133, 19, 0.17);
-  color: #4f3a0b;
+  border: 1px solid rgba(252, 175, 69, 0.4);
+  background: rgba(252, 175, 69, 0.14);
+  color: #8a5a10;
 }
 
 .badge-blue {
-  border: 1px solid rgba(15, 108, 189, 0.38);
-  background: rgba(15, 108, 189, 0.12);
-  color: #0d4f8a;
+  border: 1px solid rgba(0, 149, 246, 0.34);
+  background: rgba(0, 149, 246, 0.08);
+  color: #0867b5;
 }
 
 .badge-purple {
-  border: 1px solid rgba(106, 84, 209, 0.34);
-  background: rgba(106, 84, 209, 0.12);
-  color: #4d3bb0;
+  border: 1px solid rgba(131, 58, 180, 0.32);
+  background: rgba(131, 58, 180, 0.08);
+  color: #5d2c81;
 }
 
 .glow-green,
@@ -231,14 +228,14 @@ h4 {
   align-items: center;
   gap: 0.35rem;
   border-radius: 9999px;
-  border: 1px solid rgba(15, 108, 189, 0.18);
-  background: rgba(255, 255, 255, 0.9);
-  color: rgba(19, 26, 34, 0.82);
+  border: 1px solid var(--fc-border-subtle);
+  background: var(--fc-surface-muted);
+  color: var(--fc-text-muted);
   font-size: 0.72rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.34rem 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  padding: 0.3rem 0.7rem;
 }
 
 .story-number {
@@ -248,25 +245,45 @@ h4 {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  border: 1px solid rgba(15, 108, 189, 0.25);
-  background: rgba(255, 255, 255, 0.96);
-  color: var(--fc-primary);
-  font-size: 0.76rem;
+  background: var(--fc-gradient-line);
+  color: #ffffff;
+  font-size: 0.78rem;
   font-weight: 700;
+}
+
+/* Instagram-style ring around an avatar (used for "Create Post" tile etc.) */
+.ig-ring {
+  position: relative;
+  isolation: isolate;
+}
+
+.ig-ring::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  padding: 2px;
+  background: var(--fc-gradient-line);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: -1;
 }
 
 @keyframes pulseGlow {
   0%,
   100% {
-    box-shadow: 0 0 0 rgba(15, 108, 189, 0);
+    box-shadow: 0 0 0 rgba(0, 149, 246, 0);
   }
   50% {
-    box-shadow: 0 0 14px rgba(76, 200, 255, 0.3);
+    box-shadow: 0 0 0 4px rgba(0, 149, 246, 0.16);
   }
 }
 
 .pulse-blue {
-  animation: pulseGlow 1.9s ease-in-out infinite;
+  animation: pulseGlow 2s ease-in-out infinite;
 }
 
 @keyframes floatAura {

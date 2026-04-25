@@ -8,9 +8,9 @@ import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
 import { SvgFollowScroll } from "@/src/components/ui/svg-follow-scroll";
 
 const flowCards = [
-  { label: "Upload product media", detail: "One source of truth" },
-  { label: "Sync Shopify product", detail: "No duplicate listings" },
-  { label: "Update Instagram post", detail: "Same post, edit-safe" },
+  { label: "Add your photos", detail: "One simple post" },
+  { label: "Share to Shopify", detail: "No duplicate listings" },
+  { label: "Share to Instagram", detail: "Same post, easy edits" },
 ];
 
 export function HomeLanding() {
@@ -37,24 +37,24 @@ export function HomeLanding() {
         <div className="relative z-10 grid gap-7 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
           <div className="max-w-3xl space-y-5">
             <span className="mono-pill">
-              <Sparkles size={12} /> FlowCart launch pipeline
+              <Sparkles size={12} /> FlowCart for creators
             </span>
 
             <div className="space-y-3">
               <h1 className="text-4xl leading-[0.95] font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-5xl lg:text-6xl">
-                Upload once.
+                Post once.
                 <br />
-                Launch everywhere.
+                Share everywhere.
               </h1>
               <p className="max-w-2xl text-sm leading-7 text-[color:var(--fc-text-muted)] sm:text-base">
-                FlowCart turns one product draft into a clean, connected Shopify and Instagram launch flow with in-place updates and zero duplicate-post chaos.
+                Add your photos and a caption once. FlowCart shares your post to Shopify and Instagram together, and keeps them in sync when you edit.
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <LiquidButton asChild size="xl" className="min-w-44">
                 <Link href="/dashboard">
-                  Open Dashboard <ArrowRight size={16} />
+                  Open Posts <ArrowRight size={16} />
                 </Link>
               </LiquidButton>
               <LiquidButton asChild variant="secondary" size="xl" className="min-w-36">
@@ -63,9 +63,9 @@ export function HomeLanding() {
             </div>
 
             <div className="grid gap-2 pt-1 sm:grid-cols-3">
-              <span className="mono-pill justify-center sm:justify-start">No duplicate Shopify products</span>
+              <span className="mono-pill justify-center sm:justify-start">No duplicate Shopify listings</span>
               <span className="mono-pill justify-center sm:justify-start">No duplicate Instagram posts</span>
-              <span className="mono-pill justify-center sm:justify-start">AI enhancement in flow</span>
+              <span className="mono-pill justify-center sm:justify-start">AI captions in seconds</span>
             </div>
           </div>
 
@@ -82,9 +82,9 @@ export function HomeLanding() {
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:rgba(19,26,34,0.56)]">
-                  Launch Journey
+                  How it works
                 </p>
-                <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">One product, multi-channel outcome</p>
+                <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">One post. Two places. Zero hassle.</p>
               </div>
             </div>
 
@@ -109,8 +109,8 @@ export function HomeLanding() {
               ))}
             </div>
 
-            <div className="mt-3 flex items-center gap-2 rounded-xl border border-[color:rgba(18,122,89,0.24)] bg-[rgba(18,122,89,0.1)] px-3 py-2 text-xs font-semibold text-[color:#0c5e45]">
-              <CheckCircle2 size={13} /> Ready for clean, edit-safe launches
+            <div className="mt-3 flex items-center gap-2 rounded-xl border border-[rgba(70,169,111,0.32)] bg-[rgba(70,169,111,0.08)] px-3 py-2 text-xs font-semibold text-[#2f7c52]">
+              <CheckCircle2 size={13} /> Ready when you are
             </div>
           </div>
         </div>

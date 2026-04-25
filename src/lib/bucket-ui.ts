@@ -9,13 +9,13 @@ export function shouldEnableBucketTrashAction(status: BucketStatus): boolean {
 }
 
 export function getBucketTrashLabel(status: BucketStatus): string {
-  return status === "EMPTY" ? "Remove Bucket" : "Trash Bucket";
+  return status === "EMPTY" ? "Remove Post" : "Remove Post";
 }
 
 export function getBucketTrashDescription(status: BucketStatus): string {
   return status === "EMPTY"
-    ? "Choose how to remove this empty bucket."
-    : "Choose how to remove this failed bucket.";
+    ? "This empty post can be removed without affecting Shopify or Instagram."
+    : "This post failed to publish. Choose how to remove it.";
 }
 
 export function isDoneBucketCollapsedByDefault(status: BucketStatus): boolean {

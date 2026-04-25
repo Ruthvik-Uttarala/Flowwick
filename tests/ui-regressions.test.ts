@@ -7,17 +7,21 @@ function readSource(relativePath: string): string {
 }
 
 describe("ui regressions", () => {
-  it("defines the FlowCart brand token system in globals.css", () => {
+  it("defines the FlowCart Instagram-style brand token system in globals.css", () => {
     const globalsSource = readSource("app/globals.css");
 
-    expect(globalsSource).toContain("--fc-primary: #0f6cbd;");
-    expect(globalsSource).toContain("--fc-secondary: #6a54d1;");
-    expect(globalsSource).toContain("--fc-accent: #b98513;");
-    expect(globalsSource).toContain("--fc-background: #f7f7f7;");
-    expect(globalsSource).toContain("--fc-text-primary: #131a22;");
-    expect(globalsSource).toContain("--fc-success: #127a59;");
-    expect(globalsSource).toContain("--fc-error: #c2413a;");
-    expect(globalsSource).toContain("--fc-highlight: #4cc8ff;");
+    // Instagram action blue is the primary CTA color.
+    expect(globalsSource).toContain("--fc-primary: #0095f6;");
+    // Purple/pink/orange Instagram gradient stops.
+    expect(globalsSource).toContain("--fc-secondary: #833ab4;");
+    expect(globalsSource).toContain("--fc-accent: #fd1d1d;");
+    // Clean white canvas.
+    expect(globalsSource).toContain("--fc-background: #ffffff;");
+    // Instagram dark text and friendly status colors.
+    expect(globalsSource).toContain("--fc-text-primary: #262626;");
+    expect(globalsSource).toContain("--fc-success: #46a96f;");
+    expect(globalsSource).toContain("--fc-error: #ed4956;");
+    expect(globalsSource).toContain("--fc-highlight: #fcaf45;");
   });
 
   it("keeps homepage brand assets wired into the real app surfaces", () => {
@@ -30,23 +34,28 @@ describe("ui regressions", () => {
     expect(authSource).toContain("/brand/flowcart-logo-clean.png");
   });
 
-  it("uses the shared LiquidButton primitive for major action labels", () => {
+  it("uses the shared LiquidButton primitive for the Instagram-style action labels", () => {
     const dashboardSource = readSource("app/dashboard/page.tsx");
     const settingsSource = readSource("app/settings/page.tsx");
     const bucketSource = readSource("src/components/ProductBucket.tsx");
     const buttonSource = readSource("src/components/ui/liquid-glass-button.tsx");
 
-    expect(dashboardSource).toMatch(/<LiquidButton[\s\S]*Create Bucket/);
-    expect(dashboardSource).toMatch(/<LiquidButton[\s\S]*GO ALL/);
+    // Dashboard primary CTAs are the renamed Instagram-friendly actions.
+    expect(dashboardSource).toMatch(/<LiquidButton[\s\S]*Create Post/);
+    expect(dashboardSource).toMatch(/<LiquidButton[\s\S]*Post All/);
+    // Settings button labels are unchanged backend-named flows.
     expect(settingsSource).toMatch(/<LiquidButton[\s\S]*Reconnect Shopify|Connect Shopify/);
     expect(settingsSource).toMatch(/<LiquidButton[\s\S]*Validate Connection/);
     expect(settingsSource).toMatch(/<LiquidButton[\s\S]*Disconnect Instagram/);
-    expect(bucketSource).toMatch(/<LiquidButton[\s\S]*Sync Updates/);
-    expect(bucketSource).toMatch(/<LiquidButton[\s\S]*\bGO\b/);
+    // Post card uses Update Post / Post / Edit as the primary action verbs.
+    expect(bucketSource).toMatch(/<LiquidButton[\s\S]*Update Post/);
+    expect(bucketSource).toMatch(/<LiquidButton[\s\S]*\bPost\b/);
     expect(bucketSource).toMatch(/<LiquidButton[\s\S]*\bEdit\b/);
-    expect(buttonSource).toContain("bg-[linear-gradient(155deg,#0f6cbd_0%,#0c5fa8_58%,#0a4f8a_100%)]");
-    expect(buttonSource).toContain("bg-[linear-gradient(155deg,#c2413a_0%,#a43631_100%)]");
+    // The button primitive uses Instagram blue + Instagram red (no SaaS gradient).
+    expect(buttonSource).toContain("bg-[#0095f6]");
+    expect(buttonSource).toContain("bg-[#ed4956]");
     expect(buttonSource).not.toContain("bg-[linear-gradient(158deg,#101010,#000)]");
+    expect(buttonSource).not.toContain("bg-[linear-gradient(155deg,#0f6cbd_0%,#0c5fa8_58%,#0a4f8a_100%)]");
   });
 
   it("keeps settings ripple visuals gated behind active async states only", () => {
@@ -56,7 +65,7 @@ describe("ui regressions", () => {
     expect(settingsSource).toContain("{isConnectingInstagram || isValidatingInstagram ? (");
   });
 
-  it("auto-refreshes dashboard buckets while GO ALL or active processing is in progress", () => {
+  it("auto-refreshes dashboard posts while Post All or active processing is in progress", () => {
     const dashboardSource = readSource("app/dashboard/page.tsx");
 
     expect(dashboardSource).toContain("hasActiveBucketWork(buckets)");
@@ -68,7 +77,7 @@ describe("ui regressions", () => {
     expect(dashboardSource).toContain("runBoundedQueue(targetBucketIds, GO_ALL_CONCURRENCY_LIMIT");
   });
 
-  it("renders DONE sync acknowledgement as structured status chips instead of raw paragraph text", () => {
+  it("renders posted post update acknowledgement as structured status chips instead of raw paragraph text", () => {
     const dashboardSource = readSource("app/dashboard/page.tsx");
     const bucketSource = readSource("src/components/ProductBucket.tsx");
     const workflowSource = readSource("src/lib/server/workflows.ts");
