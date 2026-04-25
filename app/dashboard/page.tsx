@@ -30,8 +30,8 @@ import {
   Clock,
   Loader2,
   Plus,
-  Rocket,
   RotateCcw,
+  Send,
   Trash2,
   XCircle,
   Zap,
@@ -49,7 +49,6 @@ import {
   toggleDoneBucketExpandedState,
 } from "@/src/lib/bucket-ui";
 import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
-import { WebGLShader } from "@/src/components/ui/web-gl-shader";
 
 interface BucketActionState {
   saving: boolean;
@@ -295,7 +294,7 @@ export default function DashboardPage() {
         await Promise.all([loadBuckets(), loadRuntimeHealth()]);
       } catch (error) {
         if (active) {
-          setPageError(error instanceof Error ? error.message : "Failed to initialize dashboard.");
+          setPageError(error instanceof Error ? error.message : "Failed to load your feed.");
         }
       } finally {
         if (active) {
@@ -394,11 +393,11 @@ export default function DashboardPage() {
       });
       const payload = await readApiResponse<{ bucket?: Bucket }>(response);
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
-        throw new Error(apiErrorMessage(payload, "Failed to save bucket."));
+        throw new Error(apiErrorMessage(payload, "Failed to save post."));
       }
       upsertBucket(payload.data.bucket);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to save bucket.");
+      setPageError(error instanceof Error ? error.message : "Failed to save post.");
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, saving: false }));
     }
@@ -422,11 +421,11 @@ export default function DashboardPage() {
       });
       const payload = await readApiResponse<{ bucket?: Bucket }>(response);
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
-        throw new Error(apiErrorMessage(payload, "Image upload failed."));
+        throw new Error(apiErrorMessage(payload, "Photo upload failed."));
       }
       upsertBucket(payload.data.bucket);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Image upload failed.");
+      setPageError(error instanceof Error ? error.message : "Photo upload failed.");
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, uploading: false }));
     }
@@ -476,8 +475,8 @@ export default function DashboardPage() {
       const response = await fetch("/api/buckets/create", { method: "POST" });
       const payload = await readApiResponse<{ bucket?: Bucket }>(response);
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
-        throw new Error(apiErrorMessage(payload, "Failed to create bucket."));
-      }
+      throw new Error(apiErrorMessage(payload, "Failed to create post."));
+    }
 
       const { buckets: nextBuckets, scrollTargetBucketId } = applyCreatedBucket(
         bucketsRef.current,
@@ -486,7 +485,7 @@ export default function DashboardPage() {
       setCollections(nextBuckets, trashedBucketsRef.current);
       setPendingScrollBucketId(scrollTargetBucketId);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to create bucket.");
+      setPageError(error instanceof Error ? error.message : "Failed to create post.");
     }
   };
 
@@ -502,7 +501,7 @@ export default function DashboardPage() {
         trashedBuckets?: Bucket[];
       }>(response);
       if (!response.ok || !payload?.ok) {
-        throw new Error(apiErrorMessage(payload, "Failed to move bucket to trash."));
+        throw new Error(apiErrorMessage(payload, "Failed to move post to trash."));
       }
 
       const appliedCollections = applyBucketCollectionsFromPayload(payload.data);
@@ -514,7 +513,7 @@ export default function DashboardPage() {
         setCollections(nextCollections.buckets, nextCollections.trashedBuckets);
       }
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to move bucket to trash.");
+      setPageError(error instanceof Error ? error.message : "Failed to move post to trash.");
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, trashing: false }));
     }
@@ -532,7 +531,7 @@ export default function DashboardPage() {
         trashedBuckets?: Bucket[];
       }>(response);
       if (!response.ok || !payload?.ok) {
-        throw new Error(apiErrorMessage(payload, "Failed to restore bucket."));
+        throw new Error(apiErrorMessage(payload, "Failed to restore post."));
       }
 
       const appliedCollections = applyBucketCollectionsFromPayload(payload.data);
@@ -544,7 +543,7 @@ export default function DashboardPage() {
         setCollections(nextCollections.buckets, nextCollections.trashedBuckets);
       }
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to restore bucket.");
+      setPageError(error instanceof Error ? error.message : "Failed to restore post.");
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, restoring: false }));
     }
@@ -562,7 +561,7 @@ export default function DashboardPage() {
         trashedBuckets?: Bucket[];
       }>(response);
       if (!response.ok || !payload?.ok) {
-        throw new Error(apiErrorMessage(payload, "Failed to permanently delete bucket."));
+        throw new Error(apiErrorMessage(payload, "Failed to delete post."));
       }
 
       const deletedBucketId = payload.data?.deletedBucketId ?? bucketId;
@@ -575,7 +574,7 @@ export default function DashboardPage() {
         setCollections(nextCollections.buckets, nextCollections.trashedBuckets);
       }
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to permanently delete bucket.");
+      setPageError(error instanceof Error ? error.message : "Failed to delete post.");
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, deleting: false }));
     }
@@ -590,7 +589,7 @@ export default function DashboardPage() {
             id: "sync-no-op",
             label: "No changes",
             tone: "warning",
-            detail: "Edit at least one field before syncing updates.",
+            detail: "Edit at least one field before updating the post.",
           },
         ],
       }));
@@ -615,7 +614,7 @@ export default function DashboardPage() {
       }>(response);
 
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
-        throw new Error(apiErrorMessage(payload, "Failed to sync launched bucket."));
+        throw new Error(apiErrorMessage(payload, "Failed to update post."));
       }
 
       upsertBucket(payload.data.bucket);
@@ -627,9 +626,9 @@ export default function DashboardPage() {
             : [
                 {
                   id: "sync-complete",
-                  label: "Sync complete",
+                  label: "Post updated",
                   tone: "success",
-                  detail: "Done bucket updates were synced.",
+                  detail: "Your post was updated everywhere.",
                 },
               ],
       }));
@@ -639,9 +638,9 @@ export default function DashboardPage() {
         [bucketId]: [
           {
             id: "sync-failed",
-            label: "Sync failed",
+            label: "Update failed",
             tone: "failure",
-            detail: error instanceof Error ? error.message : "Failed to sync launched bucket.",
+            detail: error instanceof Error ? error.message : "Failed to update post.",
           },
         ],
       }));
@@ -669,7 +668,7 @@ export default function DashboardPage() {
       failed: 0,
       bucketIds: targetBucketIds,
     });
-    setSummaryMessage(`GO ALL running: 0/${targetBucketIds.length} completed.`);
+    setSummaryMessage(`Posting: 0/${targetBucketIds.length} done.`);
 
     const nextBuckets = markBucketsProcessingForGoAll(bucketsRef.current, targetBucketIds);
     setCollections(nextBuckets, trashedBucketsRef.current);
@@ -687,10 +686,10 @@ export default function DashboardPage() {
       });
 
       if (completed < targetBucketIds.length) {
-        setSummaryMessage(`GO ALL running: ${completed}/${targetBucketIds.length} completed.`);
+        setSummaryMessage(`Posting: ${completed}/${targetBucketIds.length} done.`);
       } else {
         setSummaryMessage(
-          `Go All complete: ${succeeded} succeeded, ${failed} failed. (${targetBucketIds.length} processed)`
+          `Done. ${succeeded} posted, ${failed} need attention. (${targetBucketIds.length} total)`
         );
       }
     };
@@ -706,7 +705,7 @@ export default function DashboardPage() {
           }
 
           if (!response.ok || !payload?.ok) {
-            const message = apiErrorMessage(payload, "Launch failed.");
+            const message = apiErrorMessage(payload, "Posting failed.");
             const currentBucket = bucketsRef.current.find((bucket) => bucket.id === bucketId);
             if (currentBucket) {
               upsertBucket({
@@ -730,7 +729,7 @@ export default function DashboardPage() {
             upsertBucket({
               ...currentBucket,
               status: "FAILED",
-              errorMessage: error instanceof Error ? error.message : "Launch failed.",
+              errorMessage: error instanceof Error ? error.message : "Posting failed.",
             });
           }
         } finally {
@@ -740,7 +739,7 @@ export default function DashboardPage() {
       });
       await loadRuntimeHealth();
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Go All failed.");
+      setPageError(error instanceof Error ? error.message : "Posting failed.");
     } finally {
       setIsRunningGoAll(false);
       goAllInFlightRef.current = false;
@@ -763,125 +762,119 @@ export default function DashboardPage() {
       label: "Ready",
       value: readyCount,
       icon: Clock,
-      accent: "border-[color:rgba(15,108,189,0.22)] bg-[rgba(15,108,189,0.1)] text-[color:#0d4f8a]",
+      accent: "text-[#0867b5]",
     },
     {
-      label: "Done",
+      label: "Posted",
       value: doneCount,
       icon: CheckCircle2,
-      accent: "border-[color:rgba(18,122,89,0.24)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]",
+      accent: "text-[#2f7c52]",
     },
     {
-      label: "Failed",
+      label: "Issues",
       value: failedCount,
       icon: XCircle,
-      accent: "border-[color:rgba(194,65,58,0.26)] bg-[rgba(194,65,58,0.1)] text-[color:#942a26]",
+      accent: "text-[#c83641]",
     },
     {
       label: "Trash",
       value: trashCount,
       icon: Trash2,
-      accent: "border-[color:rgba(15,108,189,0.14)] bg-white/92 text-[color:var(--fc-text-primary)]",
+      accent: "text-[color:var(--fc-text-primary)]",
     },
     {
       label: "AI",
-      value: runtimeHealth.openaiConfigured ? "Live" : "Missing",
+      value: runtimeHealth.openaiConfigured ? "On" : "Off",
       icon: Zap,
       accent: runtimeHealth.openaiConfigured
-        ? "border-[color:rgba(15,108,189,0.28)] bg-[rgba(15,108,189,0.12)] text-[color:#0d4f8a]"
-        : "border-[color:rgba(15,108,189,0.14)] bg-white/92 text-[color:var(--fc-text-muted)]",
+        ? "text-[#0867b5]"
+        : "text-[color:var(--fc-text-muted)]",
     },
   ];
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-5 px-4 sm:px-0">
+      {/* Header — clean Instagram-style, no decorative shaders */}
       <motion.section
-        initial={{ opacity: 0, y: 18 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="cinematic-card relative overflow-hidden rounded-3xl p-6"
+        transition={{ duration: 0.3 }}
+        className="space-y-4 pt-2"
       >
-        <WebGLShader className="opacity-55" />
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[rgba(76,200,255,0.2)] blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-[rgba(106,84,209,0.14)] blur-3xl" />
-
-        <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[color:rgba(19,26,34,0.56)]">
-              Launch Console
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
-              FlowCart Dashboard
+            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
+              Your Posts
             </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-[color:var(--fc-text-muted)]">
-              Build once, launch everywhere, and edit launched buckets without duplicate Shopify
-              products or duplicate Instagram posts.
+            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
+              Post once. Share to Shopify and Instagram together.
             </p>
           </div>
-          <div className="flex flex-col gap-3">
-            <LiquidButton
-              onClick={createBucketAction}
-              disabled={isRunningGoAll}
-              variant="secondary"
-              className="rounded-2xl"
-            >
-              <Plus size={16} /> Create Bucket
-            </LiquidButton>
-            <LiquidButton
-              onClick={goAllBuckets}
-              disabled={readyCount === 0 || isRunningGoAll}
-              size="lg"
-              className="rounded-2xl"
-            >
-              <span className="flex items-center gap-2">
-                {isRunningGoAll ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Running...
-                  </>
-                ) : (
-                  <>
-                    <Rocket size={16} /> GO ALL ({readyCount})
-                  </>
-                )}
-              </span>
-            </LiquidButton>
-          </div>
+          <LiquidButton
+            onClick={createBucketAction}
+            disabled={isRunningGoAll}
+            variant="primary"
+            size="md"
+            aria-label="Create Post"
+          >
+            <Plus size={16} />
+            <span className="hidden sm:inline">Create Post</span>
+          </LiquidButton>
         </div>
 
-        <div className="relative z-10 mt-5 grid gap-3 sm:grid-cols-5">
-          {statsCards.map((card, index) => {
+        {/* Stat strip — compact, readable, no clutter */}
+        <div className="flex gap-3 overflow-x-auto rounded-xl border border-[color:var(--fc-border-subtle)] bg-white px-3 py-3 sm:gap-6">
+          {statsCards.map((card) => {
             const Icon = card.icon;
             return (
-              <motion.div
+              <div
                 key={card.label}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.04 * index }}
-                className={`rounded-2xl border px-4 py-3 ${card.accent}`}
+                className="flex min-w-[68px] flex-1 flex-col items-center justify-center text-center"
               >
-                <div className="flex items-center gap-2">
-                  <Icon size={14} />
-                  <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
-                    {card.label}
-                  </p>
+                <div className={`flex items-center gap-1.5 ${card.accent}`}>
+                  <Icon size={14} strokeWidth={1.8} />
+                  <span className="text-base font-semibold">{card.value}</span>
                 </div>
-                <p className="mt-1 text-xl font-semibold">{card.value}</p>
-              </motion.div>
+                <span className="mt-0.5 text-[11px] font-medium text-[color:var(--fc-text-muted)]">
+                  {card.label}
+                </span>
+              </div>
             );
           })}
         </div>
+
+        {/* Primary CTA — Post All */}
+        {readyCount > 0 ? (
+          <LiquidButton
+            onClick={goAllBuckets}
+            disabled={readyCount === 0 || isRunningGoAll}
+            size="lg"
+            className="w-full"
+            contentClassName="justify-center"
+          >
+            {isRunningGoAll ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Posting...
+              </>
+            ) : (
+              <>
+                <Send size={16} /> Post All ({readyCount})
+              </>
+            )}
+          </LiquidButton>
+        ) : null}
       </motion.section>
 
       <AnimatePresence initial={false}>
         {loading ? (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="flex items-center gap-2 rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/84 px-4 py-3"
+            exit={{ opacity: 0, y: -6 }}
+            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3"
           >
             <Loader2 size={14} className="animate-spin text-[color:var(--fc-primary)]" />
-            <span className="text-sm text-[color:var(--fc-text-muted)]">Loading buckets...</span>
+            <span className="text-sm text-[color:var(--fc-text-muted)]">Loading your posts...</span>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -889,16 +882,16 @@ export default function DashboardPage() {
       <AnimatePresence initial={false}>
         {summaryMessage ? (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-[color:rgba(15,108,189,0.18)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-primary)]"
+            exit={{ opacity: 0, y: -6 }}
+            className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-primary)]"
           >
             <div className="flex flex-wrap items-center gap-2">
               <span>{summaryMessage}</span>
               {goAllSummary ? (
-                <span className="rounded-full border border-[color:rgba(15,108,189,0.16)] bg-white/85 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-[color:rgba(19,26,34,0.7)]">
-                  Success {goAllSummary.succeeded} · Failed {goAllSummary.failed}
+                <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-2.5 py-0.5 text-[11px] font-semibold text-[color:var(--fc-text-muted)]">
+                  Posted {goAllSummary.succeeded} · Issues {goAllSummary.failed}
                 </span>
               ) : null}
             </div>
@@ -909,10 +902,10 @@ export default function DashboardPage() {
       <AnimatePresence initial={false}>
         {pageError ? (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            className="rounded-2xl border border-[color:rgba(194,65,58,0.34)] bg-[rgba(194,65,58,0.1)] px-4 py-3 text-sm text-[color:#942a26]"
+            exit={{ opacity: 0, y: -6 }}
+            className="rounded-lg border border-[rgba(237,73,86,0.34)] bg-[rgba(237,73,86,0.06)] px-4 py-3 text-sm text-[#c83641]"
           >
             {pageError}
           </motion.div>
@@ -920,14 +913,31 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       {buckets.length === 0 && !loading ? (
-        <div className="cinematic-card rounded-3xl p-8 text-center">
-          <p className="text-sm text-[color:var(--fc-text-muted)]">
-            No buckets yet. Create your first bucket to start the launch flow.
+        <div className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white px-6 py-12 text-center">
+          <div className="mx-auto mb-3 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--fc-surface-muted)]">
+            <Plus size={24} strokeWidth={1.8} className="text-[color:var(--fc-text-muted)]" />
+          </div>
+          <h3 className="text-base font-semibold text-[color:var(--fc-text-primary)]">
+            No posts yet
+          </h3>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-[color:var(--fc-text-muted)]">
+            Tap Create Post to add photos, a caption, and share everywhere.
           </p>
+          <div className="mt-4 flex justify-center">
+            <LiquidButton
+              onClick={createBucketAction}
+              disabled={isRunningGoAll}
+              variant="primary"
+              size="md"
+            >
+              <Plus size={16} /> Create Post
+            </LiquidButton>
+          </div>
         </div>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      {/* Feed — single column, Instagram-style centered layout */}
+      <div className="mx-auto flex w-full max-w-[600px] flex-col gap-5">
         <AnimatePresence initial={false}>
           {buckets.map((bucket, index) => {
             const isDoneCollapsed = isDoneBucketCollapsedByDefault(bucket.status);
@@ -991,33 +1001,33 @@ export default function DashboardPage() {
       </div>
 
       <motion.section
-        initial={{ opacity: 0, y: 14 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="cinematic-card rounded-3xl p-5"
+        transition={{ duration: 0.25, delay: 0.05 }}
+        className="mx-auto w-full max-w-[600px] rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Trash</h2>
-            <p className="text-xs text-[color:var(--fc-text-muted)]">
-              Empty and failed buckets stay recoverable here for 30 days.
+            <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">Trash</h2>
+            <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
+              Removed posts stay here for 30 days, then disappear.
             </p>
           </div>
-          <span className="rounded-full border border-[color:rgba(15,108,189,0.14)] bg-white/82 px-3 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)]">
+          <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)]">
             {trashCount} item{trashCount === 1 ? "" : "s"}
           </span>
         </div>
 
         {trashedBuckets.length === 0 ? (
-          <p className="rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/82 px-4 py-3 text-sm text-[color:var(--fc-text-muted)]">
-            No trashed buckets.
+          <p className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3 text-sm text-[color:var(--fc-text-muted)]">
+            Nothing in Trash.
           </p>
         ) : (
           <div className="space-y-3">
             <AnimatePresence initial={false}>
               {trashedBuckets.map((bucket, index) => {
                 const label =
-                  bucket.titleEnhanced.trim() || bucket.titleRaw.trim() || `Bucket #${index + 1}`;
+                  bucket.titleEnhanced.trim() || bucket.titleRaw.trim() || `Post #${index + 1}`;
                 const trashedDate = bucket.trashedAt
                   ? trashDateFormatter.format(new Date(bucket.trashedAt))
                   : "Unknown";
@@ -1028,18 +1038,19 @@ export default function DashboardPage() {
                     key={`trash-${bucket.id}`}
                     layout
                     data-trash-bucket-id={bucket.id}
-                    initial={{ opacity: 0, y: 8 }}
+                    initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -8 }}
-                    className="rounded-2xl border border-[color:rgba(15,108,189,0.14)] bg-white/88 p-4"
+                    exit={{ opacity: 0, y: -6 }}
+                    className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-white p-4"
                   >
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">{label}</p>
-                        <p className="text-xs text-[color:var(--fc-text-muted)]">Bucket ID: {bucket.id}</p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 space-y-0.5">
+                        <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
+                          {label}
+                        </p>
                         <p className="text-xs text-[color:var(--fc-text-muted)]">
-                          Trashed: {trashedDate} · {daysRemaining} day
-                          {daysRemaining === 1 ? "" : "s"} remaining
+                          Removed {trashedDate} · {daysRemaining} day
+                          {daysRemaining === 1 ? "" : "s"} left
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -1049,7 +1060,6 @@ export default function DashboardPage() {
                           disabled={actionsByBucket[bucket.id]?.restoring || isRunningGoAll}
                           variant="secondary"
                           size="sm"
-                          className="rounded-2xl"
                         >
                           {actionsByBucket[bucket.id]?.restoring ? (
                             <Loader2 size={14} className="animate-spin" />
@@ -1064,14 +1074,13 @@ export default function DashboardPage() {
                           disabled={actionsByBucket[bucket.id]?.deleting || isRunningGoAll}
                           variant="danger"
                           size="sm"
-                          className="rounded-2xl"
                         >
                           {actionsByBucket[bucket.id]?.deleting ? (
                             <Loader2 size={14} className="animate-spin" />
                           ) : (
                             <Trash2 size={14} />
                           )}
-                          Delete Permanently
+                          Delete forever
                         </LiquidButton>
                       </div>
                     </div>

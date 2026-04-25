@@ -23,9 +23,9 @@ describe("product bucket trash affordance", () => {
     expect(shouldShowBucketTrashControl("DONE")).toBe(false);
   });
 
-  it("uses neutral empty-bucket trash copy", () => {
-    expect(getBucketTrashLabel("EMPTY")).toBe("Remove Bucket");
-    expect(getBucketTrashDescription("EMPTY")).toContain("empty bucket");
+  it("uses neutral, Instagram-friendly empty-post trash copy", () => {
+    expect(getBucketTrashLabel("EMPTY")).toBe("Remove Post");
+    expect(getBucketTrashDescription("EMPTY")).toContain("empty post");
   });
 
   it("collapses done buckets by default and keeps others expanded", () => {
