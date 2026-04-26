@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Grid3x3, Home, Info, LogOut, Settings } from "lucide-react";
+import { CircleUserRound, Grid3x3, Home, Info, LogIn, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 
 interface NavLink {
@@ -14,51 +14,39 @@ interface NavLink {
   icon: ReactNode;
 }
 
-const LOGGED_IN_NAV: NavLink[] = [
-  {
-    key: "home",
-    href: "/",
-    label: "Home",
-    icon: <Home size={18} strokeWidth={1.9} />,
-  },
+const LOGGED_OUT_LINKS: NavLink[] = [
+  { key: "home", href: "/", label: "Home", icon: <Home size={18} strokeWidth={1.85} /> },
+  { key: "info", href: "/info", label: "Info", icon: <Info size={18} strokeWidth={1.85} /> },
+  { key: "auth", href: "/auth", label: "Login", icon: <LogIn size={18} strokeWidth={1.85} /> },
+];
+
+const LOGGED_IN_LINKS: NavLink[] = [
+  { key: "home", href: "/", label: "Home", icon: <Home size={18} strokeWidth={1.85} /> },
+  { key: "dashboard", href: "/dashboard", label: "Posts", icon: <Grid3x3 size={18} strokeWidth={1.85} /> },
+  { key: "info", href: "/info", label: "Info", icon: <Info size={18} strokeWidth={1.85} /> },
+  { key: "profile", href: "/profile", label: "Profile", icon: <CircleUserRound size={18} strokeWidth={1.85} /> },
+  { key: "settings", href: "/settings", label: "Settings", icon: <Settings size={18} strokeWidth={1.85} /> },
+];
+
+const MOBILE_LOGGED_IN_LINKS: NavLink[] = [
+  { key: "home", href: "/", label: "Home", icon: <Home size={19} strokeWidth={1.85} /> },
   {
     key: "dashboard",
     href: "/dashboard",
     label: "Posts",
-    icon: <Grid3x3 size={18} strokeWidth={1.9} />,
+    icon: <Grid3x3 size={19} strokeWidth={1.85} />,
   },
   {
-    key: "info",
-    href: "/info",
-    label: "Info",
-    icon: <Info size={18} strokeWidth={1.9} />,
+    key: "profile",
+    href: "/profile",
+    label: "Profile",
+    icon: <CircleUserRound size={19} strokeWidth={1.85} />,
   },
   {
     key: "settings",
     href: "/settings",
     label: "Settings",
-    icon: <Settings size={18} strokeWidth={1.9} />,
-  },
-];
-
-const LOGGED_OUT_NAV: NavLink[] = [
-  {
-    key: "home",
-    href: "/",
-    label: "Home",
-    icon: <Home size={18} strokeWidth={1.9} />,
-  },
-  {
-    key: "info",
-    href: "/info",
-    label: "Info",
-    icon: <Info size={18} strokeWidth={1.9} />,
-  },
-  {
-    key: "auth",
-    href: "/auth",
-    label: "Login",
-    icon: <LogOut size={18} strokeWidth={1.9} />,
+    icon: <Settings size={19} strokeWidth={1.85} />,
   },
 ];
 
@@ -66,7 +54,7 @@ export function Navbar() {
   const pathname = usePathname();
   const { user, loading, signOut } = useAuth();
 
-  const navLinks = user ? LOGGED_IN_NAV : LOGGED_OUT_NAV;
+  const navLinks = user ? LOGGED_IN_LINKS : LOGGED_OUT_LINKS;
 
   const activeKey = pathname.startsWith("/dashboard")
     ? "dashboard"
@@ -74,30 +62,32 @@ export function Navbar() {
       ? "info"
       : pathname.startsWith("/settings")
         ? "settings"
-        : pathname.startsWith("/auth")
-          ? "auth"
-          : "home";
+        : pathname.startsWith("/profile")
+          ? "profile"
+          : pathname.startsWith("/auth")
+            ? "auth"
+            : "home";
 
   return (
     <>
-      <header className="sticky top-0 z-40 border-b border-[color:var(--fc-border-strong)] bg-[color:var(--fc-background)]/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-background)]/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <Link href="/" aria-label="FlowCart home" className="inline-flex items-center">
+          <Link href="/" aria-label="Flowwick home" className="inline-flex items-center">
             <Image
-              src="/brand/flowcart-horizontal.png"
-              alt="FlowCart"
-              width={640}
-              height={200}
+              src="/brand/flowwick-horizontal.png"
+              alt="Flowwick"
+              width={720}
+              height={240}
               priority
-              className="hidden h-auto w-[138px] sm:block md:w-[148px]"
+              className="hidden h-auto w-[156px] sm:block lg:w-[166px]"
             />
             <Image
-              src="/brand/flowcart-horizontal.png"
-              alt="FlowCart"
-              width={480}
-              height={150}
+              src="/brand/flowwick-horizontal.png"
+              alt="Flowwick"
+              width={620}
+              height={206}
               priority
-              className="h-auto w-[112px] sm:hidden"
+              className="h-auto w-[124px] sm:hidden"
             />
           </Link>
 
@@ -108,12 +98,12 @@ export function Navbar() {
                 <Link
                   key={item.key}
                   href={item.href}
-                  className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "border border-[#111111] bg-[color:var(--fc-surface-muted)] text-[#111111]"
-                      : "border border-transparent text-[color:var(--fc-text-muted)] hover:border-[color:var(--fc-border-subtle)] hover:bg-[color:var(--fc-surface-muted)] hover:text-[#111111]"
-                  }`}
                   aria-current={isActive ? "page" : undefined}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                    isActive
+                      ? "border-[#111111] bg-[color:var(--fc-surface-muted)] text-[#111111]"
+                      : "border-transparent text-[color:var(--fc-text-muted)] hover:border-[color:var(--fc-border-subtle)] hover:bg-[color:var(--fc-surface-muted)] hover:text-[#111111]"
+                  }`}
                 >
                   {item.icon}
                   <span>{item.label}</span>
@@ -126,7 +116,7 @@ export function Navbar() {
                 onClick={signOut}
                 className="ml-1 inline-flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-[color:var(--fc-text-muted)] transition hover:border-[color:var(--fc-border-subtle)] hover:bg-[color:var(--fc-surface-muted)] hover:text-[#111111]"
               >
-                <LogOut size={18} strokeWidth={1.9} />
+                <LogOut size={18} strokeWidth={1.85} />
                 <span>Logout</span>
               </button>
             ) : null}
@@ -156,21 +146,21 @@ export function Navbar() {
       {!loading && user ? (
         <nav
           aria-label="Mobile primary"
-          className="fixed bottom-0 left-0 right-0 z-40 border-t border-[color:var(--fc-border-strong)] bg-white/98 backdrop-blur md:hidden"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-[color:var(--fc-border-subtle)] bg-white/98 backdrop-blur md:hidden"
         >
           <ul className="mx-auto grid w-full max-w-[560px] grid-cols-4 px-2 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-1">
-            {LOGGED_IN_NAV.map((item) => {
+            {MOBILE_LOGGED_IN_LINKS.map((item) => {
               const isActive = item.key === activeKey;
               return (
                 <li key={item.key}>
                   <Link
                     href={item.href}
+                    aria-current={isActive ? "page" : undefined}
                     className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-lg px-1 ${
                       isActive
                         ? "bg-[color:var(--fc-surface-muted)] text-[#111111]"
                         : "text-[color:var(--fc-text-muted)]"
                     }`}
-                    aria-current={isActive ? "page" : undefined}
                   >
                     {item.icon}
                     <span className="text-[11px] font-medium">{item.label}</span>

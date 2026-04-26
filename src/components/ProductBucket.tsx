@@ -94,22 +94,22 @@ function statusMeta(status: Bucket["status"]): {
     return {
       label: "Posting...",
       classes:
-        "border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]",
-      badge: "",
+        "border border-[rgba(0,149,246,0.32)] bg-[rgba(0,149,246,0.08)] text-[#0867b5]",
+      badge: "pulse-blue",
     };
   if (status === "ENHANCING")
     return {
       label: "Polishing",
       classes:
-        "border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]",
-      badge: "",
+        "border border-[rgba(131,58,180,0.32)] bg-[rgba(131,58,180,0.08)] text-[#5d2c81]",
+      badge: "badge-purple",
     };
   if (status === "READY")
     return {
       label: "Ready",
       classes:
-        "border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]",
-      badge: "",
+        "border border-[rgba(0,149,246,0.32)] bg-[rgba(0,149,246,0.06)] text-[#0867b5]",
+      badge: "badge-blue",
     };
 
   return {
@@ -292,7 +292,7 @@ export function ProductBucket({
 
         {/* Post image */}
         {activeImage ? (
-          <div className="relative aspect-square w-full bg-[color:var(--fc-surface-muted)]">
+          <div className="relative h-[260px] w-full bg-[color:var(--fc-surface-muted)] sm:h-[320px] lg:h-[380px]">
             <Image
               src={activeImage}
               alt={headline}
@@ -415,7 +415,7 @@ export function ProductBucket({
       </div>
 
       {/* Post image area */}
-      <div className="relative aspect-square w-full bg-[color:var(--fc-surface-muted)]">
+      <div className="relative h-[280px] w-full bg-[color:var(--fc-surface-muted)] sm:h-[360px] lg:h-[420px]">
         {activeImage ? (
           <Image
             src={activeImage}
@@ -660,11 +660,11 @@ export function ProductBucket({
 
         {bucket.shopifyProductUrl ? (
           <a
-          href={bucket.shopifyProductUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[color:var(--fc-text-primary)] transition hover:bg-white"
-        >
+            href={bucket.shopifyProductUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[color:var(--fc-text-primary)] transition hover:bg-white"
+          >
             <ShoppingBag size={14} />
             <span className="truncate">Shopify: {bucket.shopifyProductUrl}</span>
             <ExternalLink size={12} className="ml-auto shrink-0" />
@@ -673,11 +673,11 @@ export function ProductBucket({
 
         {bucket.instagramPostUrl ? (
           <a
-          href={bucket.instagramPostUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[color:var(--fc-text-primary)] transition hover:bg-white"
-        >
+            href={bucket.instagramPostUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[color:var(--fc-text-primary)] transition hover:bg-white"
+          >
             <Camera size={14} />
             <span className="truncate">Instagram: {bucket.instagramPostUrl}</span>
             <ExternalLink size={12} className="ml-auto shrink-0" />

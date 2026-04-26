@@ -4,8 +4,11 @@ import { AuthProvider } from "@/src/context/AuthContext";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FlowCart",
-  description: "Post once. Share to Shopify and Instagram.",
+  title: "Flowwick",
+  description: "Post once. Sell everywhere.",
+  icons: {
+    icon: "/brand/flowwick-symbol.png",
+  },
 };
 
 export default function RootLayout({

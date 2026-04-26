@@ -39,7 +39,7 @@ interface QuickAction {
 
 export function HomeLanding() {
   const { user, loading: authLoading } = useAuth();
-  const [buckets, setBuckets] = useState<Bucket[]>([]);
+  const [posts, setPosts] = useState<Bucket[]>([]);
   const [status, setStatus] = useState<SafeSettingsStatus | null>(null);
   const [instagramConnection, setInstagramConnection] =
     useState<InstagramConnectionSummary | null>(null);
@@ -60,7 +60,7 @@ export function HomeLanding() {
         bucketsRes
       );
       if (bucketsRes.ok && bucketsPayload?.ok) {
-        setBuckets(
+        setPosts(
           Array.isArray(bucketsPayload.data?.buckets)
             ? bucketsPayload.data.buckets
             : []
@@ -75,7 +75,7 @@ export function HomeLanding() {
         setAiLive(Boolean(settingsPayload.data.runtime?.openaiConfigured));
       }
     } catch (error) {
-      console.warn("[flowcart:home] summary fetch failed", error);
+      console.warn("[flowwick:home] summary fetch failed", error);
     } finally {
       setIsLoadingFeed(false);
     }
@@ -121,14 +121,14 @@ export function HomeLanding() {
     );
   }
 
-  const readyCount = buckets.filter((post) => post.status === "READY").length;
-  const postedCount = buckets.filter((post) => post.status === "DONE").length;
-  const issueCount = buckets.filter((post) => post.status === "FAILED").length;
-  const recentPosts = [...buckets].slice(0, 12);
+  const readyCount = posts.filter((post) => post.status === "READY").length;
+  const postedCount = posts.filter((post) => post.status === "DONE").length;
+  const issueCount = posts.filter((post) => post.status === "FAILED").length;
+  const recentPosts = [...posts].slice(0, 12);
 
   const quickActions: QuickAction[] = [
     {
-      title: "Create Post",
+      title: "Create",
       subtitle: "Start a new post now.",
       icon: <PlusSquare size={17} strokeWidth={1.9} />,
       onClick: handleCreate,
@@ -165,12 +165,14 @@ export function HomeLanding() {
               Create once. Share to Shopify and Instagram.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
             <LiquidButton
               onClick={handleCreate}
               disabled={creating}
               variant="primary"
-              size="md"
+              size="lg"
+              className="h-10"
+              contentClassName="inline-flex items-center justify-center gap-2"
             >
               {creating ? (
                 <Loader2 size={14} className="animate-spin" />
@@ -179,8 +181,14 @@ export function HomeLanding() {
               )}
               Create
             </LiquidButton>
-            <LiquidButton asChild variant="secondary" size="md">
-              <Link href="/dashboard">
+            <LiquidButton
+              asChild
+              variant="secondary"
+              size="lg"
+              className="h-10"
+              contentClassName="inline-flex items-center justify-center gap-2"
+            >
+              <Link href="/dashboard" aria-label="Open posts">
                 <Grid3x3 size={14} />
                 Posts
               </Link>
@@ -242,7 +250,7 @@ export function HomeLanding() {
           </Link>
         </div>
 
-        {isLoadingFeed && buckets.length === 0 ? (
+        {isLoadingFeed && posts.length === 0 ? (
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
             {Array.from({ length: 12 }).map((_, index) => (
               <div
@@ -278,25 +286,25 @@ export function HomeLanding() {
 
 function SignedOutHome() {
   return (
-    <section className="w-full rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-6 sm:p-9">
-      <div className="mx-auto flex max-w-4xl flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-xl">
+    <section className="w-full overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white">
+      <div className="grid gap-0 lg:grid-cols-[1fr_0.95fr]">
+        <div className="p-6 sm:p-8 lg:p-10">
           <Image
-            src="/brand/flowcart-horizontal.png"
-            alt="FlowCart"
-            width={640}
-            height={200}
+            src="/brand/flowwick-horizontal.png"
+            alt="Flowwick"
+            width={720}
+            height={240}
             priority
             className="h-auto w-[170px]"
           />
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-5xl">
-            Post once. Share everywhere.
+          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-5xl">
+            Post once. Sell everywhere.
           </h1>
-          <p className="mt-3 text-sm text-[color:var(--fc-text-muted)] sm:text-base">
-            Create one product post and FlowCart shares it to Shopify and Instagram.
+          <p className="mt-3 max-w-xl text-sm text-[color:var(--fc-text-muted)] sm:text-base">
+            Create one product post and publish it to Shopify and Instagram.
           </p>
           <div className="mt-6 flex flex-wrap gap-2">
-            <LiquidButton asChild variant="primary" size="lg">
+            <LiquidButton asChild variant="primary" size="lg" contentClassName="inline-flex items-center justify-center gap-2">
               <Link href="/auth">
                 Sign in
                 <ArrowRight size={15} />
@@ -307,16 +315,17 @@ function SignedOutHome() {
             </LiquidButton>
           </div>
         </div>
-        <div className="grid max-w-sm flex-1 grid-cols-1 gap-2 text-sm text-[color:var(--fc-text-muted)] sm:grid-cols-2 lg:grid-cols-1">
-          <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3">
-            Shopify product updates
-          </div>
-          <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3">
-            Instagram post publishing
-          </div>
-          <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3 sm:col-span-2 lg:col-span-1">
-            One post flow for both channels
-          </div>
+
+        <div className="relative min-h-[320px] border-t border-[color:var(--fc-border-subtle)] lg:min-h-full lg:border-l lg:border-t-0">
+          <Image
+            src="/brand/flowwick-hero.png"
+            alt="Flowwick product posting preview"
+            fill
+            priority
+            className="object-cover"
+            sizes="(max-width: 1024px) 100vw, 48vw"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-white/24 via-transparent to-transparent" />
         </div>
       </div>
     </section>
@@ -384,8 +393,7 @@ function StatusPill({
 
 function RecentPostTile({ post, index }: { post: Bucket; index: number }) {
   const image = post.imageUrls[0] ?? null;
-  const label =
-    post.titleEnhanced.trim() || post.titleRaw.trim() || `Post ${index}`;
+  const label = post.titleEnhanced.trim() || post.titleRaw.trim() || `Post ${index}`;
 
   return (
     <Link

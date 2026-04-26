@@ -65,7 +65,7 @@ export function SvgFollowScroll({ className }: SvgFollowScrollProps) {
             A polished five-step launch path.
           </h2>
           <p className="max-w-3xl text-sm leading-7 text-[color:var(--fc-text-muted)] sm:text-base">
-            FlowCart compresses manual launch work into one connected, reliable sequence with clean sync feedback.
+            Flowwick compresses manual launch work into one connected, reliable sequence with clean sync feedback.
           </p>
         </div>
 

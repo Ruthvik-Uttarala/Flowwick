@@ -11,13 +11,6 @@ interface PostDetailDrawerProps {
   children: React.ReactNode;
 }
 
-/**
- * Modal/drawer that hosts the full ProductBucket detail view.
- *
- * - Centered modal on tablet/desktop
- * - Bottom sheet on mobile
- * - Closes on backdrop click, ESC, or close button
- */
 export function PostDetailDrawer({
   isOpen,
   onClose,
@@ -48,7 +41,7 @@ export function PostDetailDrawer({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-label={title}
@@ -57,7 +50,7 @@ export function PostDetailDrawer({
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/45 backdrop-blur-[1.5px]"
           />
 
           <motion.div
@@ -66,10 +59,9 @@ export function PostDetailDrawer({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 24, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative z-10 flex w-full max-w-[920px] flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)] sm:max-h-[90vh] sm:rounded-2xl sm:shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-            style={{ maxHeight: "92vh" }}
+            className="relative z-10 flex w-full max-w-[1100px] flex-col overflow-hidden rounded-t-2xl border border-[color:var(--fc-border-subtle)] bg-white [max-height:calc(100vh-72px)] shadow-[0_-12px_32px_rgba(0,0,0,0.16)] sm:rounded-2xl sm:[max-height:calc(100vh-96px)] sm:shadow-[0_24px_54px_rgba(0,0,0,0.16)]"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[color:var(--fc-border-subtle)] bg-white/96 px-4 py-3 backdrop-blur">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[color:var(--fc-border-subtle)] bg-white px-4 py-3">
               <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
                 {title}
               </p>

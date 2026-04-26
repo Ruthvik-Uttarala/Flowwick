@@ -1,13 +1,25 @@
 "use client";
 
-import Image from "next/image";
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Loader2, RefreshCw, Save, Unplug, XCircle } from "lucide-react";
+import {
+  Check,
+  Loader2,
+  RefreshCw,
+  Save,
+  Trash2,
+  Unplug,
+} from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
-import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
-import { InstagramMark, ShopifyMark } from "@/src/components/ui/brand-icons";
+import type {
+  ConnectionSettings,
+  InstagramConnectionSummary,
+  ProductBucket as Bucket,
+  RuntimeConfigSnapshot,
+  SafeSettingsStatus,
+} from "@/src/lib/types";
 import {
   SHOPIFY_OAUTH_ERROR_MESSAGES,
   getStandaloneShopifyConnectDomain,
@@ -15,14 +27,9 @@ import {
   shouldAutostartStandaloneShopifyConnect,
 } from "@/src/lib/shopify";
 import { mapInstagramOauthError } from "@/src/lib/instagram";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
+import { InstagramMark, ShopifyMark } from "@/src/components/ui/brand-icons";
 import { getTrashDaysRemaining } from "@/src/lib/dashboard-buckets";
-import type {
-  ConnectionSettings,
-  InstagramConnectionSummary,
-  RuntimeConfigSnapshot,
-  SafeSettingsStatus,
-  ProductBucket as Bucket,
-} from "@/src/lib/types";
 
 interface FormSettings {
   shopifyStoreDomain: string;
@@ -44,21 +51,16 @@ interface SettingsPayload {
   instagramDebugFieldModeEnabled: boolean;
 }
 
-const trashDateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
+interface BucketsPayload {
+  trashedBuckets?: Bucket[];
+}
 
 export default function SettingsPage() {
   return (
     <Suspense
       fallback={
         <div className="flex w-full items-center justify-center py-20">
-          <Loader2
-            size={24}
-            className="animate-spin text-[color:var(--fc-text-muted)]"
-          />
+          <Loader2 size={24} className="animate-spin text-[color:var(--fc-text-muted)]" />
         </div>
       }
     >
@@ -70,21 +72,14 @@ export default function SettingsPage() {
 function SettingsContent() {
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
-  const autostartedConnect = useRef(false);
 
   const [form, setForm] = useState<FormSettings>(EMPTY_FORM);
   const [savedSnapshot, setSavedSnapshot] = useState<FormSettings>(EMPTY_FORM);
   const [status, setStatus] = useState<SafeSettingsStatus | null>(null);
   const [runtime, setRuntime] = useState<RuntimeConfigSnapshot | null>(null);
-  const [instagramConnection, setInstagramConnection] =
-    useState<InstagramConnectionSummary | null>(null);
-  const [instagramDebugFieldModeEnabled, setInstagramDebugFieldModeEnabled] =
-    useState(false);
-
-  const [trashedPosts, setTrashedPosts] = useState<Bucket[]>([]);
-  const [isLoadingTrash, setIsLoadingTrash] = useState(true);
-  const [restoringTrashId, setRestoringTrashId] = useState("");
-  const [deletingTrashId, setDeletingTrashId] = useState("");
+  const [instagramConnection, setInstagramConnection] = useState<InstagramConnectionSummary | null>(null);
+  const [instagramDebugFieldModeEnabled, setInstagramDebugFieldModeEnabled] = useState(false);
+  const [trashedBuckets, setTrashedBuckets] = useState<Bucket[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -93,33 +88,48 @@ function SettingsContent() {
   const [isValidatingInstagram, setIsValidatingInstagram] = useState(false);
   const [isDisconnectingInstagram, setIsDisconnectingInstagram] = useState(false);
   const [selectingCandidateKey, setSelectingCandidateKey] = useState("");
+  const [restoringBucketId, setRestoringBucketId] = useState("");
+  const [deletingBucketId, setDeletingBucketId] = useState("");
 
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const autostartedConnect = useRef(false);
+
   const loadSettings = async () => {
     setIsLoading(true);
     setErrorMessage("");
+
     try {
-      const response = await fetch("/api/settings", { cache: "no-store" });
-      const payload = await readApiResponse<SettingsPayload>(response);
-      if (!response.ok || !payload?.ok || !payload.data) {
-        throw new Error(apiErrorMessage(payload, "Failed to load settings."));
+      const [settingsResponse, bucketsResponse] = await Promise.all([
+        fetch("/api/settings", { cache: "no-store" }),
+        fetch("/api/buckets", { cache: "no-store" }),
+      ]);
+
+      const settingsPayload = await readApiResponse<SettingsPayload>(settingsResponse);
+      if (!settingsResponse.ok || !settingsPayload?.ok || !settingsPayload.data) {
+        throw new Error(apiErrorMessage(settingsPayload, "Failed to load settings."));
       }
 
-      const settings = payload.data.settings;
+      const bucketsPayload = await readApiResponse<BucketsPayload>(bucketsResponse);
+      if (!bucketsResponse.ok || !bucketsPayload?.ok) {
+        throw new Error(apiErrorMessage(bucketsPayload, "Failed to load removed posts."));
+      }
+
+      const s = settingsPayload.data.settings;
       const formData: FormSettings = {
-        shopifyStoreDomain: settings.shopifyStoreDomain,
-        instagramAccessToken: settings.instagramAccessToken,
-        instagramBusinessAccountId: settings.instagramBusinessAccountId,
+        shopifyStoreDomain: s.shopifyStoreDomain,
+        instagramAccessToken: s.instagramAccessToken,
+        instagramBusinessAccountId: s.instagramBusinessAccountId,
       };
 
       setForm(formData);
       setSavedSnapshot(formData);
-      setStatus(payload.data.status);
-      setRuntime(payload.data.runtime);
-      setInstagramConnection(payload.data.instagramConnection);
-      setInstagramDebugFieldModeEnabled(payload.data.instagramDebugFieldModeEnabled);
+      setStatus(settingsPayload.data.status);
+      setRuntime(settingsPayload.data.runtime);
+      setInstagramConnection(settingsPayload.data.instagramConnection);
+      setInstagramDebugFieldModeEnabled(settingsPayload.data.instagramDebugFieldModeEnabled);
+      setTrashedBuckets(Array.isArray(bucketsPayload.data?.trashedBuckets) ? bucketsPayload.data.trashedBuckets : []);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to load settings.");
     } finally {
@@ -127,29 +137,9 @@ function SettingsContent() {
     }
   };
 
-  const loadTrash = async () => {
-    setIsLoadingTrash(true);
-    try {
-      const response = await fetch("/api/buckets", { cache: "no-store" });
-      const payload = await readApiResponse<{ trashedBuckets?: Bucket[] }>(response);
-      if (!response.ok || !payload?.ok) {
-        throw new Error(apiErrorMessage(payload, "Failed to load trash."));
-      }
-      setTrashedPosts(
-        Array.isArray(payload.data?.trashedBuckets) ? payload.data.trashedBuckets : []
-      );
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to load trash.");
-    } finally {
-      setIsLoadingTrash(false);
-    }
-  };
-
   useEffect(() => {
-    if (authLoading || !user) {
-      return;
-    }
-    void Promise.all([loadSettings(), loadTrash()]);
+    if (authLoading || !user) return;
+    void loadSettings();
   }, [authLoading, user]);
 
   useEffect(() => {
@@ -177,39 +167,32 @@ function SettingsContent() {
       setErrorMessage(mapInstagramOauthError(instagramError));
       void loadSettings();
     }
+
   }, [searchParams]);
 
   useEffect(() => {
-    if (authLoading || !user || autostartedConnect.current) {
-      return;
-    }
-    if (!shouldAutostartStandaloneShopifyConnect(new URLSearchParams(searchParams.toString()))) {
+    if (authLoading || !user || autostartedConnect.current) return;
+
+    const query = new URLSearchParams(searchParams.toString());
+    if (!shouldAutostartStandaloneShopifyConnect(query)) {
       return;
     }
 
-    const queryShopDomain = getStandaloneShopifyConnectDomain(
-      new URLSearchParams(searchParams.toString())
-    );
-    const connectShopDomain =
-      queryShopDomain || safeNormalizeShopifyDomain(form.shopifyStoreDomain);
+    const queryShopDomain = getStandaloneShopifyConnectDomain(query);
+    const connectShopDomain = queryShopDomain || safeNormalizeShopifyDomain(form.shopifyStoreDomain);
     if (!connectShopDomain) {
       return;
     }
 
     autostartedConnect.current = true;
     setIsConnectingShopify(true);
-    window.location.href = `/api/shopify/connect?shopDomain=${encodeURIComponent(
-      connectShopDomain
-    )}`;
+    window.location.href = `/api/shopify/connect?shopDomain=${encodeURIComponent(connectShopDomain)}`;
   }, [authLoading, user, searchParams, form.shopifyStoreDomain]);
 
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2
-          size={24}
-          className="animate-spin text-[color:var(--fc-text-muted)]"
-        />
+        <Loader2 size={24} className="animate-spin text-[color:var(--fc-text-muted)]" />
       </div>
     );
   }
@@ -229,29 +212,33 @@ function SettingsContent() {
       };
 
   const isDirty = JSON.stringify(form) !== JSON.stringify(savedSnapshot);
+  const shopifyConnected = Boolean(status?.shopifyConnected);
+  const shopifyDomainSaved = Boolean(status?.shopifyStoreDomainPresent);
+  const shopifyNeedsReconnect = Boolean(status?.shopifyReauthorizationRequired);
+  const instagramConnected = Boolean(instagramConnection?.canPublish);
+  const connectInstagramLabel = instagramConnected ? "Reconnect Instagram" : "Connect Instagram";
 
   const save = async () => {
     setIsSaving(true);
     setErrorMessage("");
     setMessage("");
+
     try {
       const response = await fetch("/api/settings/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(savePayload),
       });
-      const payload = await readApiResponse<SettingsPayload & { message?: string }>(
-        response
-      );
+      const payload = await readApiResponse<SettingsPayload & { message?: string }>(response);
       if (!response.ok || !payload?.ok || !payload.data) {
         throw new Error(apiErrorMessage(payload, "Failed to save settings."));
       }
 
-      const settings = payload.data.settings;
+      const s = payload.data.settings;
       const formData: FormSettings = {
-        shopifyStoreDomain: settings.shopifyStoreDomain,
-        instagramAccessToken: settings.instagramAccessToken,
-        instagramBusinessAccountId: settings.instagramBusinessAccountId,
+        shopifyStoreDomain: s.shopifyStoreDomain,
+        instagramAccessToken: s.instagramAccessToken,
+        instagramBusinessAccountId: s.instagramBusinessAccountId,
       };
 
       setForm(formData);
@@ -270,15 +257,14 @@ function SettingsContent() {
 
   const connectShopify = () => {
     if (!form.shopifyStoreDomain.trim()) {
-      setErrorMessage("Enter your Shopify store domain before connecting.");
+      setErrorMessage("Enter your Shopify store domain first.");
       return;
     }
+
     setIsConnectingShopify(true);
     setErrorMessage("");
     setMessage("");
-    window.location.href = `/api/shopify/connect?shopDomain=${encodeURIComponent(
-      form.shopifyStoreDomain.trim()
-    )}`;
+    window.location.href = `/api/shopify/connect?shopDomain=${encodeURIComponent(form.shopifyStoreDomain.trim())}`;
   };
 
   const connectInstagram = () => {
@@ -292,6 +278,7 @@ function SettingsContent() {
     setIsValidatingInstagram(true);
     setErrorMessage("");
     setMessage("");
+
     try {
       const response = await fetch("/api/instagram/validate", { method: "POST" });
       const payload = await readApiResponse<{
@@ -299,12 +286,13 @@ function SettingsContent() {
         message?: string;
       }>(response);
       if (!response.ok || !payload?.ok || !payload.data) {
-        throw new Error(apiErrorMessage(payload, "Failed to check Instagram."));
+        throw new Error(apiErrorMessage(payload, "Failed to validate Instagram."));
       }
+
       setInstagramConnection(payload.data.instagramConnection);
       setMessage(payload.data.message ?? "Instagram connection checked.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to check Instagram.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to validate Instagram.");
     } finally {
       setIsValidatingInstagram(false);
     }
@@ -314,6 +302,7 @@ function SettingsContent() {
     setIsDisconnectingInstagram(true);
     setErrorMessage("");
     setMessage("");
+
     try {
       const response = await fetch("/api/instagram/disconnect", { method: "POST" });
       const payload = await readApiResponse<{
@@ -323,6 +312,7 @@ function SettingsContent() {
       if (!response.ok || !payload?.ok || !payload.data) {
         throw new Error(apiErrorMessage(payload, "Failed to disconnect Instagram."));
       }
+
       setInstagramConnection(payload.data.instagramConnection);
       setForm((current) => ({
         ...current,
@@ -336,22 +326,18 @@ function SettingsContent() {
       }));
       setMessage(payload.data.message ?? "Instagram disconnected.");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to disconnect Instagram."
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Failed to disconnect Instagram.");
     } finally {
       setIsDisconnectingInstagram(false);
     }
   };
 
-  const selectInstagramCandidate = async (
-    pageId: string,
-    instagramBusinessAccountId: string
-  ) => {
+  const selectInstagramCandidate = async (pageId: string, instagramBusinessAccountId: string) => {
     const key = `${pageId}:${instagramBusinessAccountId}`;
     setSelectingCandidateKey(key);
     setErrorMessage("");
     setMessage("");
+
     try {
       const response = await fetch("/api/instagram/connect/select", {
         method: "POST",
@@ -363,145 +349,121 @@ function SettingsContent() {
         message?: string;
       }>(response);
       if (!response.ok || !payload?.ok || !payload.data) {
-        throw new Error(apiErrorMessage(payload, "Failed to select account."));
+        throw new Error(apiErrorMessage(payload, "Failed to select the Instagram account."));
       }
+
       setInstagramConnection(payload.data.instagramConnection);
       setMessage(payload.data.message ?? "Instagram connected successfully.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to select account.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to select the Instagram account.");
     } finally {
       setSelectingCandidateKey("");
     }
   };
 
-  const restoreTrashPost = async (postId: string) => {
-    setRestoringTrashId(postId);
+  const restoreFromTrash = async (bucketId: string) => {
+    setRestoringBucketId(bucketId);
     setErrorMessage("");
     setMessage("");
+
     try {
-      const response = await fetch(`/api/buckets/${postId}/restore`, { method: "POST" });
+      const response = await fetch(`/api/buckets/${bucketId}/restore`, { method: "POST" });
       const payload = await readApiResponse<{ trashedBuckets?: Bucket[] }>(response);
       if (!response.ok || !payload?.ok) {
         throw new Error(apiErrorMessage(payload, "Failed to restore post."));
       }
-      if (Array.isArray(payload.data?.trashedBuckets)) {
-        setTrashedPosts(payload.data.trashedBuckets);
-      } else {
-        setTrashedPosts((current) => current.filter((item) => item.id !== postId));
-      }
+
+      setTrashedBuckets(Array.isArray(payload.data?.trashedBuckets) ? payload.data.trashedBuckets : []);
       setMessage("Post restored.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to restore post.");
     } finally {
-      setRestoringTrashId("");
+      setRestoringBucketId("");
     }
   };
 
-  const deleteTrashPost = async (postId: string) => {
-    setDeletingTrashId(postId);
+  const deleteForever = async (bucketId: string) => {
+    setDeletingBucketId(bucketId);
     setErrorMessage("");
     setMessage("");
+
     try {
-      const response = await fetch(`/api/buckets/${postId}`, { method: "DELETE" });
-      const payload = await readApiResponse<{
-        deletedBucketId?: string;
-        trashedBuckets?: Bucket[];
-      }>(response);
+      const response = await fetch(`/api/buckets/${bucketId}`, { method: "DELETE" });
+      const payload = await readApiResponse<{ trashedBuckets?: Bucket[] }>(response);
       if (!response.ok || !payload?.ok) {
         throw new Error(apiErrorMessage(payload, "Failed to delete post."));
       }
-      const deletedId = payload.data?.deletedBucketId ?? postId;
-      if (Array.isArray(payload.data?.trashedBuckets)) {
-        setTrashedPosts(payload.data.trashedBuckets);
-      } else {
-        setTrashedPosts((current) => current.filter((item) => item.id !== deletedId));
-      }
-      setMessage("Post deleted.");
+
+      setTrashedBuckets(Array.isArray(payload.data?.trashedBuckets) ? payload.data.trashedBuckets : []);
+      setMessage("Post deleted forever.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to delete post.");
     } finally {
-      setDeletingTrashId("");
+      setDeletingBucketId("");
     }
   };
 
-  const launchReady = Boolean(status?.readyForLaunch);
-  const openaiLive = Boolean(runtime?.openaiConfigured);
-  const shopifyConnected = Boolean(status?.shopifyConnected);
-  const shopifyReauthorizationRequired = Boolean(status?.shopifyReauthorizationRequired);
-  const shopifyDomainSaved = Boolean(status?.shopifyStoreDomainPresent);
-  const instagramConfigured = Boolean(instagramConnection?.canPublish);
-  const domainChangedSinceSave =
-    safeNormalizeShopifyDomain(form.shopifyStoreDomain) !==
-    safeNormalizeShopifyDomain(savedSnapshot.shopifyStoreDomain);
-
-  const connectInstagramLabel =
-    instagramConnection?.status === "connected" ||
-    instagramConnection?.status === "legacy_fallback"
-      ? "Reconnect Instagram"
-      : "Connect Instagram";
+  const inputClass =
+    "cinematic-input w-full rounded-lg border border-[color:var(--fc-border-strong)] px-3 py-2.5 text-sm";
 
   return (
-    <div className="mx-auto w-full max-w-[1100px] space-y-4">
+    <div className="mx-auto w-full max-w-[1040px] space-y-4">
       <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
-        <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
+        <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-[1.95rem]">
           Connect your accounts
         </h1>
         <p className="mt-2 text-sm text-[color:var(--fc-text-muted)] sm:text-base">
-          Connect Shopify and Instagram once. FlowCart handles the posting flow after
-          that.
+          Connect Shopify and Instagram once. Flowwick handles the posting flow after that.
         </p>
+
         <div className="mt-4 flex flex-wrap gap-2">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${
-              launchReady
-                ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]"
-                : "border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-muted)]"
-            }`}
-          >
-            {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-            {launchReady ? "Ready to post" : "Not ready"}
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${
-              openaiLive
-                ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]"
-                : "border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-muted)]"
-            }`}
-          >
-            AI {openaiLive ? "On" : "Off"}
-          </span>
+          <Badge tone={shopifyConnected ? "success" : "neutral"}>
+            Shopify {shopifyConnected ? "connected" : "not connected"}
+          </Badge>
+          <Badge tone={instagramConnected ? "success" : "neutral"}>
+            Instagram {instagramConnected ? "connected" : "not connected"}
+          </Badge>
+          <Badge tone={runtime?.openaiConfigured ? "success" : "neutral"}>
+            AI {runtime?.openaiConfigured ? "on" : "off"}
+          </Badge>
         </div>
       </section>
 
-      <section
-        id="shopify"
-        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6"
-      >
+      {message ? (
+        <div className="rounded-xl border border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] px-4 py-3 text-sm text-[#166534]">
+          {message}
+        </div>
+      ) : null}
+
+      {errorMessage ? (
+        <div className="rounded-xl border border-[rgba(220,38,38,0.3)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[#b91c1c]">
+          {errorMessage}
+        </div>
+      ) : null}
+
+      <section id="shopify" className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
-              <ShopifyMark size={18} />
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
+                <ShopifyMark size={16} />
+              </span>
+              <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Connect Shopify</h2>
             </div>
-            <h2 className="mt-3 text-xl font-semibold text-[color:var(--fc-text-primary)]">
-              Connect Shopify
-            </h2>
-            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
-              Connect your Shopify store so FlowCart can create and update products.
+            <p className="mt-2 text-sm text-[color:var(--fc-text-muted)]">
+              Connect your Shopify store so Flowwick can create and update products.
             </p>
           </div>
+
           <div className="flex flex-wrap gap-2">
-            {shopifyConnected ? (
-              <Badge className="border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]">
-                Connected
-              </Badge>
-            ) : null}
-            {shopifyDomainSaved ? <Badge>Domain saved</Badge> : null}
-            {shopifyReauthorizationRequired ? <Badge>Needs reconnect</Badge> : null}
+            {shopifyConnected ? <Badge tone="success">Connected</Badge> : null}
+            {shopifyDomainSaved ? <Badge tone="neutral">Domain saved</Badge> : null}
+            {shopifyNeedsReconnect ? <Badge tone="warning">Needs reconnect</Badge> : null}
           </div>
         </div>
 
-        <label className="mt-4 block space-y-2 text-sm">
-          <span className="text-[color:var(--fc-text-muted)]">Shopify store domain</span>
+        <div className="mt-4 space-y-2">
+          <label className="text-sm font-medium text-[color:var(--fc-text-primary)]">Shopify store domain</label>
           <input
             value={form.shopifyStoreDomain}
             onChange={(event) =>
@@ -511,9 +473,9 @@ function SettingsContent() {
               }))
             }
             placeholder="your-store.myshopify.com"
-            className="cinematic-input w-full rounded-lg px-4 py-2.5 text-sm"
+            className={inputClass}
           />
-        </label>
+        </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
           <LiquidButton
@@ -522,82 +484,67 @@ function SettingsContent() {
             variant="primary"
             size="md"
           >
-            {isConnectingShopify ? <Loader2 size={14} className="animate-spin" /> : null}
-            Connect Shopify
-          </LiquidButton>
-          <LiquidButton
-            onClick={connectShopify}
-            disabled={isConnectingShopify || !form.shopifyStoreDomain.trim()}
-            variant="secondary"
-            size="md"
-          >
-            Reconnect Shopify
+            {isConnectingShopify ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Connecting...
+              </>
+            ) : shopifyConnected ? (
+              "Reconnect Shopify"
+            ) : (
+              "Connect Shopify"
+            )}
           </LiquidButton>
         </div>
-
-        {domainChangedSinceSave ? (
-          <p className="mt-2 text-xs text-[color:var(--fc-text-muted)]">
-            Save settings after changing the domain.
-          </p>
-        ) : null}
       </section>
 
-      <section
-        id="instagram"
-        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6"
-      >
+      <section id="instagram" className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
-              <InstagramMark size={18} />
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
+                <InstagramMark size={16} />
+              </span>
+              <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Connect Instagram</h2>
             </div>
-            <h2 className="mt-3 text-xl font-semibold text-[color:var(--fc-text-primary)]">
-              Connect Instagram
-            </h2>
-            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
-              Connect the Instagram account where FlowCart should publish posts.
+            <p className="mt-2 text-sm text-[color:var(--fc-text-muted)]">
+              Connect the Instagram account where Flowwick should publish posts.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              className={
-                instagramConfigured
-                  ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]"
-                  : undefined
-              }
-            >
-              {instagramConnection?.statusLabel ?? "Disconnected"}
-            </Badge>
-          </div>
+
+          <Badge tone={instagramConnected ? "success" : "neutral"}>
+            {instagramConnection?.statusLabel ?? "Disconnected"}
+          </Badge>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <LiquidButton
-            onClick={connectInstagram}
-            disabled={isConnectingInstagram}
-            variant="primary"
-            size="md"
-          >
-            {isConnectingInstagram ? <Loader2 size={14} className="animate-spin" /> : null}
-            Connect Instagram
+          <LiquidButton onClick={connectInstagram} disabled={isConnectingInstagram} variant="primary" size="md">
+            {isConnectingInstagram ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Connecting...
+              </>
+            ) : (
+              connectInstagramLabel
+            )}
           </LiquidButton>
-          <LiquidButton
-            onClick={connectInstagram}
-            disabled={isConnectingInstagram}
-            variant="secondary"
-            size="md"
-          >
-            {connectInstagramLabel}
-          </LiquidButton>
+
           <LiquidButton
             onClick={validateInstagram}
             disabled={isValidatingInstagram || !instagramConnection}
             variant="secondary"
             size="md"
           >
-            {isValidatingInstagram ? <Loader2 size={14} className="animate-spin" /> : null}
-            Check connection
+            {isValidatingInstagram ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Checking...
+              </>
+            ) : (
+              "Check connection"
+            )}
           </LiquidButton>
+
           <LiquidButton
             onClick={disconnectInstagram}
             disabled={
@@ -609,40 +556,34 @@ function SettingsContent() {
             size="md"
           >
             {isDisconnectingInstagram ? (
-              <Loader2 size={14} className="animate-spin" />
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Disconnecting...
+              </>
             ) : (
-              <Unplug size={14} />
+              <>
+                <Unplug size={14} />
+                Disconnect Instagram
+              </>
             )}
-            Disconnect Instagram
           </LiquidButton>
         </div>
 
-        <div className="mt-3 space-y-1 text-sm text-[color:var(--fc-text-muted)]">
-          {instagramConnection?.selectedPageName ? (
+        <div className="mt-4 space-y-1 text-sm text-[color:var(--fc-text-muted)]">
+          {instagramConnection?.selectedPageName ? <p>Connected Page: {instagramConnection.selectedPageName}</p> : null}
+          {instagramConnection?.selectedInstagramBusinessAccountId ? (
             <p>
-              Connected page:{" "}
-              <span className="font-semibold text-[color:var(--fc-text-primary)]">
-                {instagramConnection.selectedPageName}
-              </span>
+              Account ID: <span className="font-mono text-xs">{instagramConnection.selectedInstagramBusinessAccountId}</span>
             </p>
           ) : null}
           {instagramConnection?.lastValidatedAt ? (
-            <p>
-              Last checked:{" "}
-              {new Date(instagramConnection.lastValidatedAt).toLocaleString()}
-            </p>
-          ) : null}
-          {!instagramConnection?.selectedPageName ? (
-            <p>Use Connect Instagram to complete setup.</p>
+            <p>Last checked: {new Date(instagramConnection.lastValidatedAt).toLocaleString()}</p>
           ) : null}
         </div>
 
-        {instagramConnection?.status === "selection_required" &&
-        instagramConnection.candidates.length > 0 ? (
+        {instagramConnection?.status === "selection_required" && instagramConnection.candidates.length > 0 ? (
           <div className="mt-4 space-y-2 rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-3">
-            <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
-              Select account
-            </p>
+            <p className="text-sm font-medium text-[color:var(--fc-text-primary)]">Choose account</p>
             {instagramConnection.candidates.map((candidate) => {
               const key = `${candidate.pageId}:${candidate.instagramBusinessAccountId}`;
               const selecting = selectingCandidateKey === key;
@@ -651,20 +592,19 @@ function SettingsContent() {
                   key={key}
                   type="button"
                   onClick={() =>
-                    selectInstagramCandidate(
-                      candidate.pageId,
-                      candidate.instagramBusinessAccountId
-                    )
+                    selectInstagramCandidate(candidate.pageId, candidate.instagramBusinessAccountId)
                   }
                   disabled={Boolean(selectingCandidateKey)}
-                  className="flex w-full items-center justify-between rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-3 py-2 text-left text-sm hover:bg-[color:var(--fc-surface-muted)]"
+                  className="flex w-full items-center justify-between rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-3 py-2 text-left text-sm transition hover:bg-[color:var(--fc-surface-muted)]"
                 >
                   <span>
-                    {candidate.pageName || "Untitled Facebook Page"} • Instagram{" "}
-                    {candidate.instagramBusinessAccountId}
+                    {candidate.pageName || "Untitled Facebook Page"}
+                    <span className="block text-xs text-[color:var(--fc-text-muted)]">
+                      Page {candidate.pageId} · IG {candidate.instagramBusinessAccountId}
+                    </span>
                   </span>
-                  <span className="font-semibold text-[color:var(--fc-text-primary)]">
-                    {selecting ? "Saving..." : "Use"}
+                  <span className="font-medium text-[color:var(--fc-text-primary)]">
+                    {selecting ? "Selecting..." : "Use"}
                   </span>
                 </button>
               );
@@ -673,128 +613,137 @@ function SettingsContent() {
         ) : null}
 
         {instagramDebugFieldModeEnabled ? (
-          <div className="mt-4 rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-4">
-            <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
-              Debug fields
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <label className="space-y-1 text-sm">
-                <span className="text-[color:var(--fc-text-muted)]">Legacy access token</span>
-                <input
-                  type="password"
-                  value={form.instagramAccessToken}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      instagramAccessToken: event.target.value,
-                    }))
-                  }
-                  className="cinematic-input w-full rounded-lg px-3 py-2"
-                />
-              </label>
-              <label className="space-y-1 text-sm">
-                <span className="text-[color:var(--fc-text-muted)]">
-                  Legacy business account ID
-                </span>
-                <input
-                  value={form.instagramBusinessAccountId}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      instagramBusinessAccountId: event.target.value,
-                    }))
-                  }
-                  className="cinematic-input w-full rounded-lg px-3 py-2"
-                />
-              </label>
-            </div>
+          <div className="mt-4 grid gap-3 rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-4 sm:grid-cols-2">
+            <label className="space-y-1.5 text-sm">
+              <span className="text-[color:var(--fc-text-muted)]">Legacy access token</span>
+              <input
+                type="password"
+                value={form.instagramAccessToken}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    instagramAccessToken: event.target.value,
+                  }))
+                }
+                className={inputClass}
+              />
+            </label>
+            <label className="space-y-1.5 text-sm">
+              <span className="text-[color:var(--fc-text-muted)]">Legacy business account ID</span>
+              <input
+                value={form.instagramBusinessAccountId}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    instagramBusinessAccountId: event.target.value,
+                  }))
+                }
+                className={inputClass}
+              />
+            </label>
           </div>
         ) : null}
       </section>
 
-      <section
-        id="trash"
-        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <LiquidButton onClick={save} disabled={isSaving || isLoading} variant="success" size="md">
+            {isSaving ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save size={14} />
+                Save Settings
+              </>
+            )}
+          </LiquidButton>
+          <LiquidButton onClick={loadSettings} disabled={isSaving} variant="secondary" size="md">
+            <RefreshCw size={14} />
+            Refresh
+          </LiquidButton>
+          {isDirty ? (
+            <span className="rounded-full border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] px-2.5 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)]">
+              Unsaved changes
+            </span>
+          ) : null}
+        </div>
+      </section>
+
+      <section id="trash" className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-xl font-semibold text-[color:var(--fc-text-primary)]">
-              Trash
-            </h2>
-            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
-              Removed posts stay here for 30 days.
-            </p>
+            <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Trash</h2>
+            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">Removed posts stay here for 30 days.</p>
           </div>
-          <Badge>{trashedPosts.length} removed</Badge>
+          <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)]">
+            {trashedBuckets.length} removed
+          </span>
         </div>
 
-        {isLoadingTrash ? (
-          <div className="mt-4 flex items-center gap-2 text-sm text-[color:var(--fc-text-muted)]">
-            <Loader2 size={14} className="animate-spin" />
-            Loading trash...
-          </div>
-        ) : trashedPosts.length === 0 ? (
-          <p className="mt-4 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3 text-sm text-[color:var(--fc-text-muted)]">
-            Nothing in trash.
+        {trashedBuckets.length === 0 ? (
+          <p className="mt-4 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-3 text-sm text-[color:var(--fc-text-muted)]">
+            Nothing in Trash.
           </p>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {trashedPosts.map((post, index) => {
-              const title =
-                post.titleEnhanced.trim() || post.titleRaw.trim() || `Post ${index + 1}`;
-              const imageUrl = post.imageUrls[0] ?? "";
-              const daysRemaining = getTrashDaysRemaining(post.deleteAfterAt);
-              const removedDate = post.trashedAt
-                ? trashDateFormatter.format(new Date(post.trashedAt))
-                : "Unknown";
+            {trashedBuckets.map((bucket, index) => {
+              const title = bucket.titleEnhanced.trim() || bucket.titleRaw.trim() || `Post ${index + 1}`;
+              const thumbnail = bucket.imageUrls[0] ?? "";
+              const daysRemaining = getTrashDaysRemaining(bucket.deleteAfterAt);
 
               return (
                 <div
-                  key={post.id}
+                  key={bucket.id}
                   className="flex gap-3 rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-3"
                 >
-                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-[color:var(--fc-border-strong)] bg-white">
-                    {imageUrl ? (
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-[color:var(--fc-border-subtle)] bg-white">
+                    {thumbnail ? (
                       <Image
-                        src={imageUrl}
+                        src={thumbnail}
                         alt={title}
                         fill
                         unoptimized
                         className="object-cover"
+                        sizes="64px"
                       />
                     ) : null}
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
-                      {title}
-                    </p>
+                    <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">{title}</p>
                     <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
-                      Removed {removedDate} • {daysRemaining} day
-                      {daysRemaining === 1 ? "" : "s"} left
+                      {daysRemaining} day{daysRemaining === 1 ? "" : "s"} left
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
                       <LiquidButton
-                        onClick={() => restoreTrashPost(post.id)}
-                        disabled={Boolean(restoringTrashId) || Boolean(deletingTrashId)}
+                        onClick={() => restoreFromTrash(bucket.id)}
+                        disabled={Boolean(restoringBucketId || deletingBucketId)}
                         variant="secondary"
                         size="sm"
                       >
-                        {restoringTrashId === post.id ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : null}
+                        {restoringBucketId === bucket.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Check size={13} />
+                        )}
                         Restore
                       </LiquidButton>
+
                       <LiquidButton
-                        onClick={() => deleteTrashPost(post.id)}
-                        disabled={Boolean(restoringTrashId) || Boolean(deletingTrashId)}
+                        onClick={() => deleteForever(bucket.id)}
+                        disabled={Boolean(restoringBucketId || deletingBucketId)}
                         variant="danger"
                         size="sm"
                       >
-                        {deletingTrashId === post.id ? (
-                          <Loader2 size={14} className="animate-spin" />
-                        ) : null}
-                        Delete
+                        {deletingBucketId === bucket.id ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
+                        Delete forever
                       </LiquidButton>
                     </div>
                   </div>
@@ -804,60 +753,20 @@ function SettingsContent() {
           </div>
         )}
       </section>
-
-      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5">
-        <div className="flex flex-wrap items-center gap-2">
-          <LiquidButton
-            onClick={save}
-            disabled={isSaving || isLoading}
-            variant="success"
-            size="lg"
-          >
-            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            Save Settings
-          </LiquidButton>
-          <LiquidButton
-            onClick={() => {
-              void Promise.all([loadSettings(), loadTrash()]);
-            }}
-            disabled={isSaving}
-            variant="secondary"
-            size="lg"
-          >
-            <RefreshCw size={14} />
-            Refresh
-          </LiquidButton>
-          {isDirty ? (
-            <Badge>Unsaved changes</Badge>
-          ) : null}
-        </div>
-
-        {message ? (
-          <div className="mt-3 rounded-lg border border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] px-4 py-3 text-sm text-[#15803d]">
-            {message}
-          </div>
-        ) : null}
-        {errorMessage ? (
-          <div className="mt-3 rounded-lg border border-[rgba(220,38,38,0.3)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[#b42318]">
-            {errorMessage}
-          </div>
-        ) : null}
-      </section>
     </div>
   );
 }
 
-function Badge({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "success" | "warning" }) {
+  const className =
+    tone === "success"
+      ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#166534]"
+      : tone === "warning"
+        ? "border-[rgba(202,138,4,0.35)] bg-[rgba(202,138,4,0.1)] text-[#854d0e]"
+        : "border-[color:var(--fc-border-subtle)] bg-white text-[color:var(--fc-text-muted)]";
+
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)] ${className ?? ""}`}
-    >
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
       {children}
     </span>
   );

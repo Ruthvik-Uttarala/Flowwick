@@ -22,19 +22,19 @@ export const INSTAGRAM_OAUTH_ERROR_MESSAGES = {
   account_discovery_failed:
     "Instagram connection failed while discovering the connected Page and Instagram account.",
   no_eligible_account:
-    "FlowCart could not find an Instagram professional account linked to a Facebook Page you control. Link your Instagram professional account to a Facebook Page you manage, then reconnect Instagram.",
+    "Flowwick could not find an Instagram professional account linked to a Facebook Page you control. Link your Instagram professional account to a Facebook Page you manage, then reconnect Instagram.",
   missing_page_linkage:
-    "FlowCart could not find an Instagram professional account linked to a Facebook Page you control. Link your Instagram professional account to a Facebook Page you manage, then reconnect Instagram.",
+    "Flowwick could not find an Instagram professional account linked to a Facebook Page you control. Link your Instagram professional account to a Facebook Page you manage, then reconnect Instagram.",
   missing_instagram_business_account:
     "The selected Facebook Page is not currently linked to an Instagram Business or Creator account.",
   missing_page_access_token:
-    "FlowCart found your linked Page and Instagram account, but Meta did not return a Page publishing token. Reconnect Instagram and choose the Page you want FlowCart to publish from.",
+    "Flowwick found your linked Page and Instagram account, but Meta did not return a Page publishing token. Reconnect Instagram and choose the Page you want Flowwick to publish from.",
   invalid_selection:
     "The selected Instagram account is no longer available. Please reconnect and try again.",
   oauth_state_persist_failed:
     "Instagram connection could not be started. Please refresh and try again.",
   app_url_mismatch:
-    "Instagram OAuth must be started from the production FlowCart URL. You are being redirected there now.",
+    "Instagram OAuth must be started from the production Flowwick URL. You are being redirected there now.",
 } as const;
 
 export type InstagramOauthErrorCode = keyof typeof INSTAGRAM_OAUTH_ERROR_MESSAGES;

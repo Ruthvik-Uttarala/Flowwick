@@ -33,7 +33,7 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
-const PROTECTED_ROUTES = ["/dashboard", "/settings"];
+const PROTECTED_ROUTES = ["/dashboard", "/settings", "/profile"];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+
     refreshSession();
   }, [refreshSession]);
 

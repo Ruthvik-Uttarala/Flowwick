@@ -35,7 +35,7 @@ export function getAuthoritativeAppUrl(): string {
 }
 
 /**
- * FlowCart runs Shopify OAuth only as a standalone SaaS app on NEXT_PUBLIC_APP_URL.
+ * Flowwick runs Shopify OAuth only as a standalone SaaS app on NEXT_PUBLIC_APP_URL.
  * It is not implemented as an embedded Shopify admin app.
  */
 export function buildShopifyCallbackUrl(): string {
@@ -121,7 +121,7 @@ export function buildShopifyIframeEscapePage(targetUrl: string, message: string)
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Redirecting to FlowCart</title>
+    <title>Redirecting to Flowwick</title>
   </head>
   <body>
     <p id="message"></p>
@@ -136,7 +136,7 @@ export function buildShopifyIframeEscapePage(targetUrl: string, message: string)
       }
     </script>
     <noscript>
-      <p><a href="${targetUrl}">Continue to FlowCart</a></p>
+      <p><a href="${targetUrl}">Continue to Flowwick</a></p>
     </noscript>
   </body>
 </html>`;

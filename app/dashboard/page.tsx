@@ -1,29 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { CheckCircle2, Loader2, Plus, Send, Sparkles, XCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  CheckCircle2,
+  CircleAlert,
+  Loader2,
+  Plus,
+  Send,
+  Sparkles,
+} from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
-import { PostDetailDrawer } from "@/src/components/PostDetailDrawer";
-import { PostTile } from "@/src/components/PostTile";
 import { ProductBucket } from "@/src/components/ProductBucket";
+import { PostTile } from "@/src/components/PostTile";
+import { PostDetailDrawer } from "@/src/components/PostDetailDrawer";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
-import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
 import {
   applyCreatedBucket,
   applyMoveToTrash,
   applyPermanentDelete,
   getBucketPollIntervalMs,
   hasActiveBucketWork,
-  markBucketsProcessingForGoAll,
-  pickGoAllReadyBucketIds,
-  runBoundedQueue,
   upsertBucketById,
 } from "@/src/lib/dashboard-buckets";
-import {
-  isDoneBucketCollapsedByDefault,
-  toggleDoneBucketExpandedState,
-} from "@/src/lib/bucket-ui";
 import type {
   ApiResponseShape,
   DoneBucketSyncPayload,
@@ -32,6 +30,11 @@ import type {
   ProductBucket as Bucket,
   SyncStatusChip,
 } from "@/src/lib/types";
+import {
+  isDoneBucketCollapsedByDefault,
+  toggleDoneBucketExpandedState,
+} from "@/src/lib/bucket-ui";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
 
 interface BucketActionState {
   saving: boolean;
@@ -46,7 +49,6 @@ interface BucketActionState {
 
 interface RuntimeHealth {
   openaiConfigured: boolean;
-  settingsConfigured: boolean;
 }
 
 const EMPTY_ACTION_STATE: BucketActionState = {
@@ -60,12 +62,7 @@ const EMPTY_ACTION_STATE: BucketActionState = {
   syncingDone: false,
 };
 
-const GO_ALL_CONCURRENCY_LIMIT = 3;
-const BUCKET_HASH_PREFIX = "#bucket-";
-
-function bucketFromError(
-  payload: ApiResponseShape<unknown> | null | undefined
-): Bucket | null {
+function bucketFromError(payload: ApiResponseShape<unknown> | null | undefined): Bucket | null {
   const data = payload?.data;
   if (!data || typeof data !== "object") {
     return null;
@@ -77,58 +74,26 @@ function hasSyncPayloadChanges(payload: DoneBucketSyncPayload): boolean {
   return Object.keys(payload).length > 0;
 }
 
-function statusLabel(status: Bucket["status"]): string {
-  switch (status) {
-    case "DONE":
-      return "Posted";
-    case "READY":
-      return "Ready";
-    case "FAILED":
-      return "Issues";
-    case "PROCESSING":
-    case "ENHANCING":
-      return "Working";
-    default:
-      return "Draft";
-  }
-}
-
-function parseBucketIdFromHash(hash: string): string {
-  if (!hash.startsWith(BUCKET_HASH_PREFIX)) {
-    return "";
-  }
-  return hash.slice(BUCKET_HASH_PREFIX.length).trim();
-}
-
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-
   const [buckets, setBuckets] = useState<Bucket[]>([]);
-  const [actionsByBucket, setActionsByBucket] = useState<
-    Record<string, BucketActionState>
-  >({});
-  const [doneExpandedByBucketId, setDoneExpandedByBucketId] = useState<
-    Record<string, boolean>
-  >({});
-  const [doneSyncChips, setDoneSyncChips] = useState<
-    Record<string, SyncStatusChip[]>
-  >({});
-  const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth>({
-    openaiConfigured: false,
-    settingsConfigured: false,
-  });
-
+  const [trashedBuckets, setTrashedBuckets] = useState<Bucket[]>([]);
+  const [actionsByBucket, setActionsByBucket] = useState<Record<string, BucketActionState>>({});
+  const [doneExpandedByBucketId, setDoneExpandedByBucketId] = useState<Record<string, boolean>>({});
+  const [doneSyncChips, setDoneSyncChips] = useState<Record<string, SyncStatusChip[]>>({});
+  const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth>({ openaiConfigured: false });
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [summaryMessage, setSummaryMessage] = useState("");
   const [goAllSummary, setGoAllSummary] = useState<GoAllSummary | null>(null);
   const [isRunningGoAll, setIsRunningGoAll] = useState(false);
-  const [openBucketId, setOpenBucketId] = useState("");
   const [highlightedBucketId, setHighlightedBucketId] = useState("");
+  const [openBucketId, setOpenBucketId] = useState<string>("");
+  const [pendingScrollBucketId, setPendingScrollBucketId] = useState("");
 
+  const tileRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const bucketsRef = useRef<Bucket[]>([]);
   const trashedBucketsRef = useRef<Bucket[]>([]);
-  const goAllInFlightRef = useRef(false);
   const highlightTimeoutRef = useRef<number | null>(null);
 
   const setBucketActionState = (
@@ -141,145 +106,139 @@ export default function DashboardPage() {
     }));
   };
 
-  const setCollections = useCallback(
-    (nextBuckets: Bucket[], nextTrashedBuckets: Bucket[]) => {
-      bucketsRef.current = nextBuckets;
-      trashedBucketsRef.current = nextTrashedBuckets;
-      setBuckets(nextBuckets);
+  const setCollections = useCallback((nextBuckets: Bucket[], nextTrashedBuckets: Bucket[]) => {
+    bucketsRef.current = nextBuckets;
+    trashedBucketsRef.current = nextTrashedBuckets;
+    setBuckets(nextBuckets);
+    setTrashedBuckets(nextTrashedBuckets);
 
-      const activeIds = new Set(nextBuckets.map((bucket) => bucket.id));
-
-      setDoneExpandedByBucketId((current) => {
-        const pruned: Record<string, boolean> = {};
-        for (const [bucketId, expanded] of Object.entries(current)) {
-          if (activeIds.has(bucketId)) {
-            pruned[bucketId] = expanded;
-          }
+    const activeIds = new Set(nextBuckets.map((bucket) => bucket.id));
+    setDoneExpandedByBucketId((current) => {
+      const pruned: Record<string, boolean> = {};
+      for (const [bucketId, expanded] of Object.entries(current)) {
+        if (activeIds.has(bucketId)) {
+          pruned[bucketId] = expanded;
         }
-        return pruned;
-      });
+      }
+      return pruned;
+    });
 
-      setDoneSyncChips((current) => {
-        const pruned: Record<string, SyncStatusChip[]> = {};
-        for (const [bucketId, chips] of Object.entries(current)) {
-          if (activeIds.has(bucketId)) {
-            pruned[bucketId] = chips;
-          }
+    setDoneSyncChips((current) => {
+      const pruned: Record<string, SyncStatusChip[]> = {};
+      for (const [bucketId, chips] of Object.entries(current)) {
+        if (activeIds.has(bucketId)) {
+          pruned[bucketId] = chips;
         }
-        return pruned;
-      });
-    },
-    []
-  );
+      }
+      return pruned;
+    });
+
+    if (openBucketId && !nextBuckets.some((bucket) => bucket.id === openBucketId)) {
+      setOpenBucketId("");
+    }
+  }, [openBucketId]);
+
+  const upsertBucket = useCallback((nextBucket: Bucket) => {
+    const nextBuckets = upsertBucketById(bucketsRef.current, nextBucket);
+    setCollections(nextBuckets, trashedBucketsRef.current);
+  }, [setCollections]);
 
   const applyBucketCollectionsFromPayload = useCallback(
-    (payload: { buckets?: Bucket[]; trashedBuckets?: Bucket[] } | undefined) => {
+    (payload: { buckets?: Bucket[]; trashedBuckets?: Bucket[] } | undefined): boolean => {
       const hasBuckets = Array.isArray(payload?.buckets);
-      const hasTrashed = Array.isArray(payload?.trashedBuckets);
-      if (!hasBuckets && !hasTrashed) {
+      const hasTrashedBuckets = Array.isArray(payload?.trashedBuckets);
+      if (!hasBuckets && !hasTrashedBuckets) {
         return false;
       }
 
       const nextBuckets = hasBuckets ? payload?.buckets ?? [] : bucketsRef.current;
-      const nextTrashed = hasTrashed
+      const nextTrashedBuckets = hasTrashedBuckets
         ? payload?.trashedBuckets ?? []
         : trashedBucketsRef.current;
-      setCollections(nextBuckets, nextTrashed);
+      setCollections(nextBuckets, nextTrashedBuckets);
       return true;
     },
     [setCollections]
   );
 
-  const upsertBucket = (nextBucket: Bucket) => {
-    const nextBuckets = upsertBucketById(bucketsRef.current, nextBucket);
-    setCollections(nextBuckets, trashedBucketsRef.current);
-  };
-
-  const highlightBucket = useCallback((bucketId: string) => {
-    if (!bucketId) {
-      return;
+  const loadBuckets = useCallback(async () => {
+    const response = await fetch("/api/buckets", { cache: "no-store" });
+    const payload = await readApiResponse<{ buckets?: Bucket[]; trashedBuckets?: Bucket[] }>(response);
+    if (!response.ok || !payload?.ok) {
+      throw new Error(apiErrorMessage(payload, "Failed to load posts."));
     }
+
+    setCollections(
+      Array.isArray(payload.data?.buckets) ? payload.data.buckets : [],
+      Array.isArray(payload.data?.trashedBuckets) ? payload.data.trashedBuckets : []
+    );
+  }, [setCollections]);
+
+  const loadRuntimeHealth = useCallback(async () => {
+    try {
+      const response = await fetch("/api/health", { cache: "no-store" });
+      const payload = await readApiResponse<{ openaiConfigured?: boolean }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error("Runtime health unavailable.");
+      }
+
+      setRuntimeHealth({
+        openaiConfigured: Boolean(payload.data?.openaiConfigured),
+      });
+    } catch {
+      setRuntimeHealth({ openaiConfigured: false });
+    }
+  }, []);
+
+  const showBucketHighlight = useCallback((bucketId: string) => {
     setHighlightedBucketId(bucketId);
     if (highlightTimeoutRef.current) {
       window.clearTimeout(highlightTimeoutRef.current);
     }
     highlightTimeoutRef.current = window.setTimeout(() => {
       setHighlightedBucketId((current) => (current === bucketId ? "" : current));
-    }, 1400);
+    }, 1600);
   }, []);
 
-  const setHashForBucket = useCallback((bucketId: string) => {
-    window.history.replaceState(
-      null,
-      "",
-      `${window.location.pathname}${window.location.search}#bucket-${bucketId}`
-    );
-  }, []);
-
-  const clearBucketHash = useCallback(() => {
-    if (window.location.hash.startsWith(BUCKET_HASH_PREFIX)) {
-      window.history.replaceState(
-        null,
-        "",
-        `${window.location.pathname}${window.location.search}`
-      );
-    }
-  }, []);
-
-  const openBucket = useCallback(
-    (bucketId: string, syncHash = true) => {
-      setOpenBucketId(bucketId);
-      highlightBucket(bucketId);
-      if (syncHash) {
-        setHashForBucket(bucketId);
-      }
+  const registerTileRef = useCallback(
+    (bucketId: string) => (element: HTMLDivElement | null) => {
+      tileRefs.current[bucketId] = element;
     },
-    [highlightBucket, setHashForBucket]
+    []
   );
 
-  const closeBucket = useCallback(() => {
-    setOpenBucketId("");
-    clearBucketHash();
-  }, [clearBucketHash]);
-
-  const loadBuckets = useCallback(async () => {
-    const response = await fetch("/api/buckets", { cache: "no-store" });
-    const payload = await readApiResponse<{
-      buckets?: Bucket[];
-      trashedBuckets?: Bucket[];
-    }>(response);
-    if (!response.ok || !payload?.ok) {
-      throw new Error(apiErrorMessage(payload, "Failed to load posts."));
-    }
-
-    const nextBuckets = Array.isArray(payload.data?.buckets)
-      ? payload.data.buckets
-      : [];
-    const nextTrashed = Array.isArray(payload.data?.trashedBuckets)
-      ? payload.data.trashedBuckets
-      : [];
-    setCollections(nextBuckets, nextTrashed);
-    return nextBuckets;
-  }, [setCollections]);
-
-  const loadRuntimeHealth = useCallback(async () => {
-    try {
-      const response = await fetch("/api/health", { cache: "no-store" });
-      const payload = await readApiResponse<{
-        openaiConfigured?: boolean;
-        settings?: { configured?: boolean };
-      }>(response);
-      if (!response.ok || !payload?.ok) {
-        throw new Error("Failed to load runtime health.");
+  const openBucket = useCallback(
+    (bucketId: string) => {
+      setOpenBucketId(bucketId);
+      showBucketHighlight(bucketId);
+      const target = tileRefs.current[bucketId];
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      setRuntimeHealth({
-        openaiConfigured: Boolean(payload.data?.openaiConfigured),
-        settingsConfigured: Boolean(payload.data?.settings?.configured),
-      });
-    } catch {
-      setRuntimeHealth({ openaiConfigured: false, settingsConfigured: false });
+      window.history.replaceState(null, "", `#bucket-${bucketId}`);
+    },
+    [showBucketHighlight]
+  );
+
+  const openBucketFromHash = useCallback(() => {
+    const rawHash = typeof window !== "undefined" ? window.location.hash : "";
+    const bucketId = rawHash.startsWith("#bucket-") ? rawHash.slice("#bucket-".length) : "";
+    if (!bucketId) {
+      return;
     }
-  }, []);
+
+    const hasBucket = bucketsRef.current.some((bucket) => bucket.id === bucketId);
+    if (!hasBucket) {
+      return;
+    }
+
+    setOpenBucketId(bucketId);
+    showBucketHighlight(bucketId);
+    const target = tileRefs.current[bucketId];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [showBucketHighlight]);
 
   useEffect(() => {
     if (authLoading || !user) {
@@ -287,6 +246,7 @@ export default function DashboardPage() {
     }
 
     let active = true;
+
     const initialize = async () => {
       setLoading(true);
       setPageError("");
@@ -294,58 +254,91 @@ export default function DashboardPage() {
         await Promise.all([loadBuckets(), loadRuntimeHealth()]);
       } catch (error) {
         if (active) {
-          setPageError(
-            error instanceof Error ? error.message : "Failed to load posts."
-          );
+          setPageError(error instanceof Error ? error.message : "Failed to load posts.");
         }
       } finally {
         if (active) {
           setLoading(false);
+          window.requestAnimationFrame(() => {
+            openBucketFromHash();
+          });
         }
       }
     };
 
     void initialize();
+
     return () => {
       active = false;
     };
-  }, [authLoading, user, loadBuckets, loadRuntimeHealth]);
-
-  const hasActiveProcessingBuckets = useMemo(
-    () => hasActiveBucketWork(buckets),
-    [buckets]
-  );
-  const shouldAutoRefreshBuckets = isRunningGoAll || hasActiveProcessingBuckets;
+  }, [authLoading, user, loadBuckets, loadRuntimeHealth, openBucketFromHash]);
 
   useEffect(() => {
-    if (authLoading || !user || !shouldAutoRefreshBuckets) {
+    if (authLoading || !user) {
+      return;
+    }
+
+    const onHashChange = () => {
+      openBucketFromHash();
+    };
+
+    window.addEventListener("hashchange", onHashChange);
+    return () => {
+      window.removeEventListener("hashchange", onHashChange);
+    };
+  }, [authLoading, user, openBucketFromHash]);
+
+  useEffect(
+    () => () => {
+      if (highlightTimeoutRef.current) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!pendingScrollBucketId) {
+      return;
+    }
+
+    const target = tileRefs.current[pendingScrollBucketId];
+    if (!target) {
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    showBucketHighlight(pendingScrollBucketId);
+    setPendingScrollBucketId("");
+  }, [pendingScrollBucketId, buckets, showBucketHighlight]);
+
+  const hasActiveProcessingBuckets = useMemo(() => hasActiveBucketWork(buckets), [buckets]);
+
+  useEffect(() => {
+    if (authLoading || !user || (!isRunningGoAll && !hasActiveProcessingBuckets)) {
       return;
     }
 
     let cancelled = false;
     let timeoutId: number | null = null;
 
-    const pollOnce = async () => {
+    const poll = async () => {
       if (cancelled) {
         return;
       }
 
       try {
         await loadBuckets();
-      } catch (error) {
-        console.warn("[flowcart:dashboard] polling failed", error);
+      } catch {
+        // Keep UI responsive even if polling fails intermittently.
       } finally {
         if (!cancelled) {
-          timeoutId = window.setTimeout(() => {
-            void pollOnce();
-          }, getBucketPollIntervalMs(isRunningGoAll));
+          timeoutId = window.setTimeout(poll, getBucketPollIntervalMs(isRunningGoAll));
         }
       }
     };
 
-    timeoutId = window.setTimeout(() => {
-      void pollOnce();
-    }, getBucketPollIntervalMs(isRunningGoAll));
+    timeoutId = window.setTimeout(poll, getBucketPollIntervalMs(isRunningGoAll));
 
     return () => {
       cancelled = true;
@@ -353,63 +346,7 @@ export default function DashboardPage() {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [authLoading, user, shouldAutoRefreshBuckets, isRunningGoAll, loadBuckets]);
-
-  useEffect(() => {
-    return () => {
-      if (highlightTimeoutRef.current) {
-        window.clearTimeout(highlightTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!openBucketId) {
-      return;
-    }
-    const exists = buckets.some((bucket) => bucket.id === openBucketId);
-    if (!exists) {
-      setOpenBucketId("");
-      clearBucketHash();
-    }
-  }, [buckets, openBucketId, clearBucketHash]);
-
-  useEffect(() => {
-    if (loading || buckets.length === 0) {
-      return;
-    }
-
-    const openFromHash = () => {
-      const bucketId = parseBucketIdFromHash(window.location.hash);
-      if (!bucketId) {
-        return;
-      }
-      if (buckets.some((bucket) => bucket.id === bucketId)) {
-        openBucket(bucketId, false);
-      }
-    };
-
-    openFromHash();
-    window.addEventListener("hashchange", openFromHash);
-    return () => {
-      window.removeEventListener("hashchange", openFromHash);
-    };
-  }, [loading, buckets, openBucket]);
-
-  if (authLoading) {
-    return (
-      <div className="flex w-full items-center justify-center py-20">
-        <Loader2
-          size={24}
-          className="animate-spin text-[color:var(--fc-text-muted)]"
-        />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
+  }, [authLoading, user, isRunningGoAll, hasActiveProcessingBuckets, loadBuckets]);
 
   const updateLocalFieldValue = (
     bucketId: string,
@@ -471,9 +408,7 @@ export default function DashboardPage() {
       }
       upsertBucket(payload.data.bucket);
     } catch (error) {
-      setPageError(
-        error instanceof Error ? error.message : "Photo upload failed."
-      );
+      setPageError(error instanceof Error ? error.message : "Photo upload failed.");
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, uploading: false }));
     }
@@ -482,10 +417,7 @@ export default function DashboardPage() {
   const runBucketAction = async (
     bucketId: string,
     path: "enhance-title" | "enhance-description" | "go",
-    actionKey: keyof Pick<
-      BucketActionState,
-      "enhancingTitle" | "enhancingDescription" | "launching"
-    >,
+    actionKey: keyof Pick<BucketActionState, "enhancingTitle" | "enhancingDescription" | "launching">,
     fallbackError: string
   ) => {
     setBucketActionState(bucketId, (current) => ({ ...current, [actionKey]: true }));
@@ -494,9 +426,7 @@ export default function DashboardPage() {
     setGoAllSummary(null);
 
     try {
-      const response = await fetch(`/api/buckets/${bucketId}/${path}`, {
-        method: "POST",
-      });
+      const response = await fetch(`/api/buckets/${bucketId}/${path}`, { method: "POST" });
       const payload = await readApiResponse<{ bucket?: Bucket }>(response);
 
       const errorBucket = bucketFromError(payload);
@@ -521,6 +451,9 @@ export default function DashboardPage() {
 
   const createBucketAction = async () => {
     setPageError("");
+    setSummaryMessage("");
+    setGoAllSummary(null);
+
     try {
       const response = await fetch("/api/buckets/create", { method: "POST" });
       const payload = await readApiResponse<{ bucket?: Bucket }>(response);
@@ -533,11 +466,10 @@ export default function DashboardPage() {
         payload.data.bucket
       );
       setCollections(nextBuckets, trashedBucketsRef.current);
-      openBucket(scrollTargetBucketId || payload.data.bucket.id);
+      setPendingScrollBucketId(scrollTargetBucketId);
+      openBucket(payload.data.bucket.id);
     } catch (error) {
-      setPageError(
-        error instanceof Error ? error.message : "Failed to create post."
-      );
+      setPageError(error instanceof Error ? error.message : "Failed to create post.");
     }
   };
 
@@ -546,9 +478,7 @@ export default function DashboardPage() {
     setPageError("");
 
     try {
-      const response = await fetch(`/api/buckets/${bucketId}/trash`, {
-        method: "POST",
-      });
+      const response = await fetch(`/api/buckets/${bucketId}/trash`, { method: "POST" });
       const payload = await readApiResponse<{
         bucket?: Bucket;
         buckets?: Bucket[];
@@ -566,10 +496,12 @@ export default function DashboardPage() {
         );
         setCollections(nextCollections.buckets, nextCollections.trashedBuckets);
       }
+
+      if (openBucketId === bucketId) {
+        setOpenBucketId("");
+      }
     } catch (error) {
-      setPageError(
-        error instanceof Error ? error.message : "Failed to move post to trash."
-      );
+      setPageError(error instanceof Error ? error.message : "Failed to move post to trash.");
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, trashing: false }));
     }
@@ -599,6 +531,10 @@ export default function DashboardPage() {
         );
         setCollections(nextCollections.buckets, nextCollections.trashedBuckets);
       }
+
+      if (openBucketId === deletedBucketId) {
+        setOpenBucketId("");
+      }
     } catch (error) {
       setPageError(error instanceof Error ? error.message : "Failed to delete post.");
     } finally {
@@ -606,10 +542,7 @@ export default function DashboardPage() {
     }
   };
 
-  const syncDoneBucketAction = async (
-    bucketId: string,
-    patch: DoneBucketSyncPayload
-  ) => {
+  const syncDoneBucketAction = async (bucketId: string, patch: DoneBucketSyncPayload) => {
     if (!hasSyncPayloadChanges(patch)) {
       setDoneSyncChips((current) => ({
         ...current,
@@ -677,312 +610,183 @@ export default function DashboardPage() {
   };
 
   const goAllBuckets = async () => {
-    if (goAllInFlightRef.current) {
+    const readyIds = bucketsRef.current.filter((bucket) => bucket.status === "READY").map((bucket) => bucket.id);
+    if (readyIds.length === 0 || isRunningGoAll) {
       return;
     }
 
-    const targetBucketIds = pickGoAllReadyBucketIds(bucketsRef.current);
-    if (targetBucketIds.length === 0) {
-      return;
-    }
-
-    goAllInFlightRef.current = true;
     setIsRunningGoAll(true);
     setPageError("");
-    setGoAllSummary({
-      total: targetBucketIds.length,
-      succeeded: 0,
-      failed: 0,
-      bucketIds: targetBucketIds,
-    });
-    setSummaryMessage(`Posting: 0/${targetBucketIds.length} done.`);
-
-    const nextBuckets = markBucketsProcessingForGoAll(
-      bucketsRef.current,
-      targetBucketIds
-    );
-    setCollections(nextBuckets, trashedBucketsRef.current);
-
-    let succeeded = 0;
-    let failed = 0;
-    let completed = 0;
-
-    const reportProgress = () => {
-      setGoAllSummary({
-        total: targetBucketIds.length,
-        succeeded,
-        failed,
-        bucketIds: targetBucketIds,
-      });
-      if (completed < targetBucketIds.length) {
-        setSummaryMessage(`Posting: ${completed}/${targetBucketIds.length} done.`);
-      } else {
-        setSummaryMessage(
-          `Done. ${succeeded} posted, ${failed} need attention. (${targetBucketIds.length} total)`
-        );
-      }
-    };
+    setSummaryMessage("Posting all ready posts...");
 
     try {
-      await runBoundedQueue(targetBucketIds, GO_ALL_CONCURRENCY_LIMIT, async (bucketId) => {
-        try {
-          const response = await fetch(`/api/buckets/${bucketId}/go`, {
-            method: "POST",
-          });
-          const payload = await readApiResponse<{ bucket?: Bucket }>(response);
+      const response = await fetch("/api/buckets/go-all", { method: "POST" });
+      const payload = await readApiResponse<{ summary?: GoAllSummary; buckets?: Bucket[] }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "Post All failed."));
+      }
 
-          if (payload?.data?.bucket) {
-            upsertBucket(payload.data.bucket);
-          }
+      if (Array.isArray(payload.data?.buckets)) {
+        setCollections(payload.data.buckets, trashedBucketsRef.current);
+      } else {
+        await loadBuckets();
+      }
 
-          if (!response.ok || !payload?.ok) {
-            const message = apiErrorMessage(payload, "Posting failed.");
-            const currentBucket = bucketsRef.current.find(
-              (bucket) => bucket.id === bucketId
-            );
-            if (currentBucket) {
-              upsertBucket({
-                ...currentBucket,
-                status: "FAILED",
-                errorMessage: message,
-              });
-            }
-          }
+      if (payload.data?.summary) {
+        setGoAllSummary(payload.data.summary);
+        setSummaryMessage(
+          `Done. ${payload.data.summary.succeeded} posted, ${payload.data.summary.failed} need attention.`
+        );
+      } else {
+        setGoAllSummary(null);
+        setSummaryMessage("Post All completed.");
+      }
 
-          const completedBucket =
-            payload?.data?.bucket ??
-            bucketsRef.current.find((item) => item.id === bucketId);
-          if (completedBucket?.status === "DONE") {
-            succeeded += 1;
-          } else {
-            failed += 1;
-          }
-        } catch (error) {
-          failed += 1;
-          const currentBucket = bucketsRef.current.find(
-            (bucket) => bucket.id === bucketId
-          );
-          if (currentBucket) {
-            upsertBucket({
-              ...currentBucket,
-              status: "FAILED",
-              errorMessage: error instanceof Error ? error.message : "Posting failed.",
-            });
-          }
-        } finally {
-          completed += 1;
-          reportProgress();
-        }
-      });
       await loadRuntimeHealth();
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Posting failed.");
+      setPageError(error instanceof Error ? error.message : "Post All failed.");
     } finally {
       setIsRunningGoAll(false);
-      goAllInFlightRef.current = false;
     }
   };
 
   const toggleDoneBucketExpanded = (bucketId: string) => {
-    setDoneExpandedByBucketId((current) =>
-      toggleDoneBucketExpandedState(current, bucketId)
-    );
+    setDoneExpandedByBucketId((current) => toggleDoneBucketExpandedState(current, bucketId));
   };
 
-  const readyCount = buckets.filter((bucket) => bucket.status === "READY").length;
-  const doneCount = buckets.filter((bucket) => bucket.status === "DONE").length;
-  const failedCount = buckets.filter((bucket) => bucket.status === "FAILED").length;
+  const selectedBucket = useMemo(
+    () => buckets.find((bucket) => bucket.id === openBucketId) ?? null,
+    [buckets, openBucketId]
+  );
 
-  const selectedBucket = buckets.find((bucket) => bucket.id === openBucketId) ?? null;
   const selectedBucketIndex = selectedBucket
-    ? buckets.findIndex((bucket) => bucket.id === selectedBucket.id)
+    ? Math.max(0, buckets.findIndex((bucket) => bucket.id === selectedBucket.id))
     : -1;
 
-  const statusStrip = [
-    {
-      label: "Ready",
-      value: `${readyCount}`,
-      icon: CheckCircle2,
-      className: "text-[color:var(--fc-text-primary)]",
-    },
-    {
-      label: "Posted",
-      value: `${doneCount}`,
-      icon: CheckCircle2,
-      className: "text-[#15803d]",
-    },
-    {
-      label: "Issues",
-      value: `${failedCount}`,
-      icon: XCircle,
-      className: "text-[#b42318]",
-    },
-    {
-      label: "AI",
-      value: runtimeHealth.openaiConfigured ? "On" : "Off",
-      icon: Sparkles,
-      className: runtimeHealth.openaiConfigured
-        ? "text-[#15803d]"
-        : "text-[color:var(--fc-text-muted)]",
-    },
-  ];
+  const readyCount = buckets.filter((bucket) => bucket.status === "READY").length;
+  const postedCount = buckets.filter((bucket) => bucket.status === "DONE").length;
+  const issuesCount = buckets.filter((bucket) => bucket.status === "FAILED").length;
+
+  if (authLoading) {
+    return (
+      <div className="flex w-full items-center justify-center py-20">
+        <Loader2 size={24} className="animate-spin text-[color:var(--fc-text-muted)]" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="w-full space-y-4">
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.26 }}
-        className="space-y-3"
-      >
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
+            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-[1.9rem]">
               Your Posts
             </h1>
             <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
-              Create once. Share to Shopify and Instagram.
+              Create once. Publish to Shopify and Instagram.
             </p>
           </div>
-
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
             <LiquidButton
               onClick={createBucketAction}
               disabled={isRunningGoAll}
               variant="primary"
-              size="md"
+              size="lg"
+              className="h-10"
+              contentClassName="inline-flex items-center justify-center gap-2"
             >
-              <Plus size={14} />
-              Create
+              <Plus size={15} />
+              Create Post
             </LiquidButton>
-            {readyCount > 0 ? (
-              <LiquidButton
-                onClick={goAllBuckets}
-                disabled={readyCount === 0 || isRunningGoAll}
-                variant="secondary"
-                size="md"
-              >
-                {isRunningGoAll ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Send size={14} />
-                )}
-                Post All ({readyCount})
-              </LiquidButton>
+            <LiquidButton
+              onClick={goAllBuckets}
+              disabled={readyCount === 0 || isRunningGoAll}
+              variant="secondary"
+              size="lg"
+              className="h-10"
+              contentClassName="inline-flex items-center justify-center gap-2"
+            >
+              {isRunningGoAll ? (
+                <>
+                  <Loader2 size={15} className="animate-spin" />
+                  Posting...
+                </>
+              ) : (
+                <>
+                  <Send size={15} />
+                  Post All{readyCount > 0 ? ` (${readyCount})` : ""}
+                </>
+              )}
+            </LiquidButton>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-3">
+          <StatusChip label="Ready" value={`${readyCount}`} icon={<Sparkles size={14} />} />
+          <StatusChip label="Posted" value={`${postedCount}`} icon={<CheckCircle2 size={14} />} />
+          <StatusChip label="Issues" value={`${issuesCount}`} icon={<CircleAlert size={14} />} />
+          <StatusChip label="AI" value={runtimeHealth.openaiConfigured ? "On" : "Off"} icon={<Sparkles size={14} />} />
+        </div>
+      </section>
+
+      {summaryMessage ? (
+        <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-primary)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <span>{summaryMessage}</span>
+            {goAllSummary ? (
+              <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-2.5 py-0.5 text-[11px] font-semibold text-[color:var(--fc-text-muted)]">
+                Posted {goAllSummary.succeeded} · Issues {goAllSummary.failed}
+              </span>
             ) : null}
           </div>
         </div>
+      ) : null}
 
-        <div className="grid grid-cols-2 gap-2 rounded-xl border border-[color:var(--fc-border-subtle)] bg-white p-2 sm:grid-cols-4">
-          {statusStrip.map((item) => {
-            const Icon = item.icon;
-            return (
-              <div
-                key={item.label}
-                className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2"
-              >
-                <Icon size={14} className={item.className} />
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">
-                    {item.label}
-                  </p>
-                  <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
-                    {item.value}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
+      {pageError ? (
+        <div className="rounded-xl border border-[rgba(220,38,38,0.3)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[#b91c1c]">
+          {pageError}
         </div>
-      </motion.section>
+      ) : null}
 
-      <AnimatePresence initial={false}>
-        {loading ? (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-muted)]"
-          >
-            <Loader2 size={14} className="animate-spin" />
-            Loading posts...
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-xl border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-muted)]">
+          <Loader2 size={14} className="animate-spin" />
+          Loading your posts...
+        </div>
+      ) : null}
 
-      <AnimatePresence initial={false}>
-        {summaryMessage ? (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-primary)]"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <span>{summaryMessage}</span>
-              {goAllSummary ? (
-                <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--fc-text-muted)]">
-                  Posted {goAllSummary.succeeded} • Issues {goAllSummary.failed}
-                </span>
-              ) : null}
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <AnimatePresence initial={false}>
-        {pageError ? (
-          <motion.div
-            initial={{ opacity: 0, y: -6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            className="rounded-lg border border-[rgba(220,38,38,0.3)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[#b42318]"
-          >
-            {pageError}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      {buckets.length === 0 && !loading ? (
-        <div className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white px-6 py-14 text-center">
-          <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--fc-surface-muted)]">
-            <Plus
-              size={20}
-              strokeWidth={1.9}
-              className="text-[color:var(--fc-text-muted)]"
-            />
-          </div>
-          <h3 className="text-base font-semibold text-[color:var(--fc-text-primary)]">
-            No posts yet
-          </h3>
+      {!loading && buckets.length === 0 ? (
+        <div className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white px-6 py-12 text-center">
+          <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">No posts yet</h2>
           <p className="mx-auto mt-1 max-w-xs text-sm text-[color:var(--fc-text-muted)]">
-            Create your first post to upload images and publish.
+            Create your first post to publish everywhere.
           </p>
           <div className="mt-4 flex justify-center">
-            <LiquidButton
-              onClick={createBucketAction}
-              disabled={isRunningGoAll}
-              variant="primary"
-              size="md"
-            >
-              <Plus size={14} />
-              Create
+            <LiquidButton onClick={createBucketAction} disabled={isRunningGoAll} variant="primary" size="md">
+              <Plus size={15} />
+              Create Post
             </LiquidButton>
           </div>
         </div>
       ) : null}
 
-      {buckets.length > 0 ? (
-        <section className="w-full rounded-xl border border-[color:var(--fc-border-subtle)] bg-white p-1.5 sm:p-2">
-          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+      {!loading && buckets.length > 0 ? (
+        <section className="w-full" aria-label="Posts grid">
+          <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-3">
             {buckets.map((bucket, index) => (
-              <PostTile
-                key={bucket.id}
-                bucket={bucket}
-                bucketNumber={index + 1}
-                isHighlighted={highlightedBucketId === bucket.id}
-                onOpen={(bucketId) => openBucket(bucketId)}
-              />
+              <div key={bucket.id} ref={registerTileRef(bucket.id)}>
+                <PostTile
+                  bucket={bucket}
+                  bucketNumber={index + 1}
+                  isHighlighted={highlightedBucketId === bucket.id}
+                  onOpen={openBucket}
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -990,56 +794,40 @@ export default function DashboardPage() {
 
       <PostDetailDrawer
         isOpen={Boolean(selectedBucket)}
-        onClose={closeBucket}
-        title={selectedBucket ? `${statusLabel(selectedBucket.status)} post` : "Post"}
+        onClose={() => setOpenBucketId("")}
+        title={selectedBucket ? (selectedBucket.titleEnhanced.trim() || selectedBucket.titleRaw.trim() || `Post ${selectedBucketIndex + 1}`) : "Post details"}
       >
         {selectedBucket ? (
-          <div className="p-3 sm:p-4">
+          <div className="px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3">
             <ProductBucket
               bucket={selectedBucket}
-              bucketNumber={selectedBucketIndex >= 0 ? selectedBucketIndex + 1 : 1}
+              bucketNumber={selectedBucketIndex + 1}
               isSaving={actionsByBucket[selectedBucket.id]?.saving ?? false}
               isUploading={actionsByBucket[selectedBucket.id]?.uploading ?? false}
-              isEnhancingTitle={
-                actionsByBucket[selectedBucket.id]?.enhancingTitle ?? false
-              }
-              isEnhancingDescription={
-                actionsByBucket[selectedBucket.id]?.enhancingDescription ?? false
-              }
+              isEnhancingTitle={actionsByBucket[selectedBucket.id]?.enhancingTitle ?? false}
+              isEnhancingDescription={actionsByBucket[selectedBucket.id]?.enhancingDescription ?? false}
               isLaunching={actionsByBucket[selectedBucket.id]?.launching ?? false}
               isTrashing={actionsByBucket[selectedBucket.id]?.trashing ?? false}
               isDeleting={actionsByBucket[selectedBucket.id]?.deleting ?? false}
               isDoneExpanded={
                 isDoneBucketCollapsedByDefault(selectedBucket.status)
-                  ? Boolean(doneExpandedByBucketId[selectedBucket.id])
+                  ? doneExpandedByBucketId[selectedBucket.id] ?? true
                   : true
               }
               isSyncingDone={actionsByBucket[selectedBucket.id]?.syncingDone ?? false}
               doneSyncChips={doneSyncChips[selectedBucket.id] ?? []}
-              isHighlighted={highlightedBucketId === selectedBucket.id}
+              isHighlighted={false}
               isGlobalBusy={isRunningGoAll}
               onLocalFieldChange={updateLocalFieldValue}
               onPersistField={persistField}
               onImagesChange={uploadImages}
               onEnhanceTitle={(bucketId) =>
-                runBucketAction(
-                  bucketId,
-                  "enhance-title",
-                  "enhancingTitle",
-                  "Title enhancement failed."
-                )
+                runBucketAction(bucketId, "enhance-title", "enhancingTitle", "Title enhancement failed.")
               }
               onEnhanceDescription={(bucketId) =>
-                runBucketAction(
-                  bucketId,
-                  "enhance-description",
-                  "enhancingDescription",
-                  "Description enhancement failed."
-                )
+                runBucketAction(bucketId, "enhance-description", "enhancingDescription", "Caption enhancement failed.")
               }
-              onGo={(bucketId) =>
-                runBucketAction(bucketId, "go", "launching", "Post failed.")
-              }
+              onGo={(bucketId) => runBucketAction(bucketId, "go", "launching", "Post failed.")}
               onMoveToTrash={moveBucketToTrashAction}
               onDeletePermanently={permanentlyDeleteBucketAction}
               onToggleDoneExpanded={toggleDoneBucketExpanded}
@@ -1048,6 +836,26 @@ export default function DashboardPage() {
           </div>
         ) : null}
       </PostDetailDrawer>
+
+      {trashedBuckets.length > 0 ? (
+        <p className="text-center text-xs text-[color:var(--fc-text-muted)]">
+          {trashedBuckets.length} removed post{trashedBuckets.length === 1 ? "" : "s"} available in Settings.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function StatusChip({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2">
+      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-[color:var(--fc-border-subtle)] bg-white text-[color:var(--fc-text-primary)]">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">{label}</p>
+        <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">{value}</p>
+      </div>
     </div>
   );
 }

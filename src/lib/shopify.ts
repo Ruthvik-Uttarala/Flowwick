@@ -17,9 +17,9 @@ export const SHOPIFY_OAUTH_ERROR_MESSAGES = {
   oauth_state_persist_failed:
     "Shopify connection could not be started. Please refresh and try again.",
   app_url_mismatch:
-    "Shopify OAuth must be started from the production FlowCart URL. You are being redirected there now.",
+    "Shopify OAuth must be started from the production Flowwick URL. You are being redirected there now.",
   unsupported_shopify_context:
-    "Shopify OAuth must be started from the standalone FlowCart settings page, not from Shopify admin.",
+    "Shopify OAuth must be started from the standalone Flowwick settings page, not from Shopify admin.",
 } as const;
 
 export type ShopifyOauthErrorCode = keyof typeof SHOPIFY_OAUTH_ERROR_MESSAGES;

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { ArrowRight, ImagePlus, PencilLine, RefreshCcw, Send } from "lucide-react";
 import { ShopifyMark, InstagramMark } from "@/src/components/ui/brand-icons";
@@ -64,21 +65,21 @@ export default function InfoPage() {
     {
       number: 2,
       title: "Add product details",
-      body: "Write the title, caption, price, and quantity.",
+      body: "Write title, caption, price, and quantity in one place.",
       href: "/dashboard",
       icon: <PencilLine size={18} strokeWidth={1.9} />,
     },
     {
       number: 3,
       title: "Connect Shopify",
-      body: "Connect your store so FlowCart can create and update products.",
+      body: "Connect your store so Flowwick can create and update products.",
       href: "/settings#shopify",
       icon: <ShopifyMark size={18} />,
     },
     {
       number: 4,
       title: "Connect Instagram",
-      body: "Connect the Instagram account where FlowCart publishes posts.",
+      body: "Connect the Instagram account where Flowwick should publish posts.",
       href: "/settings#instagram",
       icon: <InstagramMark size={18} />,
     },
@@ -101,18 +102,29 @@ export default function InfoPage() {
   return (
     <div className="w-full space-y-5">
       <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--fc-text-soft)]">
-          FlowCart guide
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
-          Post once. Share everywhere.
-        </h1>
-        <p className="mt-2 max-w-3xl text-sm text-[color:var(--fc-text-muted)] sm:text-base">
-          Follow these six steps to go from photos to published posts across Shopify and Instagram.
-        </p>
+        <div className="flex items-start gap-3">
+          <Image
+            src="/brand/flowwick-symbol.png"
+            alt=""
+            width={64}
+            height={64}
+            className="mt-1 hidden h-10 w-auto sm:block"
+          />
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--fc-text-soft)]">
+              Flowwick Guide
+            </p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
+              Post once. Sell everywhere.
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm text-[color:var(--fc-text-muted)] sm:text-base">
+              Follow these six steps to go from photos to published posts across Shopify and Instagram.
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="Flowwick steps">
         {steps.map((step) => {
           const showConnected =
             (step.number === 3 && shopifyConnected) ||
@@ -164,7 +176,7 @@ export default function InfoPage() {
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1 rounded-lg bg-[#111111] px-4 py-2 text-sm font-semibold text-white"
+            className="inline-flex items-center justify-center gap-1 rounded-lg bg-[#111111] px-4 py-2 text-sm font-semibold text-white"
           >
             Start posting
             <ArrowRight size={14} />
