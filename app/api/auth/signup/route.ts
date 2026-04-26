@@ -7,7 +7,7 @@ import {
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
 
 const signupSchema = z.object({
-  email: z.email().trim(),
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
   password: z.string().min(8),
 });
 
@@ -47,7 +47,10 @@ export async function POST(request: Request) {
 
     if (result.error) {
       console.error("[merchflow:auth:signup] Signup error:", result.error);
-      return errorResponse(result.error, { status: 400 });
+      return errorResponse(
+        "This email may already have an account. Try logging in or reset your password.",
+        { status: 400 }
+      );
     }
 
     const response = okResponse({

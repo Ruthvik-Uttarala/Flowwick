@@ -66,6 +66,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [refreshSession]);
 
   useEffect(() => {
+    const onFocus = () => {
+      void refreshSession();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refreshSession();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshSession]);
+
+  useEffect(() => {
     if (loading) return;
     const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
     if (isProtected && !user) {

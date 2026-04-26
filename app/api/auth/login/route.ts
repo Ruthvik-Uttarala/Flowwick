@@ -7,7 +7,7 @@ import {
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
 
 const loginSchema = z.object({
-  email: z.email().trim(),
+  email: z.string().trim().email().transform((value) => value.toLowerCase()),
   password: z.string().min(1),
 });
 
@@ -44,7 +44,10 @@ export async function POST(request: Request) {
 
     if (!result.session) {
       console.error("[merchflow:auth:login] Login failed:", result.error);
-      return errorResponse(result.error ?? "Unable to sign in.", { status: 401 });
+      return errorResponse(
+        "Invalid email or password. Use Reset if this email already has an account.",
+        { status: 401 }
+      );
     }
 
     console.log("[merchflow:auth:login] Session created for user:", result.session.user?.email, "id:", result.session.user?.id);

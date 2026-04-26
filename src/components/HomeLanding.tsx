@@ -286,46 +286,55 @@ export function HomeLanding() {
 
 function SignedOutHome() {
   return (
-    <section className="w-full overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white">
-      <div className="grid gap-0 lg:grid-cols-[1fr_0.95fr]">
-        <div className="p-6 sm:p-8 lg:p-10">
+    <section className="w-full">
+      <div className="mx-auto grid w-full max-w-[1160px] gap-6 rounded-[26px] border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-8 lg:grid-cols-[1.02fr_0.98fr] lg:p-10">
+        <div className="flex flex-col justify-center">
           <Image
             src="/brand/flowwick-horizontal.png"
             alt="Flowwick"
             width={720}
             height={240}
             priority
-            className="h-auto w-[170px]"
+            className="h-auto w-[172px] sm:w-[188px]"
           />
-          <h1 className="mt-5 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-5xl">
+          <h1 className="mt-6 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-[3.05rem]">
             Post once. Sell everywhere.
           </h1>
-          <p className="mt-3 max-w-xl text-sm text-[color:var(--fc-text-muted)] sm:text-base">
+          <p className="mt-3 max-w-[520px] text-sm text-[color:var(--fc-text-muted)] sm:text-base">
             Create one product post and publish it to Shopify and Instagram.
           </p>
-          <div className="mt-6 flex flex-wrap gap-2">
-            <LiquidButton asChild variant="primary" size="lg" contentClassName="inline-flex items-center justify-center gap-2">
+          <div className="mt-7 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
+            <LiquidButton
+              asChild
+              variant="primary"
+              size="lg"
+              className="h-11"
+              contentClassName="inline-flex items-center justify-center gap-2 leading-none whitespace-nowrap"
+            >
               <Link href="/auth">
                 Sign in
-                <ArrowRight size={15} />
+                <ArrowRight size={16} />
               </Link>
             </LiquidButton>
-            <LiquidButton asChild variant="secondary" size="lg">
-              <Link href="/info">Info</Link>
-            </LiquidButton>
+            <Link
+              href="/info"
+              className="inline-flex h-11 items-center justify-center rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-5 text-sm font-semibold text-[color:var(--fc-text-primary)] transition hover:bg-[color:var(--fc-surface-muted)]"
+            >
+              Info
+            </Link>
           </div>
         </div>
 
-        <div className="relative min-h-[320px] border-t border-[color:var(--fc-border-subtle)] lg:min-h-full lg:border-l lg:border-t-0">
+        <div className="relative min-h-[340px] overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-[#f3efe9] sm:min-h-[420px] lg:min-h-[560px]">
           <Image
-            src="/brand/flowwick-hero.png"
+            src="/brand/flowwick-product-visual.png"
             alt="Flowwick product posting preview"
             fill
             priority
-            className="object-cover"
-            sizes="(max-width: 1024px) 100vw, 48vw"
+            className="object-cover object-center"
+            sizes="(max-width: 1024px) 100vw, 50vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/24 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/8 via-transparent to-transparent" />
         </div>
       </div>
     </section>
