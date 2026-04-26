@@ -2,27 +2,23 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   CheckCircle2,
   Grid3x3,
-  Info as InfoIcon,
   Loader2,
+  Plus,
   PlusSquare,
-  Sparkles,
+  Store,
 } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
-import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
-import {
-  ShopifyMark,
-  InstagramMark,
-} from "@/src/components/ui/brand-icons";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
+import { InstagramMark, ShopifyMark } from "@/src/components/ui/brand-icons";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
 import type {
-  ProductBucket as Bucket,
   InstagramConnectionSummary,
+  ProductBucket as Bucket,
   RuntimeConfigSnapshot,
   SafeSettingsStatus,
 } from "@/src/lib/types";
@@ -33,16 +29,24 @@ interface SettingsPayload {
   instagramConnection: InstagramConnectionSummary;
 }
 
+interface QuickAction {
+  title: string;
+  subtitle: string;
+  href?: string;
+  icon: ReactNode;
+  onClick?: () => void;
+}
+
 export function HomeLanding() {
   const { user, loading: authLoading } = useAuth();
   const [buckets, setBuckets] = useState<Bucket[]>([]);
   const [status, setStatus] = useState<SafeSettingsStatus | null>(null);
   const [instagramConnection, setInstagramConnection] =
     useState<InstagramConnectionSummary | null>(null);
-  const [aiLive, setAiLive] = useState<boolean>(false);
-  const [isLoadingFeed, setIsLoadingFeed] = useState<boolean>(false);
-  const [creating, setCreating] = useState<boolean>(false);
-  const [pageError, setPageError] = useState<string>("");
+  const [aiLive, setAiLive] = useState(false);
+  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [pageError, setPageError] = useState("");
 
   const loadHomeData = useCallback(async () => {
     setIsLoadingFeed(true);
@@ -58,7 +62,7 @@ export function HomeLanding() {
       if (bucketsRes.ok && bucketsPayload?.ok) {
         setBuckets(
           Array.isArray(bucketsPayload.data?.buckets)
-            ? bucketsPayload.data!.buckets
+            ? bucketsPayload.data.buckets
             : []
         );
       }
@@ -71,8 +75,7 @@ export function HomeLanding() {
         setAiLive(Boolean(settingsPayload.data.runtime?.openaiConfigured));
       }
     } catch (error) {
-      // Home page tolerates failures — Posts page surfaces the real error.
-      console.warn("[flowcart:home] failed to load summary data", error);
+      console.warn("[flowcart:home] summary fetch failed", error);
     } finally {
       setIsLoadingFeed(false);
     }
@@ -94,7 +97,6 @@ export function HomeLanding() {
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
         throw new Error(apiErrorMessage(payload, "Failed to create post."));
       }
-      // Hand off to /dashboard where the create-post flow continues.
       window.location.href = `/dashboard#bucket-${payload.data.bucket.id}`;
     } catch (error) {
       setPageError(
@@ -104,9 +106,8 @@ export function HomeLanding() {
     }
   }, []);
 
-  // ----- Logged-out state -----
   if (!authLoading && !user) {
-    return <SignedOutHero />;
+    return <SignedOutHome />;
   }
 
   if (authLoading) {
@@ -120,155 +121,153 @@ export function HomeLanding() {
     );
   }
 
-  const readyCount = buckets.filter((b) => b.status === "READY").length;
-  const postedCount = buckets.filter((b) => b.status === "DONE").length;
-  const draftCount = buckets.filter((b) => b.status === "EMPTY").length;
-  const recentBuckets = [...buckets].slice(0, 8);
+  const readyCount = buckets.filter((post) => post.status === "READY").length;
+  const postedCount = buckets.filter((post) => post.status === "DONE").length;
+  const issueCount = buckets.filter((post) => post.status === "FAILED").length;
+  const recentPosts = [...buckets].slice(0, 12);
 
-  const shopifyConnected = Boolean(status?.shopifyConnected);
-  const instagramConnected = Boolean(instagramConnection?.canPublish);
+  const quickActions: QuickAction[] = [
+    {
+      title: "Create Post",
+      subtitle: "Start a new post now.",
+      icon: <PlusSquare size={17} strokeWidth={1.9} />,
+      onClick: handleCreate,
+    },
+    {
+      title: "Posts",
+      subtitle: "View and edit all posts.",
+      href: "/dashboard",
+      icon: <Grid3x3 size={17} strokeWidth={1.9} />,
+    },
+    {
+      title: "Connect Shopify",
+      subtitle: "Link your Shopify store.",
+      href: "/settings#shopify",
+      icon: <ShopifyMark size={17} />,
+    },
+    {
+      title: "Connect Instagram",
+      subtitle: "Link your Instagram account.",
+      href: "/settings#instagram",
+      icon: <InstagramMark size={17} />,
+    },
+  ];
 
   return (
     <div className="w-full space-y-6">
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-6 sm:p-8"
-      >
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <Image
-              src="/brand/flowcart-symbol.png"
-              alt=""
-              width={88}
-              height={88}
-              priority
-              className="hidden h-12 w-12 object-contain sm:block"
-            />
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fc-text-soft)]">
-                {user?.email
-                  ? `Signed in as ${user.email}`
-                  : "Welcome back"}
-              </p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
-                Ready to post?
-              </h1>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-[color:var(--fc-text-muted)] sm:text-base">
-                Create once. Share to Shopify and Instagram.
-              </p>
-            </div>
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-[2.1rem]">
+              Ready to post?
+            </h1>
+            <p className="mt-2 text-sm text-[color:var(--fc-text-muted)] sm:text-base">
+              Create once. Share to Shopify and Instagram.
+            </p>
           </div>
-
-          <div className="flex flex-wrap gap-2 lg:flex-nowrap">
+          <div className="flex items-center gap-2">
             <LiquidButton
-              variant="primary"
-              size="lg"
               onClick={handleCreate}
               disabled={creating}
-              aria-label="Create post"
-              className="flex-1 sm:flex-none"
+              variant="primary"
+              size="md"
             >
               {creating ? (
-                <Loader2 size={16} className="animate-spin" />
+                <Loader2 size={14} className="animate-spin" />
               ) : (
-                <PlusSquare size={16} />
+                <Plus size={14} />
               )}
-              <span>Create</span>
+              Create
             </LiquidButton>
-            <LiquidButton
-              asChild
-              variant="secondary"
-              size="lg"
-              className="flex-1 sm:flex-none"
-            >
-              <Link href="/dashboard" aria-label="Open posts">
-                <Grid3x3 size={16} />
-                <span>Posts</span>
+            <LiquidButton asChild variant="secondary" size="md">
+              <Link href="/dashboard">
+                <Grid3x3 size={14} />
+                Posts
               </Link>
             </LiquidButton>
           </div>
         </div>
-
         {pageError ? (
-          <p className="mt-4 rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-4 py-2.5 text-sm text-[color:var(--fc-text-primary)]">
+          <p className="mt-3 rounded-lg border border-[rgba(220,38,38,0.25)] bg-[rgba(220,38,38,0.05)] px-3 py-2 text-sm text-[#b42318]">
             {pageError}
           </p>
         ) : null}
-      </motion.section>
+      </section>
 
-      {/* Connection / readiness summary */}
-      <section
-        aria-label="Connection status"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-      >
-        <StatusCell
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <StatusPill
           label="Shopify"
-          icon={<ShopifyMark size={18} />}
-          state={shopifyConnected ? "ok" : "off"}
-          valueLabel={shopifyConnected ? "Connected" : "Not set"}
+          value={status?.shopifyConnected ? "Connected" : "Not connected"}
+          icon={<ShopifyMark size={16} />}
         />
-        <StatusCell
+        <StatusPill
           label="Instagram"
-          icon={<InstagramMark size={18} />}
-          state={instagramConnected ? "ok" : "off"}
-          valueLabel={instagramConnected ? "Connected" : "Not set"}
+          value={instagramConnection?.canPublish ? "Connected" : "Not connected"}
+          icon={<InstagramMark size={16} />}
         />
-        <StatusCell
+        <StatusPill
           label="AI"
-          icon={<Sparkles size={18} strokeWidth={1.8} />}
-          state={aiLive ? "ok" : "off"}
-          valueLabel={aiLive ? "Live" : "Off"}
+          value={aiLive ? "On" : "Off"}
+          icon={<CheckCircle2 size={16} strokeWidth={1.8} />}
         />
-        <StatusCell
+        <StatusPill
           label="Ready"
-          icon={<CheckCircle2 size={18} strokeWidth={1.8} />}
-          state={readyCount > 0 ? "ok" : "neutral"}
-          valueLabel={`${readyCount} post${readyCount === 1 ? "" : "s"}`}
+          value={`${readyCount}`}
+          icon={<Store size={16} strokeWidth={1.8} />}
         />
       </section>
 
-      {/* Recent posts preview */}
-      <section
-        aria-label="Recent posts"
-        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-4 sm:p-5"
-      >
-        <div className="mb-4 flex items-center justify-between gap-3">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {quickActions.map((action) => (
+          <QuickActionCard key={action.title} action={action} />
+        ))}
+      </section>
+
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-4 sm:p-5">
+        <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">
               Recent posts
             </h2>
             <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
-              {buckets.length === 0
-                ? "Your posts will appear here."
-                : `${postedCount} posted · ${readyCount} ready · ${draftCount} draft`}
+              {postedCount} posted, {readyCount} ready, {issueCount} issues
             </p>
           </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--fc-text-primary)] hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-[color:var(--fc-text-primary)]"
           >
-            View all
+            Posts
             <ArrowRight size={14} />
           </Link>
         </div>
 
         {isLoadingFeed && buckets.length === 0 ? (
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
-            {Array.from({ length: 6 }).map((_, idx) => (
+            {Array.from({ length: 12 }).map((_, index) => (
               <div
-                key={idx}
-                className="aspect-square animate-pulse rounded-md bg-[color:var(--fc-surface-muted)]"
+                key={`home-skeleton-${index}`}
+                className="aspect-square animate-pulse rounded-sm bg-[color:var(--fc-surface-muted)]"
               />
             ))}
           </div>
-        ) : recentBuckets.length === 0 ? (
-          <EmptyHomeState onCreate={handleCreate} creating={creating} />
+        ) : recentPosts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] px-4 py-8 text-center">
+            <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
+              No posts yet
+            </p>
+            <p className="text-xs text-[color:var(--fc-text-muted)]">
+              Create your first post to start sharing.
+            </p>
+            <LiquidButton onClick={handleCreate} disabled={creating} variant="primary" size="sm">
+              {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+              Create
+            </LiquidButton>
+          </div>
         ) : (
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 lg:grid-cols-6">
-            {recentBuckets.map((bucket) => (
-              <RecentTile key={bucket.id} bucket={bucket} />
+            {recentPosts.map((post, index) => (
+              <RecentPostTile key={post.id} post={post} index={index + 1} />
             ))}
           </div>
         )}
@@ -277,99 +276,127 @@ export function HomeLanding() {
   );
 }
 
-function SignedOutHero() {
+function SignedOutHome() {
   return (
-    <div className="w-full">
-      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-8 sm:p-12">
-        <div className="mx-auto max-w-2xl text-center">
+    <section className="w-full rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-6 sm:p-9">
+      <div className="mx-auto flex max-w-4xl flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="max-w-xl">
           <Image
-            src="/brand/flowcart-stacked.png"
+            src="/brand/flowcart-horizontal.png"
             alt="FlowCart"
-            width={520}
-            height={520}
+            width={640}
+            height={200}
             priority
-            className="mx-auto h-24 w-auto"
+            className="h-auto w-[170px]"
           />
-          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-5xl">
             Post once. Share everywhere.
           </h1>
           <p className="mt-3 text-sm text-[color:var(--fc-text-muted)] sm:text-base">
-            Create one product post and FlowCart shares it to Shopify and
-            Instagram together.
+            Create one product post and FlowCart shares it to Shopify and Instagram.
           </p>
-
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <div className="mt-6 flex flex-wrap gap-2">
             <LiquidButton asChild variant="primary" size="lg">
               <Link href="/auth">
-                <span>Sign in</span>
-                <ArrowRight size={16} />
+                Sign in
+                <ArrowRight size={15} />
               </Link>
             </LiquidButton>
             <LiquidButton asChild variant="secondary" size="lg">
-              <Link href="/info">
-                <InfoIcon size={16} />
-                <span>How it works</span>
-              </Link>
+              <Link href="/info">Info</Link>
             </LiquidButton>
           </div>
         </div>
-      </section>
-    </div>
+        <div className="grid max-w-sm flex-1 grid-cols-1 gap-2 text-sm text-[color:var(--fc-text-muted)] sm:grid-cols-2 lg:grid-cols-1">
+          <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3">
+            Shopify product updates
+          </div>
+          <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3">
+            Instagram post publishing
+          </div>
+          <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3 sm:col-span-2 lg:col-span-1">
+            One post flow for both channels
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
-function StatusCell({
+function QuickActionCard({ action }: { action: QuickAction }) {
+  if (action.href) {
+    return (
+      <Link
+        href={action.href}
+        className="group rounded-xl border border-[color:var(--fc-border-subtle)] bg-white p-4 transition hover:border-[color:var(--fc-border-strong)] hover:bg-[color:var(--fc-surface-muted)]"
+      >
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
+          {action.icon}
+        </div>
+        <p className="mt-3 text-sm font-semibold text-[color:var(--fc-text-primary)]">
+          {action.title}
+        </p>
+        <p className="mt-1 text-xs text-[color:var(--fc-text-muted)]">{action.subtitle}</p>
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={action.onClick}
+      className="group text-left rounded-xl border border-[color:var(--fc-border-subtle)] bg-white p-4 transition hover:border-[color:var(--fc-border-strong)] hover:bg-[color:var(--fc-surface-muted)]"
+    >
+      <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
+        {action.icon}
+      </div>
+      <p className="mt-3 text-sm font-semibold text-[color:var(--fc-text-primary)]">
+        {action.title}
+      </p>
+      <p className="mt-1 text-xs text-[color:var(--fc-text-muted)]">{action.subtitle}</p>
+    </button>
+  );
+}
+
+function StatusPill({
   label,
+  value,
   icon,
-  state,
-  valueLabel,
 }: {
   label: string;
-  icon: React.ReactNode;
-  state: "ok" | "off" | "neutral";
-  valueLabel: string;
+  value: string;
+  icon: ReactNode;
 }) {
-  const stateClass =
-    state === "ok"
-      ? "text-[color:var(--fc-text-primary)]"
-      : state === "off"
-        ? "text-[color:var(--fc-text-soft)]"
-        : "text-[color:var(--fc-text-muted)]";
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-[color:var(--fc-border-subtle)] bg-white px-3 py-3 sm:px-4">
-      <div
-        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] ${stateClass}`}
-      >
+    <div className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-3 py-2.5">
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
         {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">
+      </span>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">
           {label}
         </p>
-        <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
-          {valueLabel}
-        </p>
+        <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">{value}</p>
       </div>
     </div>
   );
 }
 
-function RecentTile({ bucket }: { bucket: Bucket }) {
-  const firstImage = bucket.imageUrls[0] ?? null;
-  const headline =
-    bucket.titleEnhanced.trim() ||
-    bucket.titleRaw.trim() ||
-    "Untitled post";
+function RecentPostTile({ post, index }: { post: Bucket; index: number }) {
+  const image = post.imageUrls[0] ?? null;
+  const label =
+    post.titleEnhanced.trim() || post.titleRaw.trim() || `Post ${index}`;
+
   return (
     <Link
-      href={`/dashboard#bucket-${bucket.id}`}
-      className="group relative aspect-square overflow-hidden rounded-md border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] transition hover:border-[color:var(--fc-border-strong)]"
-      aria-label={headline}
+      href={`/dashboard#bucket-${post.id}`}
+      className="group relative aspect-square overflow-hidden rounded-sm border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)]"
+      aria-label={label}
     >
-      {firstImage ? (
+      {image ? (
         <Image
-          src={firstImage}
-          alt={headline}
+          src={image}
+          alt={label}
           fill
           unoptimized
           className="object-cover"
@@ -377,83 +404,12 @@ function RecentTile({ bucket }: { bucket: Bucket }) {
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[color:var(--fc-text-soft)]">
-          <PlusSquare size={20} strokeWidth={1.5} />
+          <PlusSquare size={18} strokeWidth={1.8} />
         </div>
       )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end p-2 opacity-0 transition group-hover:opacity-100">
-        <p className="line-clamp-1 text-[10px] font-semibold text-white">
-          {bucket.status === "DONE" ? "Posted" : statusToLabel(bucket.status)}
-        </p>
+      <div className="tile-overlay pointer-events-none absolute inset-x-0 bottom-0 p-2 opacity-0 transition group-hover:opacity-100">
+        <p className="line-clamp-1 text-[10px] font-semibold text-white">{label}</p>
       </div>
-      <span
-        className={`absolute right-1.5 top-1.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-          bucket.status === "DONE"
-            ? "bg-white text-[color:var(--fc-text-primary)] shadow-sm"
-            : bucket.status === "FAILED"
-              ? "bg-white text-[#b91c1c] shadow-sm"
-              : "bg-black/70 text-white"
-        }`}
-      >
-        {statusToLabel(bucket.status)}
-      </span>
     </Link>
-  );
-}
-
-function statusToLabel(status: Bucket["status"]): string {
-  switch (status) {
-    case "DONE":
-      return "Posted";
-    case "READY":
-      return "Ready";
-    case "PROCESSING":
-      return "Posting";
-    case "ENHANCING":
-      return "Polishing";
-    case "FAILED":
-      return "Issue";
-    default:
-      return "Draft";
-  }
-}
-
-function EmptyHomeState({
-  onCreate,
-  creating,
-}: {
-  onCreate: () => void;
-  creating: boolean;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] px-6 py-10 text-center">
-      <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white">
-        <PlusSquare
-          size={22}
-          strokeWidth={1.6}
-          className="text-[color:var(--fc-text-primary)]"
-        />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
-          No posts yet
-        </p>
-        <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
-          Create your first post and share it to Shopify and Instagram.
-        </p>
-      </div>
-      <LiquidButton
-        variant="primary"
-        size="md"
-        onClick={onCreate}
-        disabled={creating}
-      >
-        {creating ? (
-          <Loader2 size={14} className="animate-spin" />
-        ) : (
-          <PlusSquare size={14} />
-        )}
-        <span>Create post</span>
-      </LiquidButton>
-    </div>
   );
 }

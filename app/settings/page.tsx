@@ -1,41 +1,28 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { CheckCircle2, Loader2, RefreshCw, Save, Unplug, XCircle } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
+import { InstagramMark, ShopifyMark } from "@/src/components/ui/brand-icons";
 import {
-  ShoppingBag,
-  Camera,
-  Save,
-  RefreshCw,
-  Loader2,
-  Zap,
-  CheckCircle2,
-  XCircle,
-  Link as LinkIcon,
-  ShieldCheck,
-  PlugZap,
-  Unplug,
-} from "lucide-react";
+  SHOPIFY_OAUTH_ERROR_MESSAGES,
+  getStandaloneShopifyConnectDomain,
+  safeNormalizeShopifyDomain,
+  shouldAutostartStandaloneShopifyConnect,
+} from "@/src/lib/shopify";
+import { mapInstagramOauthError } from "@/src/lib/instagram";
+import { getTrashDaysRemaining } from "@/src/lib/dashboard-buckets";
 import type {
   ConnectionSettings,
   InstagramConnectionSummary,
   RuntimeConfigSnapshot,
   SafeSettingsStatus,
+  ProductBucket as Bucket,
 } from "@/src/lib/types";
-import {
-  SHOPIFY_OAUTH_ERROR_MESSAGES,
-  getStandaloneShopifyConnectDomain,
-  shouldAutostartStandaloneShopifyConnect,
-  safeNormalizeShopifyDomain,
-} from "@/src/lib/shopify";
-import { mapInstagramOauthError } from "@/src/lib/instagram";
-import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
-import { RippleCircles } from "@/src/components/ui/ripple-circles";
-import { WebGLShader } from "@/src/components/ui/web-gl-shader";
 
 interface FormSettings {
   shopifyStoreDomain: string;
@@ -57,12 +44,21 @@ interface SettingsPayload {
   instagramDebugFieldModeEnabled: boolean;
 }
 
+const trashDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
 export default function SettingsPage() {
   return (
     <Suspense
       fallback={
         <div className="flex w-full items-center justify-center py-20">
-          <Loader2 size={24} className="animate-spin text-[color:var(--fc-primary)]" />
+          <Loader2
+            size={24}
+            className="animate-spin text-[color:var(--fc-text-muted)]"
+          />
         </div>
       }
     >
@@ -71,34 +67,25 @@ export default function SettingsPage() {
   );
 }
 
-function getInstagramBadgeClass(status: InstagramConnectionSummary | null): string {
-  switch (status?.status) {
-    case "connected":
-    case "legacy_fallback":
-      return "border border-[color:rgba(18,122,89,0.3)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]";
-    case "needs_reconnect":
-    case "invalid_expired_token":
-    case "missing_page_linkage":
-    case "missing_instagram_business_account":
-      return "border border-[color:rgba(185,133,19,0.35)] bg-[rgba(185,133,19,0.14)] text-[color:#4f3a0b]";
-    case "selection_required":
-      return "border border-[color:rgba(15,108,189,0.28)] bg-[rgba(15,108,189,0.1)] text-[color:#0d4f8a]";
-    default:
-      return "border border-[color:rgba(15,108,189,0.16)] bg-white text-[color:var(--fc-text-muted)]";
-  }
-}
-
 function SettingsContent() {
   const { user, loading: authLoading } = useAuth();
   const searchParams = useSearchParams();
+  const autostartedConnect = useRef(false);
+
   const [form, setForm] = useState<FormSettings>(EMPTY_FORM);
   const [savedSnapshot, setSavedSnapshot] = useState<FormSettings>(EMPTY_FORM);
   const [status, setStatus] = useState<SafeSettingsStatus | null>(null);
   const [runtime, setRuntime] = useState<RuntimeConfigSnapshot | null>(null);
-  const [instagramConnection, setInstagramConnection] = useState<InstagramConnectionSummary | null>(
-    null
-  );
-  const [instagramDebugFieldModeEnabled, setInstagramDebugFieldModeEnabled] = useState(false);
+  const [instagramConnection, setInstagramConnection] =
+    useState<InstagramConnectionSummary | null>(null);
+  const [instagramDebugFieldModeEnabled, setInstagramDebugFieldModeEnabled] =
+    useState(false);
+
+  const [trashedPosts, setTrashedPosts] = useState<Bucket[]>([]);
+  const [isLoadingTrash, setIsLoadingTrash] = useState(true);
+  const [restoringTrashId, setRestoringTrashId] = useState("");
+  const [deletingTrashId, setDeletingTrashId] = useState("");
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isConnectingShopify, setIsConnectingShopify] = useState(false);
@@ -106,9 +93,9 @@ function SettingsContent() {
   const [isValidatingInstagram, setIsValidatingInstagram] = useState(false);
   const [isDisconnectingInstagram, setIsDisconnectingInstagram] = useState(false);
   const [selectingCandidateKey, setSelectingCandidateKey] = useState("");
+
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const autostartedConnect = useRef(false);
 
   const loadSettings = async () => {
     setIsLoading(true);
@@ -120,12 +107,13 @@ function SettingsContent() {
         throw new Error(apiErrorMessage(payload, "Failed to load settings."));
       }
 
-      const s = payload.data.settings;
+      const settings = payload.data.settings;
       const formData: FormSettings = {
-        shopifyStoreDomain: s.shopifyStoreDomain,
-        instagramAccessToken: s.instagramAccessToken,
-        instagramBusinessAccountId: s.instagramBusinessAccountId,
+        shopifyStoreDomain: settings.shopifyStoreDomain,
+        instagramAccessToken: settings.instagramAccessToken,
+        instagramBusinessAccountId: settings.instagramBusinessAccountId,
       };
+
       setForm(formData);
       setSavedSnapshot(formData);
       setStatus(payload.data.status);
@@ -139,20 +127,40 @@ function SettingsContent() {
     }
   };
 
+  const loadTrash = async () => {
+    setIsLoadingTrash(true);
+    try {
+      const response = await fetch("/api/buckets", { cache: "no-store" });
+      const payload = await readApiResponse<{ trashedBuckets?: Bucket[] }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "Failed to load trash."));
+      }
+      setTrashedPosts(
+        Array.isArray(payload.data?.trashedBuckets) ? payload.data.trashedBuckets : []
+      );
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to load trash.");
+    } finally {
+      setIsLoadingTrash(false);
+    }
+  };
+
   useEffect(() => {
-    if (authLoading || !user) return;
-    loadSettings();
+    if (authLoading || !user) {
+      return;
+    }
+    void Promise.all([loadSettings(), loadTrash()]);
   }, [authLoading, user]);
 
   useEffect(() => {
     if (searchParams.get("shopify_connected") === "true") {
-      setMessage("Shopify connected successfully!");
-      loadSettings();
+      setMessage("Shopify connected successfully.");
+      void loadSettings();
     }
 
     if (searchParams.get("instagram_connected") === "true") {
-      setMessage("Instagram connected successfully!");
-      loadSettings();
+      setMessage("Instagram connected successfully.");
+      void loadSettings();
     }
 
     const shopifyError = searchParams.get("shopify_error");
@@ -167,12 +175,14 @@ function SettingsContent() {
     const instagramError = searchParams.get("instagram_error");
     if (instagramError) {
       setErrorMessage(mapInstagramOauthError(instagramError));
-      loadSettings();
+      void loadSettings();
     }
   }, [searchParams]);
 
   useEffect(() => {
-    if (authLoading || !user || autostartedConnect.current) return;
+    if (authLoading || !user || autostartedConnect.current) {
+      return;
+    }
     if (!shouldAutostartStandaloneShopifyConnect(new URLSearchParams(searchParams.toString()))) {
       return;
     }
@@ -182,7 +192,9 @@ function SettingsContent() {
     );
     const connectShopDomain =
       queryShopDomain || safeNormalizeShopifyDomain(form.shopifyStoreDomain);
-    if (!connectShopDomain) return;
+    if (!connectShopDomain) {
+      return;
+    }
 
     autostartedConnect.current = true;
     setIsConnectingShopify(true);
@@ -194,7 +206,10 @@ function SettingsContent() {
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-[color:var(--fc-primary)]" />
+        <Loader2
+          size={24}
+          className="animate-spin text-[color:var(--fc-text-muted)]"
+        />
       </div>
     );
   }
@@ -225,29 +240,27 @@ function SettingsContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(savePayload),
       });
-      const payload = await readApiResponse<SettingsPayload & { message?: string }>(response);
+      const payload = await readApiResponse<SettingsPayload & { message?: string }>(
+        response
+      );
       if (!response.ok || !payload?.ok || !payload.data) {
         throw new Error(apiErrorMessage(payload, "Failed to save settings."));
       }
 
-      const s = payload.data.settings;
+      const settings = payload.data.settings;
       const formData: FormSettings = {
-        shopifyStoreDomain: s.shopifyStoreDomain,
-        instagramAccessToken: s.instagramAccessToken,
-        instagramBusinessAccountId: s.instagramBusinessAccountId,
+        shopifyStoreDomain: settings.shopifyStoreDomain,
+        instagramAccessToken: settings.instagramAccessToken,
+        instagramBusinessAccountId: settings.instagramBusinessAccountId,
       };
+
       setForm(formData);
       setSavedSnapshot(formData);
       setStatus(payload.data.status);
       setRuntime(payload.data.runtime);
       setInstagramConnection(payload.data.instagramConnection);
       setInstagramDebugFieldModeEnabled(payload.data.instagramDebugFieldModeEnabled);
-      setMessage(
-        payload.data.message ??
-          (payload.data.status.shopifyReauthorizationRequired
-            ? "Settings saved. Shopify must be authorized again before launch."
-            : "Settings saved.")
-      );
+      setMessage(payload.data.message ?? "Settings saved.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to save settings.");
     } finally {
@@ -255,9 +268,9 @@ function SettingsContent() {
     }
   };
 
-  const connectShopify = async () => {
+  const connectShopify = () => {
     if (!form.shopifyStoreDomain.trim()) {
-      setErrorMessage("Enter your store domain first, then click Connect Shopify.");
+      setErrorMessage("Enter your Shopify store domain before connecting.");
       return;
     }
     setIsConnectingShopify(true);
@@ -286,12 +299,12 @@ function SettingsContent() {
         message?: string;
       }>(response);
       if (!response.ok || !payload?.ok || !payload.data) {
-        throw new Error(apiErrorMessage(payload, "Failed to validate Instagram."));
+        throw new Error(apiErrorMessage(payload, "Failed to check Instagram."));
       }
       setInstagramConnection(payload.data.instagramConnection);
-      setMessage(payload.data.message ?? "Instagram validation completed.");
+      setMessage(payload.data.message ?? "Instagram connection checked.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to validate Instagram.");
+      setErrorMessage(error instanceof Error ? error.message : "Failed to check Instagram.");
     } finally {
       setIsValidatingInstagram(false);
     }
@@ -323,13 +336,18 @@ function SettingsContent() {
       }));
       setMessage(payload.data.message ?? "Instagram disconnected.");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to disconnect Instagram.");
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to disconnect Instagram."
+      );
     } finally {
       setIsDisconnectingInstagram(false);
     }
   };
 
-  const selectInstagramCandidate = async (pageId: string, instagramBusinessAccountId: string) => {
+  const selectInstagramCandidate = async (
+    pageId: string,
+    instagramBusinessAccountId: string
+  ) => {
     const key = `${pageId}:${instagramBusinessAccountId}`;
     setSelectingCandidateKey(key);
     setErrorMessage("");
@@ -345,16 +363,64 @@ function SettingsContent() {
         message?: string;
       }>(response);
       if (!response.ok || !payload?.ok || !payload.data) {
-        throw new Error(apiErrorMessage(payload, "Failed to select the Instagram account."));
+        throw new Error(apiErrorMessage(payload, "Failed to select account."));
       }
       setInstagramConnection(payload.data.instagramConnection);
       setMessage(payload.data.message ?? "Instagram connected successfully.");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Failed to select the Instagram account."
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Failed to select account.");
     } finally {
       setSelectingCandidateKey("");
+    }
+  };
+
+  const restoreTrashPost = async (postId: string) => {
+    setRestoringTrashId(postId);
+    setErrorMessage("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/buckets/${postId}/restore`, { method: "POST" });
+      const payload = await readApiResponse<{ trashedBuckets?: Bucket[] }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "Failed to restore post."));
+      }
+      if (Array.isArray(payload.data?.trashedBuckets)) {
+        setTrashedPosts(payload.data.trashedBuckets);
+      } else {
+        setTrashedPosts((current) => current.filter((item) => item.id !== postId));
+      }
+      setMessage("Post restored.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to restore post.");
+    } finally {
+      setRestoringTrashId("");
+    }
+  };
+
+  const deleteTrashPost = async (postId: string) => {
+    setDeletingTrashId(postId);
+    setErrorMessage("");
+    setMessage("");
+    try {
+      const response = await fetch(`/api/buckets/${postId}`, { method: "DELETE" });
+      const payload = await readApiResponse<{
+        deletedBucketId?: string;
+        trashedBuckets?: Bucket[];
+      }>(response);
+      if (!response.ok || !payload?.ok) {
+        throw new Error(apiErrorMessage(payload, "Failed to delete post."));
+      }
+      const deletedId = payload.data?.deletedBucketId ?? postId;
+      if (Array.isArray(payload.data?.trashedBuckets)) {
+        setTrashedPosts(payload.data.trashedBuckets);
+      } else {
+        setTrashedPosts((current) => current.filter((item) => item.id !== deletedId));
+      }
+      setMessage("Post deleted.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to delete post.");
+    } finally {
+      setDeletingTrashId("");
     }
   };
 
@@ -368,416 +434,431 @@ function SettingsContent() {
     safeNormalizeShopifyDomain(form.shopifyStoreDomain) !==
     safeNormalizeShopifyDomain(savedSnapshot.shopifyStoreDomain);
 
-  const inputClass = "cinematic-input w-full rounded-2xl px-4 py-3 text-sm";
   const connectInstagramLabel =
-    instagramConnection?.status === "connected" || instagramConnection?.status === "legacy_fallback"
+    instagramConnection?.status === "connected" ||
+    instagramConnection?.status === "legacy_fallback"
       ? "Reconnect Instagram"
       : "Connect Instagram";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="mx-auto w-full max-w-4xl"
-    >
-      <section className="cinematic-card relative overflow-hidden rounded-3xl p-6 space-y-6">
-        <WebGLShader className="opacity-45" />
-        <div className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[rgba(76,200,255,0.2)] blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 -bottom-24 h-60 w-60 rounded-full bg-[rgba(106,84,209,0.14)] blur-3xl" />
-        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="mx-auto w-full max-w-[1100px] space-y-4">
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
+        <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
+          Connect your accounts
+        </h1>
+        <p className="mt-2 text-sm text-[color:var(--fc-text-muted)] sm:text-base">
+          Connect Shopify and Instagram once. FlowCart handles the posting flow after
+          that.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${
+              launchReady
+                ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]"
+                : "border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-muted)]"
+            }`}
+          >
+            {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
+            {launchReady ? "Ready to post" : "Not ready"}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${
+              openaiLive
+                ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]"
+                : "border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-muted)]"
+            }`}
+          >
+            AI {openaiLive ? "On" : "Off"}
+          </span>
+        </div>
+      </section>
+
+      <section
+        id="shopify"
+        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="mb-3 inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-[color:rgba(15,108,189,0.2)] bg-white shadow-[0_10px_24px_rgba(22,62,112,0.12)]">
-              <Image
-                src="/brand/flowcart-logo-clean.png"
-                alt="FlowCart logo"
-                width={64}
-                height={64}
-                className="h-full w-full object-contain p-1"
-              />
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
+              <ShopifyMark size={18} />
             </div>
-            <h1 className="text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
-              Integration Settings
-            </h1>
-            <p className="mt-2 text-sm text-[color:var(--fc-text-muted)]">
-              Connect both channels once, then keep launches synced from one control surface.
+            <h2 className="mt-3 text-xl font-semibold text-[color:var(--fc-text-primary)]">
+              Connect Shopify
+            </h2>
+            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
+              Connect your Shopify store so FlowCart can create and update products.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                openaiLive
-                  ? "border border-[color:rgba(15,108,189,0.28)] bg-[rgba(15,108,189,0.1)] text-[color:#0d4f8a]"
-                  : "border border-[color:rgba(15,108,189,0.16)] bg-white text-[color:var(--fc-text-muted)]"
-              }`}
-            >
-              <Zap size={12} /> AI: {openaiLive ? "Live" : "Missing"}
-            </span>
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
-                launchReady
-                  ? "border border-[color:rgba(18,122,89,0.28)] bg-[rgba(18,122,89,0.1)] text-[color:#0c5e45]"
-                  : "border border-[color:rgba(194,65,58,0.3)] bg-[rgba(194,65,58,0.1)] text-[color:#942a26]"
-              }`}
-            >
-              {launchReady ? <CheckCircle2 size={12} /> : <XCircle size={12} />}
-              Launch: {launchReady ? "Ready" : "Not Ready"}
-            </span>
+            {shopifyConnected ? (
+              <Badge className="border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]">
+                Connected
+              </Badge>
+            ) : null}
+            {shopifyDomainSaved ? <Badge>Domain saved</Badge> : null}
+            {shopifyReauthorizationRequired ? <Badge>Needs reconnect</Badge> : null}
           </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.03 }}
-          className="relative z-10 rounded-2xl border border-[color:rgba(15,108,189,0.16)] bg-white/84 p-5 space-y-4"
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShoppingBag size={18} className="text-[color:var(--fc-primary)]" />
-              <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Shopify</h2>
+        <label className="mt-4 block space-y-2 text-sm">
+          <span className="text-[color:var(--fc-text-muted)]">Shopify store domain</span>
+          <input
+            value={form.shopifyStoreDomain}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                shopifyStoreDomain: event.target.value,
+              }))
+            }
+            placeholder="your-store.myshopify.com"
+            className="cinematic-input w-full rounded-lg px-4 py-2.5 text-sm"
+          />
+        </label>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <LiquidButton
+            onClick={connectShopify}
+            disabled={isConnectingShopify || !form.shopifyStoreDomain.trim()}
+            variant="primary"
+            size="md"
+          >
+            {isConnectingShopify ? <Loader2 size={14} className="animate-spin" /> : null}
+            Connect Shopify
+          </LiquidButton>
+          <LiquidButton
+            onClick={connectShopify}
+            disabled={isConnectingShopify || !form.shopifyStoreDomain.trim()}
+            variant="secondary"
+            size="md"
+          >
+            Reconnect Shopify
+          </LiquidButton>
+        </div>
+
+        {domainChangedSinceSave ? (
+          <p className="mt-2 text-xs text-[color:var(--fc-text-muted)]">
+            Save settings after changing the domain.
+          </p>
+        ) : null}
+      </section>
+
+      <section
+        id="instagram"
+        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
+              <InstagramMark size={18} />
             </div>
-            <div className="flex flex-wrap gap-2">
-              {shopifyDomainSaved ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:rgba(15,108,189,0.24)] bg-[rgba(15,108,189,0.1)] px-3 py-1 text-xs font-semibold text-[color:#0d4f8a]">
-                  <ShoppingBag size={12} /> Domain Saved
-                </span>
-              ) : null}
-              {shopifyConnected ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:rgba(18,122,89,0.28)] bg-[rgba(18,122,89,0.1)] px-3 py-1 text-xs font-semibold text-[color:#0c5e45]">
-                  <CheckCircle2 size={12} /> Authorized
-                </span>
-              ) : null}
-              {shopifyReauthorizationRequired ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color:rgba(185,133,19,0.34)] bg-[rgba(185,133,19,0.14)] px-3 py-1 text-xs font-semibold text-[color:#4f3a0b]">
-                  <XCircle size={12} /> Reauthorization Required
-                </span>
-              ) : null}
-            </div>
+            <h2 className="mt-3 text-xl font-semibold text-[color:var(--fc-text-primary)]">
+              Connect Instagram
+            </h2>
+            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
+              Connect the Instagram account where FlowCart should publish posts.
+            </p>
           </div>
-          <label className="block space-y-2 text-sm">
-            <span className="text-[color:var(--fc-text-muted)]">Store Domain</span>
-            <input
-              value={form.shopifyStoreDomain}
-              onChange={(event) =>
-                setForm((current) => ({
-                  ...current,
-                  shopifyStoreDomain: event.target.value,
-                }))
+          <div className="flex flex-wrap gap-2">
+            <Badge
+              className={
+                instagramConfigured
+                  ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#15803d]"
+                  : undefined
               }
-              placeholder="your-store.myshopify.com"
-              className={inputClass}
-            />
-          </label>
-          <div className="flex items-center gap-3">
-            <LiquidButton
-              onClick={connectShopify}
-              disabled={isConnectingShopify || !form.shopifyStoreDomain.trim()}
-              variant="secondary"
-              size="lg"
-              className="rounded-2xl"
             >
-              {isConnectingShopify ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" /> Connecting Shopify...
-                </>
-              ) : (
-                <>
-                  <LinkIcon size={14} />{" "}
-                  {shopifyConnected ? "Reconnect Shopify" : "Connect Shopify"}
-                </>
-              )}
-            </LiquidButton>
-            {isConnectingShopify ? <RippleCircles compact /> : null}
+              {instagramConnection?.statusLabel ?? "Disconnected"}
+            </Badge>
           </div>
-          <div className="space-y-1 text-xs text-[color:var(--fc-text-muted)]">
-            {domainChangedSinceSave ? (
-              <p>Save or connect with this new domain to clear the old Shopify authorization.</p>
-            ) : null}
-            {shopifyConnected ? (
-              <p>Shopify is authorized for the saved store domain and ready for launch.</p>
-            ) : shopifyDomainSaved ? (
-              <p>Authorize Shopify to generate and verify the admin token for this store before launch.</p>
-            ) : (
-              <p>Enter your Shopify store domain, save it, then authorize Shopify.</p>
-            )}
-          </div>
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35, delay: 0.08 }}
-          className="relative z-10 rounded-2xl border border-[color:rgba(15,108,189,0.16)] bg-white/84 p-5 space-y-4"
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <Camera size={18} className="text-[color:var(--fc-primary)]" />
-              <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">Instagram</h2>
-              <span
-                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${getInstagramBadgeClass(
-                  instagramConnection
-                )}`}
-              >
-                {instagramConfigured ? <CheckCircle2 size={12} /> : <ShieldCheck size={12} />}
-                {instagramConnection?.statusLabel ?? "Disconnected"}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <LiquidButton
+            onClick={connectInstagram}
+            disabled={isConnectingInstagram}
+            variant="primary"
+            size="md"
+          >
+            {isConnectingInstagram ? <Loader2 size={14} className="animate-spin" /> : null}
+            Connect Instagram
+          </LiquidButton>
+          <LiquidButton
+            onClick={connectInstagram}
+            disabled={isConnectingInstagram}
+            variant="secondary"
+            size="md"
+          >
+            {connectInstagramLabel}
+          </LiquidButton>
+          <LiquidButton
+            onClick={validateInstagram}
+            disabled={isValidatingInstagram || !instagramConnection}
+            variant="secondary"
+            size="md"
+          >
+            {isValidatingInstagram ? <Loader2 size={14} className="animate-spin" /> : null}
+            Check connection
+          </LiquidButton>
+          <LiquidButton
+            onClick={disconnectInstagram}
+            disabled={
+              isDisconnectingInstagram ||
+              !instagramConnection ||
+              instagramConnection.status === "disconnected"
+            }
+            variant="danger"
+            size="md"
+          >
+            {isDisconnectingInstagram ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Unplug size={14} />
+            )}
+            Disconnect Instagram
+          </LiquidButton>
+        </div>
+
+        <div className="mt-3 space-y-1 text-sm text-[color:var(--fc-text-muted)]">
+          {instagramConnection?.selectedPageName ? (
+            <p>
+              Connected page:{" "}
+              <span className="font-semibold text-[color:var(--fc-text-primary)]">
+                {instagramConnection.selectedPageName}
               </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <LiquidButton
-                onClick={connectInstagram}
-                disabled={isConnectingInstagram}
-                variant="secondary"
-                className="rounded-2xl"
-              >
-                {isConnectingInstagram ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" /> Connecting...
-                  </>
-                ) : (
-                  <>
-                    <PlugZap size={14} /> {connectInstagramLabel}
-                  </>
-                )}
-              </LiquidButton>
-              <LiquidButton
-                onClick={validateInstagram}
-                disabled={isValidatingInstagram || !instagramConnection}
-                variant="ghost"
-                className="rounded-2xl"
-              >
-                {isValidatingInstagram ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" /> Validating...
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={14} /> Validate Connection
-                  </>
-                )}
-              </LiquidButton>
-              <LiquidButton
-                onClick={disconnectInstagram}
-                disabled={
-                  isDisconnectingInstagram ||
-                  !instagramConnection ||
-                  instagramConnection.status === "disconnected"
-                }
-                variant="danger"
-                className="rounded-2xl"
-              >
-                {isDisconnectingInstagram ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" /> Disconnecting...
-                  </>
-                ) : (
-                  <>
-                    <Unplug size={14} /> Disconnect Instagram
-                  </>
-                )}
-              </LiquidButton>
-              {isConnectingInstagram || isValidatingInstagram ? (
-                <RippleCircles compact className="shrink-0" />
-              ) : null}
+            </p>
+          ) : null}
+          {instagramConnection?.lastValidatedAt ? (
+            <p>
+              Last checked:{" "}
+              {new Date(instagramConnection.lastValidatedAt).toLocaleString()}
+            </p>
+          ) : null}
+          {!instagramConnection?.selectedPageName ? (
+            <p>Use Connect Instagram to complete setup.</p>
+          ) : null}
+        </div>
+
+        {instagramConnection?.status === "selection_required" &&
+        instagramConnection.candidates.length > 0 ? (
+          <div className="mt-4 space-y-2 rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-3">
+            <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
+              Select account
+            </p>
+            {instagramConnection.candidates.map((candidate) => {
+              const key = `${candidate.pageId}:${candidate.instagramBusinessAccountId}`;
+              const selecting = selectingCandidateKey === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() =>
+                    selectInstagramCandidate(
+                      candidate.pageId,
+                      candidate.instagramBusinessAccountId
+                    )
+                  }
+                  disabled={Boolean(selectingCandidateKey)}
+                  className="flex w-full items-center justify-between rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-3 py-2 text-left text-sm hover:bg-[color:var(--fc-surface-muted)]"
+                >
+                  <span>
+                    {candidate.pageName || "Untitled Facebook Page"} • Instagram{" "}
+                    {candidate.instagramBusinessAccountId}
+                  </span>
+                  <span className="font-semibold text-[color:var(--fc-text-primary)]">
+                    {selecting ? "Saving..." : "Use"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {instagramDebugFieldModeEnabled ? (
+          <div className="mt-4 rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-4">
+            <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
+              Debug fields
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-sm">
+                <span className="text-[color:var(--fc-text-muted)]">Legacy access token</span>
+                <input
+                  type="password"
+                  value={form.instagramAccessToken}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      instagramAccessToken: event.target.value,
+                    }))
+                  }
+                  className="cinematic-input w-full rounded-lg px-3 py-2"
+                />
+              </label>
+              <label className="space-y-1 text-sm">
+                <span className="text-[color:var(--fc-text-muted)]">
+                  Legacy business account ID
+                </span>
+                <input
+                  value={form.instagramBusinessAccountId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      instagramBusinessAccountId: event.target.value,
+                    }))
+                  }
+                  className="cinematic-input w-full rounded-lg px-3 py-2"
+                />
+              </label>
             </div>
           </div>
+        ) : null}
+      </section>
 
-          <div className="space-y-1 text-sm text-[color:var(--fc-text-muted)]">
-            {instagramConnection?.selectedPageName ? (
-              <p>
-                Connected Page:{" "}
-                <span className="font-semibold text-[color:var(--fc-text-primary)]">
-                  {instagramConnection.selectedPageName}
-                </span>
-              </p>
-            ) : null}
-            {instagramConnection?.selectedPageId ? (
-              <p>
-                Page ID:{" "}
-                <span className="font-mono text-xs text-[color:var(--fc-text-muted)]">
-                  {instagramConnection.selectedPageId}
-                </span>
-              </p>
-            ) : null}
-            {instagramConnection?.selectedInstagramBusinessAccountId ? (
-              <p>
-                Instagram Business Account ID:{" "}
-                <span className="font-mono text-xs text-[color:var(--fc-text-muted)]">
-                  {instagramConnection.selectedInstagramBusinessAccountId}
-                </span>
-              </p>
-            ) : null}
-            {instagramConnection?.lastValidatedAt ? (
-              <p>Last validated: {new Date(instagramConnection.lastValidatedAt).toLocaleString()}</p>
-            ) : null}
-            {instagramConnection?.status === "legacy_fallback" ? (
-              <p>Legacy manual Instagram credentials are still active. Reconnect to upgrade this connection.</p>
-            ) : null}
-            {instagramConnection?.status === "missing_page_linkage" ? (
-              <p>
-                FlowCart could not find an Instagram professional account linked to a Facebook
-                Page you control. In Meta, connect that Instagram professional account to a
-                Facebook Page you manage, then reconnect Instagram here.
-              </p>
-            ) : instagramConnection?.status === "needs_reconnect" ? (
-              <p>
-                FlowCart found your linked Page and Instagram account, but Meta did not return a
-                Page publishing token. Reconnect Instagram and choose the Page you want FlowCart
-                to publish from.
-              </p>
-            ) : instagramConnection?.errorCode ? (
-              <p>{instagramConnection.statusLabel}. Error code: {instagramConnection.errorCode}</p>
-            ) : (
-              <p>
-                {instagramConfigured
-                  ? "Instagram is connected and ready for launches."
-                  : "Use Connect Instagram to complete one-time onboarding through Meta."}
-              </p>
-            )}
+      <section
+        id="trash"
+        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-[color:var(--fc-text-primary)]">
+              Trash
+            </h2>
+            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
+              Removed posts stay here for 30 days.
+            </p>
           </div>
+          <Badge>{trashedPosts.length} removed</Badge>
+        </div>
 
-          {instagramConnection?.status === "selection_required" &&
-          instagramConnection.candidates.length > 0 ? (
-            <div className="rounded-2xl border border-[color:rgba(15,108,189,0.2)] bg-[rgba(15,108,189,0.08)] p-4 space-y-3">
-              <div>
-                <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
-                  Choose the Instagram account to use
-                </p>
-                <p className="text-xs text-[color:var(--fc-text-muted)]">
-                  Select the Page and Instagram account FlowCart should publish to for this user.
-                </p>
-              </div>
-              <div className="space-y-2">
-                {instagramConnection.candidates.map((candidate) => {
-                  const key = `${candidate.pageId}:${candidate.instagramBusinessAccountId}`;
-                  const selecting = selectingCandidateKey === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() =>
-                        selectInstagramCandidate(
-                          candidate.pageId,
-                          candidate.instagramBusinessAccountId
-                        )
-                      }
-                      disabled={Boolean(selectingCandidateKey)}
-                      className="flex w-full items-center justify-between rounded-2xl border border-[color:rgba(15,108,189,0.2)] bg-white px-4 py-3 text-left transition hover:border-[color:rgba(15,108,189,0.36)] hover:bg-[rgba(15,108,189,0.06)]"
-                    >
-                      <span>
-                        <span className="block text-sm font-semibold text-[color:var(--fc-text-primary)]">
-                          {candidate.pageName || "Untitled Facebook Page"}
-                        </span>
-                        <span className="block text-xs text-[color:var(--fc-text-muted)]">
-                          Page {candidate.pageId} · Instagram {candidate.instagramBusinessAccountId}
-                        </span>
-                      </span>
-                      <span className="text-sm font-semibold text-[color:var(--fc-primary)]">
-                        {selecting ? "Selecting..." : "Use this account"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
+        {isLoadingTrash ? (
+          <div className="mt-4 flex items-center gap-2 text-sm text-[color:var(--fc-text-muted)]">
+            <Loader2 size={14} className="animate-spin" />
+            Loading trash...
+          </div>
+        ) : trashedPosts.length === 0 ? (
+          <p className="mt-4 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3 text-sm text-[color:var(--fc-text-muted)]">
+            Nothing in trash.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {trashedPosts.map((post, index) => {
+              const title =
+                post.titleEnhanced.trim() || post.titleRaw.trim() || `Post ${index + 1}`;
+              const imageUrl = post.imageUrls[0] ?? "";
+              const daysRemaining = getTrashDaysRemaining(post.deleteAfterAt);
+              const removedDate = post.trashedAt
+                ? trashDateFormatter.format(new Date(post.trashedAt))
+                : "Unknown";
 
-          {instagramDebugFieldModeEnabled ? (
-            <div className="rounded-2xl border border-[color:rgba(106,84,209,0.2)] bg-[rgba(106,84,209,0.08)] p-4 space-y-4">
-              <div>
-                <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">Admin Debug Fields</p>
-                <p className="text-xs text-[color:var(--fc-text-muted)]">
-                  Hidden from production users. These fields remain only as a temporary fallback.
-                </p>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="space-y-2 text-sm">
-                  <span className="text-[color:var(--fc-text-muted)]">Legacy Access Token</span>
-                  <input
-                    type="password"
-                    value={form.instagramAccessToken}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        instagramAccessToken: event.target.value,
-                      }))
-                    }
-                    placeholder="Legacy token"
-                    className={inputClass}
-                  />
-                </label>
-                <label className="space-y-2 text-sm">
-                  <span className="text-[color:var(--fc-text-muted)]">Legacy Business Account ID</span>
-                  <input
-                    value={form.instagramBusinessAccountId}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        instagramBusinessAccountId: event.target.value,
-                      }))
-                    }
-                    placeholder="1784..."
-                    className={inputClass}
-                  />
-                </label>
-              </div>
-            </div>
-          ) : null}
-        </motion.div>
+              return (
+                <div
+                  key={post.id}
+                  className="flex gap-3 rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-3"
+                >
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-[color:var(--fc-border-strong)] bg-white">
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl}
+                        alt={title}
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    ) : null}
+                  </div>
 
-        <div className="relative z-10 flex flex-wrap items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
+                      {title}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
+                      Removed {removedDate} • {daysRemaining} day
+                      {daysRemaining === 1 ? "" : "s"} left
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <LiquidButton
+                        onClick={() => restoreTrashPost(post.id)}
+                        disabled={Boolean(restoringTrashId) || Boolean(deletingTrashId)}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        {restoringTrashId === post.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : null}
+                        Restore
+                      </LiquidButton>
+                      <LiquidButton
+                        onClick={() => deleteTrashPost(post.id)}
+                        disabled={Boolean(restoringTrashId) || Boolean(deletingTrashId)}
+                        variant="danger"
+                        size="sm"
+                      >
+                        {deletingTrashId === post.id ? (
+                          <Loader2 size={14} className="animate-spin" />
+                        ) : null}
+                        Delete
+                      </LiquidButton>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5">
+        <div className="flex flex-wrap items-center gap-2">
           <LiquidButton
             onClick={save}
             disabled={isSaving || isLoading}
+            variant="success"
             size="lg"
-            className="rounded-2xl"
           >
-            {isSaving ? (
-              <>
-                <Loader2 size={14} className="animate-spin" /> Saving...
-              </>
-            ) : (
-              <>
-                <Save size={14} /> Save Settings
-              </>
-            )}
+            {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            Save Settings
           </LiquidButton>
           <LiquidButton
-            onClick={loadSettings}
+            onClick={() => {
+              void Promise.all([loadSettings(), loadTrash()]);
+            }}
             disabled={isSaving}
-            variant="ghost"
+            variant="secondary"
             size="lg"
-            className="rounded-2xl"
           >
-            <RefreshCw size={14} /> Refresh
+            <RefreshCw size={14} />
+            Refresh
           </LiquidButton>
           {isDirty ? (
-            <span className="rounded-full border border-[color:rgba(106,84,209,0.24)] bg-[rgba(106,84,209,0.1)] px-3 py-1 text-xs font-semibold text-[color:#4d3bb0]">
-              Unsaved changes
-            </span>
+            <Badge>Unsaved changes</Badge>
           ) : null}
         </div>
 
         {message ? (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-[color:rgba(18,122,89,0.3)] bg-[rgba(18,122,89,0.1)] px-4 py-3 text-sm text-[color:#0c5e45]"
-          >
+          <div className="mt-3 rounded-lg border border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] px-4 py-3 text-sm text-[#15803d]">
             {message}
-          </motion.div>
+          </div>
         ) : null}
         {errorMessage ? (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border border-[color:rgba(194,65,58,0.34)] bg-[rgba(194,65,58,0.1)] px-4 py-3 text-sm text-[color:#942a26]"
-          >
+          <div className="mt-3 rounded-lg border border-[rgba(220,38,38,0.3)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[#b42318]">
             {errorMessage}
-          </motion.div>
+          </div>
         ) : null}
       </section>
-    </motion.div>
+    </div>
   );
 }
 
+function Badge({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)] ${className ?? ""}`}
+    >
+      {children}
+    </span>
+  );
+}

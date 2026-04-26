@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
+import type { ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Grid3x3, Home, Info, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
@@ -10,60 +11,62 @@ interface NavLink {
   key: string;
   href: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }
+
+const LOGGED_IN_NAV: NavLink[] = [
+  {
+    key: "home",
+    href: "/",
+    label: "Home",
+    icon: <Home size={18} strokeWidth={1.9} />,
+  },
+  {
+    key: "dashboard",
+    href: "/dashboard",
+    label: "Posts",
+    icon: <Grid3x3 size={18} strokeWidth={1.9} />,
+  },
+  {
+    key: "info",
+    href: "/info",
+    label: "Info",
+    icon: <Info size={18} strokeWidth={1.9} />,
+  },
+  {
+    key: "settings",
+    href: "/settings",
+    label: "Settings",
+    icon: <Settings size={18} strokeWidth={1.9} />,
+  },
+];
+
+const LOGGED_OUT_NAV: NavLink[] = [
+  {
+    key: "home",
+    href: "/",
+    label: "Home",
+    icon: <Home size={18} strokeWidth={1.9} />,
+  },
+  {
+    key: "info",
+    href: "/info",
+    label: "Info",
+    icon: <Info size={18} strokeWidth={1.9} />,
+  },
+  {
+    key: "auth",
+    href: "/auth",
+    label: "Login",
+    icon: <LogOut size={18} strokeWidth={1.9} />,
+  },
+];
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, loading, signOut } = useAuth();
 
-  const navLinks: NavLink[] = user
-    ? [
-        {
-          key: "home",
-          href: "/",
-          label: "Home",
-          icon: <Home size={20} strokeWidth={1.8} />,
-        },
-        {
-          key: "dashboard",
-          href: "/dashboard",
-          label: "Posts",
-          icon: <Grid3x3 size={20} strokeWidth={1.8} />,
-        },
-        {
-          key: "info",
-          href: "/info",
-          label: "Info",
-          icon: <Info size={20} strokeWidth={1.8} />,
-        },
-        {
-          key: "settings",
-          href: "/settings",
-          label: "Settings",
-          icon: <Settings size={20} strokeWidth={1.8} />,
-        },
-      ]
-    : [
-        {
-          key: "home",
-          href: "/",
-          label: "Home",
-          icon: <Home size={20} strokeWidth={1.8} />,
-        },
-        {
-          key: "info",
-          href: "/info",
-          label: "Info",
-          icon: <Info size={20} strokeWidth={1.8} />,
-        },
-        {
-          key: "auth",
-          href: "/auth",
-          label: "Login",
-          icon: <LogOut size={20} strokeWidth={1.8} />,
-        },
-      ];
+  const navLinks = user ? LOGGED_IN_NAV : LOGGED_OUT_NAV;
 
   const activeKey = pathname.startsWith("/dashboard")
     ? "dashboard"
@@ -77,44 +80,28 @@ export function Navbar() {
 
   return (
     <>
-      {/* Top bar — clean, sticky, off-white */}
-      <header className="sticky top-0 z-30 border-b border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-background)]/92 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <Link
-            href="/"
-            aria-label="FlowCart home"
-            className="group inline-flex items-center"
-          >
-            {/* Desktop: horizontal symbol + wordmark */}
+      <header className="sticky top-0 z-40 border-b border-[color:var(--fc-border-strong)] bg-[color:var(--fc-background)]/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+          <Link href="/" aria-label="FlowCart home" className="inline-flex items-center">
             <Image
               src="/brand/flowcart-horizontal.png"
               alt="FlowCart"
-              width={520}
-              height={160}
+              width={640}
+              height={200}
               priority
-              className="hidden h-8 w-auto sm:block"
+              className="hidden h-auto w-[138px] sm:block md:w-[148px]"
             />
-            {/* Mobile: stacked symbol + wordmark renders compactly */}
-            <span className="flex items-center gap-2 sm:hidden">
-              <Image
-                src="/brand/flowcart-symbol.png"
-                alt=""
-                width={64}
-                height={64}
-                priority
-                className="h-7 w-auto"
-              />
-              <span className="text-lg font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
-                FlowCart
-              </span>
-            </span>
+            <Image
+              src="/brand/flowcart-horizontal.png"
+              alt="FlowCart"
+              width={480}
+              height={150}
+              priority
+              className="h-auto w-[112px] sm:hidden"
+            />
           </Link>
 
-          {/* Desktop nav */}
-          <nav
-            className="hidden items-center gap-1 md:flex"
-            aria-label="Primary"
-          >
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
             {navLinks.map((item) => {
               const isActive = item.key === activeKey;
               return (
@@ -123,18 +110,12 @@ export function Navbar() {
                   href={item.href}
                   className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                     isActive
-                      ? "bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]"
-                      : "text-[color:var(--fc-text-muted)] hover:bg-[color:var(--fc-surface-muted)] hover:text-[color:var(--fc-text-primary)]"
+                      ? "border border-[#111111] bg-[color:var(--fc-surface-muted)] text-[#111111]"
+                      : "border border-transparent text-[color:var(--fc-text-muted)] hover:border-[color:var(--fc-border-subtle)] hover:bg-[color:var(--fc-surface-muted)] hover:text-[#111111]"
                   }`}
                   aria-current={isActive ? "page" : undefined}
                 >
-                  <span
-                    className={
-                      isActive ? "text-[color:var(--fc-text-primary)]" : ""
-                    }
-                  >
-                    {item.icon}
-                  </span>
+                  {item.icon}
                   <span>{item.label}</span>
                 </Link>
               );
@@ -143,29 +124,27 @@ export function Navbar() {
               <button
                 type="button"
                 onClick={signOut}
-                className="ml-1 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[color:var(--fc-text-muted)] transition hover:bg-[color:var(--fc-surface-muted)] hover:text-[color:var(--fc-text-primary)]"
+                className="ml-1 inline-flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-[color:var(--fc-text-muted)] transition hover:border-[color:var(--fc-border-subtle)] hover:bg-[color:var(--fc-surface-muted)] hover:text-[#111111]"
               >
-                <LogOut size={18} strokeWidth={1.8} />
+                <LogOut size={18} strokeWidth={1.9} />
                 <span>Logout</span>
               </button>
             ) : null}
           </nav>
 
-          {/* Mobile top-right: Logout for signed-in users, Login pill otherwise */}
           <div className="flex items-center md:hidden">
             {!loading && user ? (
               <button
                 type="button"
                 onClick={signOut}
-                aria-label="Logout"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-[color:var(--fc-text-primary)]"
+                className="inline-flex h-10 items-center justify-center rounded-lg border border-[color:var(--fc-border-subtle)] px-3 text-sm font-semibold text-[color:var(--fc-text-primary)]"
               >
-                <LogOut size={22} strokeWidth={1.8} />
+                Logout
               </button>
             ) : (
               <Link
                 href="/auth"
-                className="rounded-lg bg-[#111111] px-3 py-1.5 text-sm font-semibold text-white"
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-[#111111] px-4 text-sm font-semibold text-white"
               >
                 Login
               </Link>
@@ -174,45 +153,34 @@ export function Navbar() {
         </div>
       </header>
 
-      {/* Mobile bottom tab bar — Instagram-simple, thumb-friendly */}
-      <nav
-        aria-label="Mobile primary"
-        className="fixed bottom-0 left-0 right-0 z-30 border-t border-[color:var(--fc-border-subtle)] bg-white/96 backdrop-blur md:hidden"
-      >
-        <ul className="mx-auto flex w-full max-w-[600px] items-center justify-around px-2 pb-[max(env(safe-area-inset-bottom),0.25rem)] pt-1.5">
-          {navLinks.map((item) => {
-            const isActive = item.key === activeKey;
-            return (
-              <li key={item.key} className="flex-1">
-                <Link
-                  href={item.href}
-                  className="flex min-h-[52px] flex-col items-center justify-center gap-0.5 py-1.5"
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <span
-                    className={
+      {!loading && user ? (
+        <nav
+          aria-label="Mobile primary"
+          className="fixed bottom-0 left-0 right-0 z-40 border-t border-[color:var(--fc-border-strong)] bg-white/98 backdrop-blur md:hidden"
+        >
+          <ul className="mx-auto grid w-full max-w-[560px] grid-cols-4 px-2 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-1">
+            {LOGGED_IN_NAV.map((item) => {
+              const isActive = item.key === activeKey;
+              return (
+                <li key={item.key}>
+                  <Link
+                    href={item.href}
+                    className={`flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-lg px-1 ${
                       isActive
-                        ? "text-[color:var(--fc-text-primary)]"
-                        : "text-[color:var(--fc-text-muted)]"
-                    }
-                  >
-                    {item.icon}
-                  </span>
-                  <span
-                    className={`text-[10px] font-medium ${
-                      isActive
-                        ? "text-[color:var(--fc-text-primary)]"
+                        ? "bg-[color:var(--fc-surface-muted)] text-[#111111]"
                         : "text-[color:var(--fc-text-muted)]"
                     }`}
+                    aria-current={isActive ? "page" : undefined}
                   >
-                    {item.label}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </nav>
+                    {item.icon}
+                    <span className="text-[11px] font-medium">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      ) : null}
     </>
   );
 }

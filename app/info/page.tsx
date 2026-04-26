@@ -1,53 +1,37 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import {
-  ArrowRight,
-  CheckCircle2,
-  ImagePlus,
-  PencilLine,
-  RefreshCcw,
-  Send,
-} from "lucide-react";
-import {
-  ShopifyMark,
-  InstagramMark,
-} from "@/src/components/ui/brand-icons";
+import { ArrowRight, ImagePlus, PencilLine, RefreshCcw, Send } from "lucide-react";
+import { ShopifyMark, InstagramMark } from "@/src/components/ui/brand-icons";
 import { readApiResponse } from "@/src/components/api-response";
 import { useAuth } from "@/src/context/AuthContext";
-import type {
-  InstagramConnectionSummary,
-  SafeSettingsStatus,
-} from "@/src/lib/types";
+import type { InstagramConnectionSummary, SafeSettingsStatus } from "@/src/lib/types";
 
 interface SettingsPayload {
   status: SafeSettingsStatus;
   instagramConnection: InstagramConnectionSummary;
 }
 
-interface StepCard {
+interface GuideStep {
   number: number;
   title: string;
   body: string;
   href: string;
-  icon: React.ReactNode;
-  cta: string;
+  icon: ReactNode;
 }
 
 export default function InfoPage() {
   const { user, loading: authLoading } = useAuth();
-  const [shopifyConnected, setShopifyConnected] = useState<boolean>(false);
-  const [shopifyDomain, setShopifyDomain] = useState<string>("");
-  const [igConnected, setIgConnected] = useState<boolean>(false);
-  const [igPageName, setIgPageName] = useState<string>("");
+  const [shopifyConnected, setShopifyConnected] = useState(false);
+  const [instagramConnected, setInstagramConnected] = useState(false);
 
   useEffect(() => {
     if (authLoading || !user) {
       return;
     }
+
     let cancelled = false;
     (async () => {
       try {
@@ -56,198 +40,133 @@ export default function InfoPage() {
         if (cancelled || !response.ok || !payload?.ok || !payload.data) {
           return;
         }
+
         setShopifyConnected(Boolean(payload.data.status.shopifyConnected));
-        setIgConnected(
-          Boolean(payload.data.instagramConnection?.canPublish)
-        );
-        setIgPageName(
-          payload.data.instagramConnection?.selectedPageName ?? ""
-        );
+        setInstagramConnected(Boolean(payload.data.instagramConnection?.canPublish));
       } catch {
-        // Info page is non-critical — silently degrade.
+        // Keep info page resilient; links still work without status chips.
       }
     })();
+
     return () => {
       cancelled = true;
     };
   }, [authLoading, user]);
 
-  // Derive a Shopify admin URL only if a domain is saved (we only have it via
-  // settings; the public list endpoint doesn't include it). For a cleaner Info
-  // page we link straight to /settings#shopify which is always safe.
-  const shopifyHref = "/settings#shopify";
-  const instagramHref = "/settings#instagram";
-
-  const steps: StepCard[] = [
+  const steps: GuideStep[] = [
     {
       number: 1,
       title: "Add photos",
-      body: "Upload product photos right inside a post. Drag, drop, or pick from your device.",
+      body: "Upload product photos from your phone or desktop.",
       href: "/dashboard",
-      icon: <ImagePlus size={20} strokeWidth={1.8} />,
-      cta: "Open Posts",
+      icon: <ImagePlus size={18} strokeWidth={1.9} />,
     },
     {
       number: 2,
-      title: "Add caption and details",
-      body: "Write a caption, set price and quantity. AI can polish your copy in one tap.",
+      title: "Add product details",
+      body: "Write the title, caption, price, and quantity.",
       href: "/dashboard",
-      icon: <PencilLine size={20} strokeWidth={1.8} />,
-      cta: "Open Posts",
+      icon: <PencilLine size={18} strokeWidth={1.9} />,
     },
     {
       number: 3,
       title: "Connect Shopify",
-      body: shopifyConnected
-        ? `Connected${shopifyDomain ? ` to ${shopifyDomain}` : ""}. FlowCart will create and update products here.`
-        : "Connect your Shopify store so FlowCart can create and update products.",
-      href: shopifyHref,
-      icon: <ShopifyMark size={20} />,
-      cta: shopifyConnected ? "Manage Shopify" : "Connect Shopify",
+      body: "Connect your store so FlowCart can create and update products.",
+      href: "/settings#shopify",
+      icon: <ShopifyMark size={18} />,
     },
     {
       number: 4,
       title: "Connect Instagram",
-      body: igConnected
-        ? `Connected${igPageName ? ` to ${igPageName}` : ""}. FlowCart publishes posts to this account.`
-        : "Connect the Instagram account where FlowCart should publish posts.",
-      href: instagramHref,
-      icon: <InstagramMark size={20} />,
-      cta: igConnected ? "Manage Instagram" : "Connect Instagram",
+      body: "Connect the Instagram account where FlowCart publishes posts.",
+      href: "/settings#instagram",
+      icon: <InstagramMark size={18} />,
     },
     {
       number: 5,
       title: "Post once",
-      body: "Tap Post on a single post, or Post All to share every ready post to Shopify and Instagram together.",
+      body: "Publish one post to both Shopify and Instagram.",
       href: "/dashboard",
-      icon: <Send size={20} strokeWidth={1.8} />,
-      cta: "Open Posts",
+      icon: <Send size={18} strokeWidth={1.9} />,
     },
     {
       number: 6,
       title: "Update everywhere",
-      body: "Edit a posted item once, then update Shopify and Instagram together — no duplicates, no manual sync.",
+      body: "Edit once and push updates to every connected channel.",
       href: "/dashboard",
-      icon: <RefreshCcw size={20} strokeWidth={1.8} />,
-      cta: "Open Posts",
+      icon: <RefreshCcw size={18} strokeWidth={1.9} />,
     },
   ];
 
   return (
-    <div className="w-full space-y-6">
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-6 sm:p-8"
-      >
-        <div className="flex items-start gap-4">
-          <Image
-            src="/brand/flowcart-symbol.png"
-            alt=""
-            width={88}
-            height={88}
-            priority
-            className="hidden h-12 w-12 object-contain sm:block"
-          />
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--fc-text-soft)]">
-              How it works
-            </p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
-              Everything you need, in six steps
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--fc-text-muted)] sm:text-base">
-              FlowCart turns one product post into a clean Shopify listing and
-              Instagram post — and keeps them in sync when you edit. Tap any
-              step to jump in.
-            </p>
-          </div>
-        </div>
-      </motion.section>
+    <div className="w-full space-y-5">
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--fc-text-soft)]">
+          FlowCart guide
+        </p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-4xl">
+          Post once. Share everywhere.
+        </h1>
+        <p className="mt-2 max-w-3xl text-sm text-[color:var(--fc-text-muted)] sm:text-base">
+          Follow these six steps to go from photos to published posts across Shopify and Instagram.
+        </p>
+      </section>
 
-      <section
-        aria-label="FlowCart steps"
-        className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {steps.map((step, idx) => {
-          const isShopify = step.number === 3;
-          const isInstagram = step.number === 4;
-          const connected =
-            (isShopify && shopifyConnected) ||
-            (isInstagram && igConnected);
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {steps.map((step) => {
+          const showConnected =
+            (step.number === 3 && shopifyConnected) ||
+            (step.number === 4 && instagramConnected);
+
           return (
-            <motion.div
+            <Link
               key={step.number}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25, delay: idx * 0.04 }}
+              href={step.href}
+              className="group flex h-full flex-col rounded-xl border border-[color:var(--fc-border-subtle)] bg-white p-4 transition hover:border-[color:var(--fc-border-strong)] hover:bg-[color:var(--fc-surface-muted)]"
             >
-              <Link
-                href={step.href}
-                className="group flex h-full flex-col gap-3 rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 transition hover:border-[color:var(--fc-border-strong)] hover:shadow-[0_2px_12px_rgba(0,0,0,0.05)] active:translate-y-px"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
-                    {step.icon}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {connected ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] px-2 py-0.5 text-[10px] font-semibold text-[#15803d]">
-                        <CheckCircle2 size={11} />
-                        Connected
-                      </span>
-                    ) : null}
-                    <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-full bg-[color:var(--fc-text-primary)] px-2 text-[11px] font-semibold text-white">
-                      {step.number}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex-1 space-y-1">
-                  <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">
-                    {step.title}
-                  </h2>
-                  <p className="text-sm leading-6 text-[color:var(--fc-text-muted)]">
-                    {step.body}
-                  </p>
-                </div>
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--fc-text-primary)]">
-                  {step.cta}
-                  <ArrowRight
-                    size={14}
-                    className="transition-transform group-hover:translate-x-0.5"
-                  />
+              <div className="flex items-start justify-between gap-3">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]">
+                  {step.icon}
                 </span>
-              </Link>
-            </motion.div>
+                <div className="flex items-center gap-2">
+                  {showConnected ? (
+                    <span className="inline-flex items-center rounded-full border border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] px-2 py-0.5 text-[10px] font-semibold text-[#15803d]">
+                      Connected
+                    </span>
+                  ) : null}
+                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-[color:var(--fc-border-strong)] px-1.5 text-[10px] font-semibold text-[color:var(--fc-text-primary)]">
+                    {step.number}
+                  </span>
+                </div>
+              </div>
+
+              <h2 className="mt-3 text-base font-semibold text-[color:var(--fc-text-primary)]">
+                {step.title}
+              </h2>
+              <p className="mt-1 flex-1 text-sm text-[color:var(--fc-text-muted)]">{step.body}</p>
+
+              <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[color:var(--fc-text-primary)]">
+                Open
+                <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
+              </span>
+            </Link>
           );
         })}
       </section>
 
-      <section
-        aria-label="Quick start"
-        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6"
-      >
-        <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">
-          Quick start
-        </h2>
-        <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
-          New to FlowCart? Connect Shopify and Instagram first, then create
-          your first post.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href="/settings"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-4 py-2 text-sm font-semibold text-[color:var(--fc-text-primary)] transition hover:bg-[color:var(--fc-surface-muted)]"
-          >
-            Open Settings
-            <ArrowRight size={14} />
-          </Link>
+      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">Ready?</h2>
+            <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
+              Start with your next post now.
+            </p>
+          </div>
           <Link
             href="/dashboard"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#111111] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black"
+            className="inline-flex items-center gap-1 rounded-lg bg-[#111111] px-4 py-2 text-sm font-semibold text-white"
           >
-            Go to Posts
+            Start posting
             <ArrowRight size={14} />
           </Link>
         </div>

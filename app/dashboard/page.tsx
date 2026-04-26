@@ -1,40 +1,29 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { CheckCircle2, Loader2, Plus, Send, Sparkles, XCircle } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
-import { ProductBucket } from "@/src/components/ProductBucket";
-import { PostTile } from "@/src/components/PostTile";
 import { PostDetailDrawer } from "@/src/components/PostDetailDrawer";
+import { PostTile } from "@/src/components/PostTile";
+import { ProductBucket } from "@/src/components/ProductBucket";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
+import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
 import {
   applyCreatedBucket,
   applyMoveToTrash,
-  markBucketsProcessingForGoAll,
-  pickGoAllReadyBucketIds,
   applyPermanentDelete,
-  applyRestoreFromTrash,
   getBucketPollIntervalMs,
   hasActiveBucketWork,
+  markBucketsProcessingForGoAll,
+  pickGoAllReadyBucketIds,
   runBoundedQueue,
   upsertBucketById,
 } from "@/src/lib/dashboard-buckets";
 import {
-  CheckCircle2,
-  Clock,
-  Loader2,
-  PlusSquare,
-  Send,
-  Sparkles,
-  XCircle,
-} from "lucide-react";
+  isDoneBucketCollapsedByDefault,
+  toggleDoneBucketExpandedState,
+} from "@/src/lib/bucket-ui";
 import type {
   ApiResponseShape,
   DoneBucketSyncPayload,
@@ -43,11 +32,6 @@ import type {
   ProductBucket as Bucket,
   SyncStatusChip,
 } from "@/src/lib/types";
-import {
-  isDoneBucketCollapsedByDefault,
-  toggleDoneBucketExpandedState,
-} from "@/src/lib/bucket-ui";
-import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
 
 interface BucketActionState {
   saving: boolean;
@@ -57,7 +41,6 @@ interface BucketActionState {
   launching: boolean;
   trashing: boolean;
   deleting: boolean;
-  restoring: boolean;
   syncingDone: boolean;
 }
 
@@ -74,11 +57,15 @@ const EMPTY_ACTION_STATE: BucketActionState = {
   launching: false,
   trashing: false,
   deleting: false,
-  restoring: false,
   syncingDone: false,
 };
 
-function bucketFromError(payload: ApiResponseShape<unknown> | null | undefined): Bucket | null {
+const GO_ALL_CONCURRENCY_LIMIT = 3;
+const BUCKET_HASH_PREFIX = "#bucket-";
+
+function bucketFromError(
+  payload: ApiResponseShape<unknown> | null | undefined
+): Bucket | null {
   const data = payload?.data;
   if (!data || typeof data !== "object") {
     return null;
@@ -90,32 +77,59 @@ function hasSyncPayloadChanges(payload: DoneBucketSyncPayload): boolean {
   return Object.keys(payload).length > 0;
 }
 
-const GO_ALL_CONCURRENCY_LIMIT = 3;
+function statusLabel(status: Bucket["status"]): string {
+  switch (status) {
+    case "DONE":
+      return "Posted";
+    case "READY":
+      return "Ready";
+    case "FAILED":
+      return "Issues";
+    case "PROCESSING":
+    case "ENHANCING":
+      return "Working";
+    default:
+      return "Draft";
+  }
+}
+
+function parseBucketIdFromHash(hash: string): string {
+  if (!hash.startsWith(BUCKET_HASH_PREFIX)) {
+    return "";
+  }
+  return hash.slice(BUCKET_HASH_PREFIX.length).trim();
+}
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
+
   const [buckets, setBuckets] = useState<Bucket[]>([]);
-  const [trashedBuckets, setTrashedBuckets] = useState<Bucket[]>([]);
-  const [actionsByBucket, setActionsByBucket] = useState<Record<string, BucketActionState>>({});
-  const [doneExpandedByBucketId, setDoneExpandedByBucketId] = useState<Record<string, boolean>>({});
-  const [doneSyncChips, setDoneSyncChips] = useState<Record<string, SyncStatusChip[]>>({});
+  const [actionsByBucket, setActionsByBucket] = useState<
+    Record<string, BucketActionState>
+  >({});
+  const [doneExpandedByBucketId, setDoneExpandedByBucketId] = useState<
+    Record<string, boolean>
+  >({});
+  const [doneSyncChips, setDoneSyncChips] = useState<
+    Record<string, SyncStatusChip[]>
+  >({});
   const [runtimeHealth, setRuntimeHealth] = useState<RuntimeHealth>({
     openaiConfigured: false,
     settingsConfigured: false,
   });
+
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [summaryMessage, setSummaryMessage] = useState("");
   const [goAllSummary, setGoAllSummary] = useState<GoAllSummary | null>(null);
   const [isRunningGoAll, setIsRunningGoAll] = useState(false);
-  const [pendingScrollBucketId, setPendingScrollBucketId] = useState("");
+  const [openBucketId, setOpenBucketId] = useState("");
   const [highlightedBucketId, setHighlightedBucketId] = useState("");
-  const [openBucketId, setOpenBucketId] = useState<string>("");
-  const bucketRefs = useRef<Record<string, HTMLElement | null>>({});
-  const highlightTimeoutRef = useRef<number | null>(null);
+
   const bucketsRef = useRef<Bucket[]>([]);
   const trashedBucketsRef = useRef<Bucket[]>([]);
   const goAllInFlightRef = useRef(false);
+  const highlightTimeoutRef = useRef<number | null>(null);
 
   const setBucketActionState = (
     bucketId: string,
@@ -127,45 +141,50 @@ export default function DashboardPage() {
     }));
   };
 
-  const setCollections = useCallback((nextBuckets: Bucket[], nextTrashedBuckets: Bucket[]) => {
-    bucketsRef.current = nextBuckets;
-    trashedBucketsRef.current = nextTrashedBuckets;
-    setBuckets(nextBuckets);
-    setTrashedBuckets(nextTrashedBuckets);
-    const activeIds = new Set(nextBuckets.map((bucket) => bucket.id));
-    setDoneExpandedByBucketId((current) => {
-      const pruned: Record<string, boolean> = {};
-      for (const [bucketId, expanded] of Object.entries(current)) {
-        if (activeIds.has(bucketId)) {
-          pruned[bucketId] = expanded;
+  const setCollections = useCallback(
+    (nextBuckets: Bucket[], nextTrashedBuckets: Bucket[]) => {
+      bucketsRef.current = nextBuckets;
+      trashedBucketsRef.current = nextTrashedBuckets;
+      setBuckets(nextBuckets);
+
+      const activeIds = new Set(nextBuckets.map((bucket) => bucket.id));
+
+      setDoneExpandedByBucketId((current) => {
+        const pruned: Record<string, boolean> = {};
+        for (const [bucketId, expanded] of Object.entries(current)) {
+          if (activeIds.has(bucketId)) {
+            pruned[bucketId] = expanded;
+          }
         }
-      }
-      return pruned;
-    });
-    setDoneSyncChips((current) => {
-      const pruned: Record<string, SyncStatusChip[]> = {};
-      for (const [bucketId, chips] of Object.entries(current)) {
-        if (activeIds.has(bucketId)) {
-          pruned[bucketId] = chips;
+        return pruned;
+      });
+
+      setDoneSyncChips((current) => {
+        const pruned: Record<string, SyncStatusChip[]> = {};
+        for (const [bucketId, chips] of Object.entries(current)) {
+          if (activeIds.has(bucketId)) {
+            pruned[bucketId] = chips;
+          }
         }
-      }
-      return pruned;
-    });
-  }, []);
+        return pruned;
+      });
+    },
+    []
+  );
 
   const applyBucketCollectionsFromPayload = useCallback(
-    (payload: { buckets?: Bucket[]; trashedBuckets?: Bucket[] } | undefined): boolean => {
+    (payload: { buckets?: Bucket[]; trashedBuckets?: Bucket[] } | undefined) => {
       const hasBuckets = Array.isArray(payload?.buckets);
-      const hasTrashedBuckets = Array.isArray(payload?.trashedBuckets);
-      if (!hasBuckets && !hasTrashedBuckets) {
+      const hasTrashed = Array.isArray(payload?.trashedBuckets);
+      if (!hasBuckets && !hasTrashed) {
         return false;
       }
 
       const nextBuckets = hasBuckets ? payload?.buckets ?? [] : bucketsRef.current;
-      const nextTrashedBuckets = hasTrashedBuckets
+      const nextTrashed = hasTrashed
         ? payload?.trashedBuckets ?? []
         : trashedBucketsRef.current;
-      setCollections(nextBuckets, nextTrashedBuckets);
+      setCollections(nextBuckets, nextTrashed);
       return true;
     },
     [setCollections]
@@ -176,6 +195,53 @@ export default function DashboardPage() {
     setCollections(nextBuckets, trashedBucketsRef.current);
   };
 
+  const highlightBucket = useCallback((bucketId: string) => {
+    if (!bucketId) {
+      return;
+    }
+    setHighlightedBucketId(bucketId);
+    if (highlightTimeoutRef.current) {
+      window.clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightedBucketId((current) => (current === bucketId ? "" : current));
+    }, 1400);
+  }, []);
+
+  const setHashForBucket = useCallback((bucketId: string) => {
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}${window.location.search}#bucket-${bucketId}`
+    );
+  }, []);
+
+  const clearBucketHash = useCallback(() => {
+    if (window.location.hash.startsWith(BUCKET_HASH_PREFIX)) {
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`
+      );
+    }
+  }, []);
+
+  const openBucket = useCallback(
+    (bucketId: string, syncHash = true) => {
+      setOpenBucketId(bucketId);
+      highlightBucket(bucketId);
+      if (syncHash) {
+        setHashForBucket(bucketId);
+      }
+    },
+    [highlightBucket, setHashForBucket]
+  );
+
+  const closeBucket = useCallback(() => {
+    setOpenBucketId("");
+    clearBucketHash();
+  }, [clearBucketHash]);
+
   const loadBuckets = useCallback(async () => {
     const response = await fetch("/api/buckets", { cache: "no-store" });
     const payload = await readApiResponse<{
@@ -183,14 +249,16 @@ export default function DashboardPage() {
       trashedBuckets?: Bucket[];
     }>(response);
     if (!response.ok || !payload?.ok) {
-      throw new Error(apiErrorMessage(payload, "Failed to load buckets."));
+      throw new Error(apiErrorMessage(payload, "Failed to load posts."));
     }
 
-    const nextBuckets = Array.isArray(payload.data?.buckets) ? payload.data.buckets : [];
-    const nextTrashedBuckets = Array.isArray(payload.data?.trashedBuckets)
+    const nextBuckets = Array.isArray(payload.data?.buckets)
+      ? payload.data.buckets
+      : [];
+    const nextTrashed = Array.isArray(payload.data?.trashedBuckets)
       ? payload.data.trashedBuckets
       : [];
-    setCollections(nextBuckets, nextTrashedBuckets);
+    setCollections(nextBuckets, nextTrashed);
     return nextBuckets;
   }, [setCollections]);
 
@@ -204,7 +272,6 @@ export default function DashboardPage() {
       if (!response.ok || !payload?.ok) {
         throw new Error("Failed to load runtime health.");
       }
-
       setRuntimeHealth({
         openaiConfigured: Boolean(payload.data?.openaiConfigured),
         settingsConfigured: Boolean(payload.data?.settings?.configured),
@@ -214,69 +281,12 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const registerBucketRef = useCallback(
-    (bucketId: string) => (element: HTMLElement | null) => {
-      bucketRefs.current[bucketId] = element;
-    },
-    []
-  );
-
-  const scrollToBucketIfReady = useCallback((bucketId: string) => {
-    if (!bucketId) {
-      return false;
-    }
-
-    const target = bucketRefs.current[bucketId];
-    if (!target) {
-      return false;
-    }
-
-    target.scrollIntoView({ behavior: "smooth", block: "center" });
-    setHighlightedBucketId(bucketId);
-    setPendingScrollBucketId("");
-
-    if (highlightTimeoutRef.current) {
-      window.clearTimeout(highlightTimeoutRef.current);
-    }
-    highlightTimeoutRef.current = window.setTimeout(() => {
-      setHighlightedBucketId((current) => (current === bucketId ? "" : current));
-    }, 1600);
-
-    return true;
-  }, []);
-
-  useLayoutEffect(() => {
-    if (!pendingScrollBucketId) {
-      return;
-    }
-
-    if (scrollToBucketIfReady(pendingScrollBucketId)) {
-      return;
-    }
-
-    const frame = window.requestAnimationFrame(() => {
-      void scrollToBucketIfReady(pendingScrollBucketId);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-    };
-  }, [pendingScrollBucketId, buckets.length, scrollToBucketIfReady]);
-
-  useEffect(
-    () => () => {
-      if (highlightTimeoutRef.current) {
-        window.clearTimeout(highlightTimeoutRef.current);
-      }
-    },
-    []
-  );
-
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading || !user) {
+      return;
+    }
 
     let active = true;
-
     const initialize = async () => {
       setLoading(true);
       setPageError("");
@@ -284,7 +294,9 @@ export default function DashboardPage() {
         await Promise.all([loadBuckets(), loadRuntimeHealth()]);
       } catch (error) {
         if (active) {
-          setPageError(error instanceof Error ? error.message : "Failed to load your feed.");
+          setPageError(
+            error instanceof Error ? error.message : "Failed to load posts."
+          );
         }
       } finally {
         if (active) {
@@ -293,7 +305,7 @@ export default function DashboardPage() {
       }
     };
 
-    initialize();
+    void initialize();
     return () => {
       active = false;
     };
@@ -321,7 +333,7 @@ export default function DashboardPage() {
       try {
         await loadBuckets();
       } catch (error) {
-        console.warn("[flowcart:dashboard] bucket polling failed", error);
+        console.warn("[flowcart:dashboard] polling failed", error);
       } finally {
         if (!cancelled) {
           timeoutId = window.setTimeout(() => {
@@ -343,10 +355,54 @@ export default function DashboardPage() {
     };
   }, [authLoading, user, shouldAutoRefreshBuckets, isRunningGoAll, loadBuckets]);
 
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        window.clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!openBucketId) {
+      return;
+    }
+    const exists = buckets.some((bucket) => bucket.id === openBucketId);
+    if (!exists) {
+      setOpenBucketId("");
+      clearBucketHash();
+    }
+  }, [buckets, openBucketId, clearBucketHash]);
+
+  useEffect(() => {
+    if (loading || buckets.length === 0) {
+      return;
+    }
+
+    const openFromHash = () => {
+      const bucketId = parseBucketIdFromHash(window.location.hash);
+      if (!bucketId) {
+        return;
+      }
+      if (buckets.some((bucket) => bucket.id === bucketId)) {
+        openBucket(bucketId, false);
+      }
+    };
+
+    openFromHash();
+    window.addEventListener("hashchange", openFromHash);
+    return () => {
+      window.removeEventListener("hashchange", openFromHash);
+    };
+  }, [loading, buckets, openBucket]);
+
   if (authLoading) {
     return (
       <div className="flex w-full items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-[color:var(--fc-primary)]" />
+        <Loader2
+          size={24}
+          className="animate-spin text-[color:var(--fc-text-muted)]"
+        />
       </div>
     );
   }
@@ -367,7 +423,7 @@ export default function DashboardPage() {
   };
 
   const persistField = async (bucketId: string, field: EditableBucketField) => {
-    const target = buckets.find((bucket) => bucket.id === bucketId);
+    const target = bucketsRef.current.find((bucket) => bucket.id === bucketId);
     if (!target) {
       return;
     }
@@ -415,7 +471,9 @@ export default function DashboardPage() {
       }
       upsertBucket(payload.data.bucket);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Photo upload failed.");
+      setPageError(
+        error instanceof Error ? error.message : "Photo upload failed."
+      );
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, uploading: false }));
     }
@@ -436,7 +494,9 @@ export default function DashboardPage() {
     setGoAllSummary(null);
 
     try {
-      const response = await fetch(`/api/buckets/${bucketId}/${path}`, { method: "POST" });
+      const response = await fetch(`/api/buckets/${bucketId}/${path}`, {
+        method: "POST",
+      });
       const payload = await readApiResponse<{ bucket?: Bucket }>(response);
 
       const errorBucket = bucketFromError(payload);
@@ -465,17 +525,19 @@ export default function DashboardPage() {
       const response = await fetch("/api/buckets/create", { method: "POST" });
       const payload = await readApiResponse<{ bucket?: Bucket }>(response);
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
-      throw new Error(apiErrorMessage(payload, "Failed to create post."));
-    }
+        throw new Error(apiErrorMessage(payload, "Failed to create post."));
+      }
 
       const { buckets: nextBuckets, scrollTargetBucketId } = applyCreatedBucket(
         bucketsRef.current,
         payload.data.bucket
       );
       setCollections(nextBuckets, trashedBucketsRef.current);
-      setPendingScrollBucketId(scrollTargetBucketId);
+      openBucket(scrollTargetBucketId || payload.data.bucket.id);
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to create post.");
+      setPageError(
+        error instanceof Error ? error.message : "Failed to create post."
+      );
     }
   };
 
@@ -484,7 +546,9 @@ export default function DashboardPage() {
     setPageError("");
 
     try {
-      const response = await fetch(`/api/buckets/${bucketId}/trash`, { method: "POST" });
+      const response = await fetch(`/api/buckets/${bucketId}/trash`, {
+        method: "POST",
+      });
       const payload = await readApiResponse<{
         bucket?: Bucket;
         buckets?: Bucket[];
@@ -503,39 +567,11 @@ export default function DashboardPage() {
         setCollections(nextCollections.buckets, nextCollections.trashedBuckets);
       }
     } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to move post to trash.");
+      setPageError(
+        error instanceof Error ? error.message : "Failed to move post to trash."
+      );
     } finally {
       setBucketActionState(bucketId, (current) => ({ ...current, trashing: false }));
-    }
-  };
-
-  const restoreBucketAction = async (bucketId: string) => {
-    setBucketActionState(bucketId, (current) => ({ ...current, restoring: true }));
-    setPageError("");
-
-    try {
-      const response = await fetch(`/api/buckets/${bucketId}/restore`, { method: "POST" });
-      const payload = await readApiResponse<{
-        bucket?: Bucket;
-        buckets?: Bucket[];
-        trashedBuckets?: Bucket[];
-      }>(response);
-      if (!response.ok || !payload?.ok) {
-        throw new Error(apiErrorMessage(payload, "Failed to restore post."));
-      }
-
-      const appliedCollections = applyBucketCollectionsFromPayload(payload.data);
-      if (!appliedCollections && payload.data?.bucket) {
-        const nextCollections = applyRestoreFromTrash(
-          { buckets: bucketsRef.current, trashedBuckets: trashedBucketsRef.current },
-          payload.data.bucket
-        );
-        setCollections(nextCollections.buckets, nextCollections.trashedBuckets);
-      }
-    } catch (error) {
-      setPageError(error instanceof Error ? error.message : "Failed to restore post.");
-    } finally {
-      setBucketActionState(bucketId, (current) => ({ ...current, restoring: false }));
     }
   };
 
@@ -570,7 +606,10 @@ export default function DashboardPage() {
     }
   };
 
-  const syncDoneBucketAction = async (bucketId: string, patch: DoneBucketSyncPayload) => {
+  const syncDoneBucketAction = async (
+    bucketId: string,
+    patch: DoneBucketSyncPayload
+  ) => {
     if (!hasSyncPayloadChanges(patch)) {
       setDoneSyncChips((current) => ({
         ...current,
@@ -598,9 +637,7 @@ export default function DashboardPage() {
       });
       const payload = await readApiResponse<{
         bucket?: Bucket;
-        sync?: {
-          chips?: SyncStatusChip[];
-        };
+        sync?: { chips?: SyncStatusChip[] };
       }>(response);
 
       if (!response.ok || !payload?.ok || !payload.data?.bucket) {
@@ -660,7 +697,10 @@ export default function DashboardPage() {
     });
     setSummaryMessage(`Posting: 0/${targetBucketIds.length} done.`);
 
-    const nextBuckets = markBucketsProcessingForGoAll(bucketsRef.current, targetBucketIds);
+    const nextBuckets = markBucketsProcessingForGoAll(
+      bucketsRef.current,
+      targetBucketIds
+    );
     setCollections(nextBuckets, trashedBucketsRef.current);
 
     let succeeded = 0;
@@ -674,7 +714,6 @@ export default function DashboardPage() {
         failed,
         bucketIds: targetBucketIds,
       });
-
       if (completed < targetBucketIds.length) {
         setSummaryMessage(`Posting: ${completed}/${targetBucketIds.length} done.`);
       } else {
@@ -687,7 +726,9 @@ export default function DashboardPage() {
     try {
       await runBoundedQueue(targetBucketIds, GO_ALL_CONCURRENCY_LIMIT, async (bucketId) => {
         try {
-          const response = await fetch(`/api/buckets/${bucketId}/go`, { method: "POST" });
+          const response = await fetch(`/api/buckets/${bucketId}/go`, {
+            method: "POST",
+          });
           const payload = await readApiResponse<{ bucket?: Bucket }>(response);
 
           if (payload?.data?.bucket) {
@@ -696,7 +737,9 @@ export default function DashboardPage() {
 
           if (!response.ok || !payload?.ok) {
             const message = apiErrorMessage(payload, "Posting failed.");
-            const currentBucket = bucketsRef.current.find((bucket) => bucket.id === bucketId);
+            const currentBucket = bucketsRef.current.find(
+              (bucket) => bucket.id === bucketId
+            );
             if (currentBucket) {
               upsertBucket({
                 ...currentBucket,
@@ -706,7 +749,9 @@ export default function DashboardPage() {
             }
           }
 
-          const completedBucket = payload?.data?.bucket ?? bucketsRef.current.find((b) => b.id === bucketId);
+          const completedBucket =
+            payload?.data?.bucket ??
+            bucketsRef.current.find((item) => item.id === bucketId);
           if (completedBucket?.status === "DONE") {
             succeeded += 1;
           } else {
@@ -714,7 +759,9 @@ export default function DashboardPage() {
           }
         } catch (error) {
           failed += 1;
-          const currentBucket = bucketsRef.current.find((bucket) => bucket.id === bucketId);
+          const currentBucket = bucketsRef.current.find(
+            (bucket) => bucket.id === bucketId
+          );
           if (currentBucket) {
             upsertBucket({
               ...currentBucket,
@@ -745,114 +792,108 @@ export default function DashboardPage() {
   const readyCount = buckets.filter((bucket) => bucket.status === "READY").length;
   const doneCount = buckets.filter((bucket) => bucket.status === "DONE").length;
   const failedCount = buckets.filter((bucket) => bucket.status === "FAILED").length;
-  const trashCount = trashedBuckets.length;
 
-  const statsCards = [
+  const selectedBucket = buckets.find((bucket) => bucket.id === openBucketId) ?? null;
+  const selectedBucketIndex = selectedBucket
+    ? buckets.findIndex((bucket) => bucket.id === selectedBucket.id)
+    : -1;
+
+  const statusStrip = [
     {
       label: "Ready",
-      value: readyCount,
-      icon: Clock,
-      accent: "text-[#0867b5]",
+      value: `${readyCount}`,
+      icon: CheckCircle2,
+      className: "text-[color:var(--fc-text-primary)]",
     },
     {
       label: "Posted",
-      value: doneCount,
+      value: `${doneCount}`,
       icon: CheckCircle2,
-      accent: "text-[#2f7c52]",
+      className: "text-[#15803d]",
     },
     {
       label: "Issues",
-      value: failedCount,
+      value: `${failedCount}`,
       icon: XCircle,
-      accent: "text-[#c83641]",
-    },
-    {
-      label: "Trash",
-      value: trashCount,
-      icon: Trash2,
-      accent: "text-[color:var(--fc-text-primary)]",
+      className: "text-[#b42318]",
     },
     {
       label: "AI",
       value: runtimeHealth.openaiConfigured ? "On" : "Off",
-      icon: Zap,
-      accent: runtimeHealth.openaiConfigured
-        ? "text-[#0867b5]"
+      icon: Sparkles,
+      className: runtimeHealth.openaiConfigured
+        ? "text-[#15803d]"
         : "text-[color:var(--fc-text-muted)]",
     },
   ];
 
   return (
-    <div className="w-full space-y-5 px-4 sm:px-0">
-      {/* Header — clean Instagram-style, no decorative shaders */}
+    <div className="w-full space-y-4">
       <motion.section
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-4 pt-2"
+        transition={{ duration: 0.26 }}
+        className="space-y-3"
       >
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--fc-text-primary)]">
               Your Posts
             </h1>
             <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
-              Post once. Share to Shopify and Instagram together.
+              Create once. Share to Shopify and Instagram.
             </p>
           </div>
-          <LiquidButton
-            onClick={createBucketAction}
-            disabled={isRunningGoAll}
-            variant="primary"
-            size="md"
-            aria-label="Create Post"
-          >
-            <Plus size={16} />
-            <span className="hidden sm:inline">Create Post</span>
-          </LiquidButton>
+
+          <div className="flex flex-wrap gap-2">
+            <LiquidButton
+              onClick={createBucketAction}
+              disabled={isRunningGoAll}
+              variant="primary"
+              size="md"
+            >
+              <Plus size={14} />
+              Create
+            </LiquidButton>
+            {readyCount > 0 ? (
+              <LiquidButton
+                onClick={goAllBuckets}
+                disabled={readyCount === 0 || isRunningGoAll}
+                variant="secondary"
+                size="md"
+              >
+                {isRunningGoAll ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Send size={14} />
+                )}
+                Post All ({readyCount})
+              </LiquidButton>
+            ) : null}
+          </div>
         </div>
 
-        {/* Stat strip — compact, readable, no clutter */}
-        <div className="flex gap-3 overflow-x-auto rounded-xl border border-[color:var(--fc-border-subtle)] bg-white px-3 py-3 sm:gap-6">
-          {statsCards.map((card) => {
-            const Icon = card.icon;
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-[color:var(--fc-border-subtle)] bg-white p-2 sm:grid-cols-4">
+          {statusStrip.map((item) => {
+            const Icon = item.icon;
             return (
               <div
-                key={card.label}
-                className="flex min-w-[68px] flex-1 flex-col items-center justify-center text-center"
+                key={item.label}
+                className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2"
               >
-                <div className={`flex items-center gap-1.5 ${card.accent}`}>
-                  <Icon size={14} strokeWidth={1.8} />
-                  <span className="text-base font-semibold">{card.value}</span>
+                <Icon size={14} className={item.className} />
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
+                    {item.value}
+                  </p>
                 </div>
-                <span className="mt-0.5 text-[11px] font-medium text-[color:var(--fc-text-muted)]">
-                  {card.label}
-                </span>
               </div>
             );
           })}
         </div>
-
-        {/* Primary CTA — Post All */}
-        {readyCount > 0 ? (
-          <LiquidButton
-            onClick={goAllBuckets}
-            disabled={readyCount === 0 || isRunningGoAll}
-            size="lg"
-            className="w-full"
-            contentClassName="justify-center"
-          >
-            {isRunningGoAll ? (
-              <>
-                <Loader2 size={16} className="animate-spin" /> Posting...
-              </>
-            ) : (
-              <>
-                <Send size={16} /> Post All ({readyCount})
-              </>
-            )}
-          </LiquidButton>
-        ) : null}
       </motion.section>
 
       <AnimatePresence initial={false}>
@@ -861,10 +902,10 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3"
+            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-4 py-3 text-sm text-[color:var(--fc-text-muted)]"
           >
-            <Loader2 size={14} className="animate-spin text-[color:var(--fc-primary)]" />
-            <span className="text-sm text-[color:var(--fc-text-muted)]">Loading your posts...</span>
+            <Loader2 size={14} className="animate-spin" />
+            Loading posts...
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -880,8 +921,8 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span>{summaryMessage}</span>
               {goAllSummary ? (
-                <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-2.5 py-0.5 text-[11px] font-semibold text-[color:var(--fc-text-muted)]">
-                  Posted {goAllSummary.succeeded} · Issues {goAllSummary.failed}
+                <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--fc-text-muted)]">
+                  Posted {goAllSummary.succeeded} • Issues {goAllSummary.failed}
                 </span>
               ) : null}
             </div>
@@ -895,7 +936,7 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="rounded-lg border border-[rgba(237,73,86,0.34)] bg-[rgba(237,73,86,0.06)] px-4 py-3 text-sm text-[#c83641]"
+            className="rounded-lg border border-[rgba(220,38,38,0.3)] bg-[rgba(220,38,38,0.06)] px-4 py-3 text-sm text-[#b42318]"
           >
             {pageError}
           </motion.div>
@@ -903,15 +944,19 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       {buckets.length === 0 && !loading ? (
-        <div className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white px-6 py-12 text-center">
-          <div className="mx-auto mb-3 inline-flex h-14 w-14 items-center justify-center rounded-full bg-[color:var(--fc-surface-muted)]">
-            <Plus size={24} strokeWidth={1.8} className="text-[color:var(--fc-text-muted)]" />
+        <div className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white px-6 py-14 text-center">
+          <div className="mx-auto mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--fc-surface-muted)]">
+            <Plus
+              size={20}
+              strokeWidth={1.9}
+              className="text-[color:var(--fc-text-muted)]"
+            />
           </div>
           <h3 className="text-base font-semibold text-[color:var(--fc-text-primary)]">
             No posts yet
           </h3>
           <p className="mx-auto mt-1 max-w-xs text-sm text-[color:var(--fc-text-muted)]">
-            Tap Create Post to add photos, a caption, and share everywhere.
+            Create your first post to upload images and publish.
           </p>
           <div className="mt-4 flex justify-center">
             <LiquidButton
@@ -920,167 +965,89 @@ export default function DashboardPage() {
               variant="primary"
               size="md"
             >
-              <Plus size={16} /> Create Post
+              <Plus size={14} />
+              Create
             </LiquidButton>
           </div>
         </div>
       ) : null}
 
-      {/* Feed — single column, Instagram-style centered layout */}
-      <div className="mx-auto flex w-full max-w-[600px] flex-col gap-5">
-        <AnimatePresence initial={false}>
-          {buckets.map((bucket, index) => {
-            const isDoneCollapsed = isDoneBucketCollapsedByDefault(bucket.status);
-            const isDoneExpanded = isDoneCollapsed
-              ? Boolean(doneExpandedByBucketId[bucket.id])
-              : true;
-
-            return (
-              <motion.div
-                layout
+      {buckets.length > 0 ? (
+        <section className="w-full rounded-xl border border-[color:var(--fc-border-subtle)] bg-white p-1.5 sm:p-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+            {buckets.map((bucket, index) => (
+              <PostTile
                 key={bucket.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-              >
-                <ProductBucket
-                  bucket={bucket}
-                  bucketNumber={index + 1}
-                  isSaving={actionsByBucket[bucket.id]?.saving ?? false}
-                  isUploading={actionsByBucket[bucket.id]?.uploading ?? false}
-                  isEnhancingTitle={actionsByBucket[bucket.id]?.enhancingTitle ?? false}
-                  isEnhancingDescription={actionsByBucket[bucket.id]?.enhancingDescription ?? false}
-                  isLaunching={actionsByBucket[bucket.id]?.launching ?? false}
-                  isTrashing={actionsByBucket[bucket.id]?.trashing ?? false}
-                  isDeleting={actionsByBucket[bucket.id]?.deleting ?? false}
-                  isDoneExpanded={isDoneExpanded}
-                  isSyncingDone={actionsByBucket[bucket.id]?.syncingDone ?? false}
-                  doneSyncChips={doneSyncChips[bucket.id] ?? []}
-                  isHighlighted={highlightedBucketId === bucket.id}
-                  isGlobalBusy={isRunningGoAll}
-                  containerRef={registerBucketRef(bucket.id)}
-                  onLocalFieldChange={updateLocalFieldValue}
-                  onPersistField={persistField}
-                  onImagesChange={uploadImages}
-                  onEnhanceTitle={(bucketId) =>
-                    runBucketAction(
-                      bucketId,
-                      "enhance-title",
-                      "enhancingTitle",
-                      "Title enhancement failed."
-                    )
-                  }
-                  onEnhanceDescription={(bucketId) =>
-                    runBucketAction(
-                      bucketId,
-                      "enhance-description",
-                      "enhancingDescription",
-                      "Description enhancement failed."
-                    )
-                  }
-                  onGo={(bucketId) => runBucketAction(bucketId, "go", "launching", "Launch failed.")}
-                  onMoveToTrash={moveBucketToTrashAction}
-                  onDeletePermanently={permanentlyDeleteBucketAction}
-                  onToggleDoneExpanded={toggleDoneBucketExpanded}
-                  onSyncDone={syncDoneBucketAction}
-                />
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
+                bucket={bucket}
+                bucketNumber={index + 1}
+                isHighlighted={highlightedBucketId === bucket.id}
+                onOpen={(bucketId) => openBucket(bucketId)}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
-      <motion.section
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, delay: 0.05 }}
-        className="mx-auto w-full max-w-[600px] rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5"
+      <PostDetailDrawer
+        isOpen={Boolean(selectedBucket)}
+        onClose={closeBucket}
+        title={selectedBucket ? `${statusLabel(selectedBucket.status)} post` : "Post"}
       >
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-[color:var(--fc-text-primary)]">Trash</h2>
-            <p className="mt-0.5 text-xs text-[color:var(--fc-text-muted)]">
-              Removed posts stay here for 30 days, then disappear.
-            </p>
+        {selectedBucket ? (
+          <div className="p-3 sm:p-4">
+            <ProductBucket
+              bucket={selectedBucket}
+              bucketNumber={selectedBucketIndex >= 0 ? selectedBucketIndex + 1 : 1}
+              isSaving={actionsByBucket[selectedBucket.id]?.saving ?? false}
+              isUploading={actionsByBucket[selectedBucket.id]?.uploading ?? false}
+              isEnhancingTitle={
+                actionsByBucket[selectedBucket.id]?.enhancingTitle ?? false
+              }
+              isEnhancingDescription={
+                actionsByBucket[selectedBucket.id]?.enhancingDescription ?? false
+              }
+              isLaunching={actionsByBucket[selectedBucket.id]?.launching ?? false}
+              isTrashing={actionsByBucket[selectedBucket.id]?.trashing ?? false}
+              isDeleting={actionsByBucket[selectedBucket.id]?.deleting ?? false}
+              isDoneExpanded={
+                isDoneBucketCollapsedByDefault(selectedBucket.status)
+                  ? Boolean(doneExpandedByBucketId[selectedBucket.id])
+                  : true
+              }
+              isSyncingDone={actionsByBucket[selectedBucket.id]?.syncingDone ?? false}
+              doneSyncChips={doneSyncChips[selectedBucket.id] ?? []}
+              isHighlighted={highlightedBucketId === selectedBucket.id}
+              isGlobalBusy={isRunningGoAll}
+              onLocalFieldChange={updateLocalFieldValue}
+              onPersistField={persistField}
+              onImagesChange={uploadImages}
+              onEnhanceTitle={(bucketId) =>
+                runBucketAction(
+                  bucketId,
+                  "enhance-title",
+                  "enhancingTitle",
+                  "Title enhancement failed."
+                )
+              }
+              onEnhanceDescription={(bucketId) =>
+                runBucketAction(
+                  bucketId,
+                  "enhance-description",
+                  "enhancingDescription",
+                  "Description enhancement failed."
+                )
+              }
+              onGo={(bucketId) =>
+                runBucketAction(bucketId, "go", "launching", "Post failed.")
+              }
+              onMoveToTrash={moveBucketToTrashAction}
+              onDeletePermanently={permanentlyDeleteBucketAction}
+              onToggleDoneExpanded={toggleDoneBucketExpanded}
+              onSyncDone={syncDoneBucketAction}
+            />
           </div>
-          <span className="rounded-full border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--fc-text-muted)]">
-            {trashCount} item{trashCount === 1 ? "" : "s"}
-          </span>
-        </div>
-
-        {trashedBuckets.length === 0 ? (
-          <p className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3 text-sm text-[color:var(--fc-text-muted)]">
-            Nothing in Trash.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            <AnimatePresence initial={false}>
-              {trashedBuckets.map((bucket, index) => {
-                const label =
-                  bucket.titleEnhanced.trim() || bucket.titleRaw.trim() || `Post #${index + 1}`;
-                const trashedDate = bucket.trashedAt
-                  ? trashDateFormatter.format(new Date(bucket.trashedAt))
-                  : "Unknown";
-                const daysRemaining = getTrashDaysRemaining(bucket.deleteAfterAt);
-
-                return (
-                  <motion.div
-                    key={`trash-${bucket.id}`}
-                    layout
-                    data-trash-bucket-id={bucket.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-white p-4"
-                  >
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0 space-y-0.5">
-                        <p className="truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
-                          {label}
-                        </p>
-                        <p className="text-xs text-[color:var(--fc-text-muted)]">
-                          Removed {trashedDate} · {daysRemaining} day
-                          {daysRemaining === 1 ? "" : "s"} left
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <LiquidButton
-                          data-testid={`trash-restore-${bucket.id}`}
-                          onClick={() => restoreBucketAction(bucket.id)}
-                          disabled={actionsByBucket[bucket.id]?.restoring || isRunningGoAll}
-                          variant="secondary"
-                          size="sm"
-                        >
-                          {actionsByBucket[bucket.id]?.restoring ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            <RotateCcw size={14} />
-                          )}
-                          Restore
-                        </LiquidButton>
-                        <LiquidButton
-                          data-testid={`trash-delete-${bucket.id}`}
-                          onClick={() => permanentlyDeleteBucketAction(bucket.id)}
-                          disabled={actionsByBucket[bucket.id]?.deleting || isRunningGoAll}
-                          variant="danger"
-                          size="sm"
-                        >
-                          {actionsByBucket[bucket.id]?.deleting ? (
-                            <Loader2 size={14} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={14} />
-                          )}
-                          Delete forever
-                        </LiquidButton>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        )}
-      </motion.section>
+        ) : null}
+      </PostDetailDrawer>
     </div>
   );
 }
