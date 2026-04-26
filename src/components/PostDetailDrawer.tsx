@@ -66,7 +66,7 @@ export function PostDetailDrawer({
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 24, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="relative z-10 flex w-full max-w-[640px] flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)] sm:max-h-[88vh] sm:rounded-2xl sm:shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
+            className="relative z-10 flex w-full max-w-[920px] flex-col overflow-hidden rounded-t-2xl bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)] sm:max-h-[90vh] sm:rounded-2xl sm:shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
             style={{ maxHeight: "92vh" }}
           >
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[color:var(--fc-border-subtle)] bg-white/96 px-4 py-3 backdrop-blur">

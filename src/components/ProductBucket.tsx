@@ -94,22 +94,22 @@ function statusMeta(status: Bucket["status"]): {
     return {
       label: "Posting...",
       classes:
-        "border border-[rgba(0,149,246,0.32)] bg-[rgba(0,149,246,0.08)] text-[#0867b5]",
-      badge: "pulse-blue",
+        "border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]",
+      badge: "",
     };
   if (status === "ENHANCING")
     return {
       label: "Polishing",
       classes:
-        "border border-[rgba(131,58,180,0.32)] bg-[rgba(131,58,180,0.08)] text-[#5d2c81]",
-      badge: "badge-purple",
+        "border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]",
+      badge: "",
     };
   if (status === "READY")
     return {
       label: "Ready",
       classes:
-        "border border-[rgba(0,149,246,0.32)] bg-[rgba(0,149,246,0.06)] text-[#0867b5]",
-      badge: "badge-blue",
+        "border border-[color:var(--fc-border-strong)] bg-[color:var(--fc-surface-muted)] text-[color:var(--fc-text-primary)]",
+      badge: "",
     };
 
   return {
@@ -343,7 +343,7 @@ export function ProductBucket({
                   href={bucket.shopifyProductUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-[#0095f6] hover:underline"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-[color:var(--fc-text-primary)] hover:underline"
                 >
                   <span className="truncate">View product</span>
                   <ExternalLink size={11} className="shrink-0" />
@@ -362,7 +362,7 @@ export function ProductBucket({
                   href={bucket.instagramPostUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex max-w-full items-center gap-1.5 truncate text-[#0095f6] hover:underline"
+                  className="inline-flex max-w-full items-center gap-1.5 truncate text-[color:var(--fc-text-primary)] hover:underline"
                 >
                   <span className="truncate">View post</span>
                   <ExternalLink size={11} className="shrink-0" />
@@ -660,11 +660,11 @@ export function ProductBucket({
 
         {bucket.shopifyProductUrl ? (
           <a
-            href={bucket.shopifyProductUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[#0095f6] transition hover:bg-white"
-          >
+          href={bucket.shopifyProductUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[color:var(--fc-text-primary)] transition hover:bg-white"
+        >
             <ShoppingBag size={14} />
             <span className="truncate">Shopify: {bucket.shopifyProductUrl}</span>
             <ExternalLink size={12} className="ml-auto shrink-0" />
@@ -673,11 +673,11 @@ export function ProductBucket({
 
         {bucket.instagramPostUrl ? (
           <a
-            href={bucket.instagramPostUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[#0095f6] transition hover:bg-white"
-          >
+          href={bucket.instagramPostUrl}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2 rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-sm text-[color:var(--fc-text-primary)] transition hover:bg-white"
+        >
             <Camera size={14} />
             <span className="truncate">Instagram: {bucket.instagramPostUrl}</span>
             <ExternalLink size={12} className="ml-auto shrink-0" />
