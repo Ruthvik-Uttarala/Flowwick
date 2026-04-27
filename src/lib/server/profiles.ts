@@ -32,6 +32,7 @@ interface DbProfileRow {
   id: string;
   email: string | null;
   display_name: string | null;
+  store_name?: string | null;
   shop_name: string | null;
   bio: string | null;
   avatar_url: string | null;
@@ -63,12 +64,18 @@ function normalizeText(value: string | null | undefined): string {
   return value?.trim() ?? "";
 }
 
+function normalizeStoreName(row: DbProfileRow): string {
+  const storeName = normalizeText(row.store_name);
+  if (storeName) return storeName;
+  return normalizeText(row.shop_name);
+}
+
 function rowToProfile(row: DbProfileRow): UserProfile {
   return {
     id: row.id,
     email: normalizeText(row.email),
     displayName: normalizeText(row.display_name),
-    shopName: normalizeText(row.shop_name),
+    shopName: normalizeStoreName(row),
     bio: normalizeText(row.bio),
     avatarUrl: normalizeText(row.avatar_url),
     industry: normalizeText(row.industry),
@@ -114,6 +121,7 @@ async function createProfileRow(userId: string): Promise<DbProfileRow> {
       id: userId,
       email,
       display_name: "",
+      store_name: "",
       shop_name: "",
       bio: "",
       avatar_url: "",
@@ -166,12 +174,14 @@ export async function getOrCreateProfile(userId: string): Promise<UserProfile> {
 export async function saveProfile(userId: string, patch: ProfilePatch): Promise<UserProfile> {
   const current = await getOrCreateProfile(userId);
   const now = new Date().toISOString();
+  const nextShopName = patch.shopName ?? current.shopName;
 
   const { data, error } = await getSupabaseAdmin()
     .from("profiles")
     .update({
       display_name: patch.displayName ?? current.displayName,
-      shop_name: patch.shopName ?? current.shopName,
+      store_name: nextShopName,
+      shop_name: nextShopName,
       bio: patch.bio ?? current.bio,
       updated_at: now,
     })
@@ -207,11 +217,13 @@ export async function saveOnboardingProfile(
 ): Promise<UserOnboardingProfile> {
   const current = await getOrCreateProfile(userId);
   const now = new Date().toISOString();
+  const nextStoreName = patch.storeName ?? current.shopName;
 
   const { data, error } = await getSupabaseAdmin()
     .from("profiles")
     .update({
-      shop_name: patch.storeName ?? current.shopName,
+      store_name: nextStoreName,
+      shop_name: nextStoreName,
       industry: patch.industry ?? current.industry,
       instagram_handle: patch.instagramHandle ?? current.instagramHandle,
       niche: patch.niche ?? current.niche,

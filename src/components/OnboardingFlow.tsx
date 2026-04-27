@@ -14,6 +14,7 @@ import {
   Save,
   Store,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "@/src/context/AuthContext";
 import { apiErrorMessage, readApiResponse } from "@/src/components/api-response";
 import { LiquidButton } from "@/src/components/ui/liquid-glass-button";
@@ -329,6 +330,25 @@ export function OnboardingFlow() {
     }
   };
 
+  const finishLater = async () => {
+    setSaving(true);
+    setErrorMessage("");
+    setMessage("");
+
+    try {
+      await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onboardingCompleted: false, onboardingStep: 3 }),
+      });
+      router.push("/dashboard");
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Failed to continue.");
+      setSaving(false);
+    }
+  };
+
   const setupSummary = useMemo(
     () => [
       {
@@ -396,45 +416,56 @@ export function OnboardingFlow() {
           {message ? <StatusMessage tone="success">{message}</StatusMessage> : null}
           {errorMessage ? <StatusMessage tone="error">{errorMessage}</StatusMessage> : null}
 
-          <div className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
-            {step === 1 ? (
-              <BusinessStep
-                draft={draft}
-                setDraft={setDraft}
-                onContinue={saveBusinessStep}
-                saving={saving}
-              />
-            ) : null}
+          <div className="relative overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={`setup-step-${step}`}
+                initial={{ opacity: 0, x: 16 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -16 }}
+                transition={{ duration: 0.22 }}
+              >
+                {step === 1 ? (
+                  <BusinessStep
+                    draft={draft}
+                    setDraft={setDraft}
+                    onContinue={saveBusinessStep}
+                    saving={saving}
+                  />
+                ) : null}
 
-            {step === 2 ? (
-              <ShopifyStep
-                domain={shopifyDomain}
-                setDomain={setShopifyDomain}
-                connected={shopifyConnected}
-                domainSaved={shopifyDomainSaved}
-                saving={saving}
-                connecting={connectingShopify}
-                onSaveDomain={saveShopifyDomain}
-                onConnect={connectShopify}
-                onBack={() => setStep(1)}
-                onContinue={continueFromShopify}
-              />
-            ) : null}
+                {step === 2 ? (
+                  <ShopifyStep
+                    domain={shopifyDomain}
+                    setDomain={setShopifyDomain}
+                    connected={shopifyConnected}
+                    domainSaved={shopifyDomainSaved}
+                    saving={saving}
+                    connecting={connectingShopify}
+                    onSaveDomain={saveShopifyDomain}
+                    onConnect={connectShopify}
+                    onBack={() => setStep(1)}
+                    onContinue={continueFromShopify}
+                  />
+                ) : null}
 
-            {step === 3 ? (
-              <InstagramStep
-                preferredHandle={draft.instagramHandle}
-                connected={instagramConnected}
-                statusLabel={instagramStatusLabel}
-                saving={saving}
-                connecting={connectingInstagram}
-                validating={validatingInstagram}
-                onConnect={connectInstagram}
-                onValidate={validateInstagram}
-                onBack={() => setStep(2)}
-                onFinish={finishSetup}
-              />
-            ) : null}
+                {step === 3 ? (
+                  <InstagramStep
+                    preferredHandle={draft.instagramHandle}
+                    connected={instagramConnected}
+                    statusLabel={instagramStatusLabel}
+                    saving={saving}
+                    connecting={connectingInstagram}
+                    validating={validatingInstagram}
+                    onConnect={connectInstagram}
+                    onValidate={validateInstagram}
+                    onBack={() => setStep(2)}
+                    onFinish={finishSetup}
+                    onFinishLater={finishLater}
+                  />
+                ) : null}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
@@ -476,45 +507,61 @@ export function OnboardingFlow() {
 }
 
 function LoggedOutIntro() {
+  const previewSteps = [
+    "1. Tell us what you sell",
+    "2. Connect Shopify",
+    "3. Connect Instagram",
+    "4. Start posting",
+  ];
+
   return (
-    <div className="mx-auto grid w-full max-w-[1160px] gap-5 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
-      <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-6 sm:p-8">
-        <Image
-          src="/brand/flowwick-logo-v1.png"
-          alt="Flowwick"
-          width={520}
-          height={180}
-          priority
-          className="h-auto w-[158px]"
-        />
-        <h1 className="mt-6 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-[3.1rem]">
+    <div className="mx-auto grid w-full max-w-[1160px] gap-5 lg:grid-cols-[0.94fr_1.06fr] lg:items-center">
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-6 sm:p-8"
+      >
+        <Image src="/brand/flowwick-logo-v1.png" alt="Flowwick" width={520} height={180} priority className="h-auto w-[158px]" />
+        <h1 className="mt-6 text-4xl font-semibold tracking-tight text-[color:var(--fc-text-primary)] sm:text-[3rem]">
           Set up Flowwick
         </h1>
         <p className="mt-3 max-w-[520px] text-sm text-[color:var(--fc-text-muted)] sm:text-base">
-          Tell us what you sell, then connect Shopify and Instagram.
+          See how setup works before you sign in.
         </p>
-        <div className="mt-7 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-5 grid gap-2">
+          {previewSteps.map((item, index) => (
+            <motion.div
+              key={item}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.22, delay: 0.06 * (index + 1) }}
+              className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-4 py-3 text-sm font-semibold text-[color:var(--fc-text-primary)]"
+            >
+              {item}
+            </motion.div>
+          ))}
+        </div>
+        <div className="mt-7 grid gap-2 sm:grid-cols-2">
           <LiquidButton asChild size="lg" className="h-11">
-            <Link href="/auth?redirectTo=%2Finfo">
-              Sign in
+            <Link href="/auth?redirectTo=%2Finfo%3Fmode%3Dquiz">
+              Start setup
               <ArrowRight size={16} />
             </Link>
           </LiquidButton>
           <LiquidButton asChild variant="secondary" size="lg" className="h-11">
-            <Link href="/">Home</Link>
+            <Link href="/">Back home</Link>
           </LiquidButton>
         </div>
-      </section>
-      <div className="relative min-h-[360px] overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white lg:min-h-[620px]">
-        <Image
-          src="/brand/flowwick-home-bg.png"
-          alt="Flowwick product setup"
-          fill
-          priority
-          className="object-cover object-center"
-          sizes="(max-width: 1024px) 100vw, 54vw"
-        />
-      </div>
+      </motion.section>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.35 }}
+        className="relative min-h-[360px] overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white lg:min-h-[620px]"
+      >
+        <Image src="/brand/flowwick-onboarding-visual-1.png" alt="Flowwick setup walkthrough" fill priority className="object-cover object-center" sizes="(max-width: 1024px) 100vw, 54vw" />
+      </motion.div>
     </div>
   );
 }
@@ -639,6 +686,9 @@ function ShopifyStep({
           placeholder="your-store.myshopify.com"
           onChange={setDomain}
         />
+        <p className="mt-2 text-xs text-[color:var(--fc-text-muted)]">
+          We use Shopify’s secure connection screen after you save your store domain.
+        </p>
       </div>
 
       <div className="mt-5 grid gap-2 sm:flex sm:flex-wrap">
@@ -668,6 +718,7 @@ function InstagramStep({
   onValidate,
   onBack,
   onFinish,
+  onFinishLater,
 }: {
   preferredHandle: string;
   connected: boolean;
@@ -679,6 +730,7 @@ function InstagramStep({
   onValidate: () => void;
   onBack: () => void;
   onFinish: () => void;
+  onFinishLater: () => void;
 }) {
   return (
     <div>
@@ -717,10 +769,15 @@ function InstagramStep({
           <ChevronLeft size={15} />
           Back
         </LiquidButton>
-        <LiquidButton onClick={onFinish} disabled={saving} size="lg" className="w-full sm:w-auto">
-          {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-          Finish setup
-        </LiquidButton>
+        <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-2">
+          <LiquidButton onClick={onFinishLater} disabled={saving} variant="secondary" size="lg" className="w-full sm:w-auto">
+            Finish later
+          </LiquidButton>
+          <LiquidButton onClick={onFinish} disabled={saving} size="lg" className="w-full sm:w-auto">
+            {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+            Finish setup
+          </LiquidButton>
+        </div>
       </div>
     </div>
   );

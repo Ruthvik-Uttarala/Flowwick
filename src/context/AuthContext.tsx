@@ -18,6 +18,8 @@ interface AuthUser {
 interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
+  onboardingCompleted: boolean | null;
+  onboardingLoading: boolean;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -25,6 +27,8 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
+  onboardingCompleted: null,
+  onboardingLoading: false,
   signOut: async () => {},
   refreshSession: async () => {},
 });
@@ -38,6 +42,8 @@ const PROTECTED_ROUTES = ["/dashboard", "/settings", "/profile"];
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -50,20 +56,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           id: payload.data.user.id,
           email: payload.data.user.email ?? null,
         });
+        setOnboardingCompleted(null);
       } else {
         setUser(null);
+        setOnboardingCompleted(null);
       }
     } catch {
       setUser(null);
+      setOnboardingCompleted(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-
-    refreshSession();
+    void refreshSession();
   }, [refreshSession]);
+
+  useEffect(() => {
+    if (loading || !user) {
+      setOnboardingLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setOnboardingLoading(true);
+    (async () => {
+      try {
+        const response = await fetch("/api/onboarding", { cache: "no-store" });
+        const payload = await response.json().catch(() => null);
+        const completed =
+          Boolean(response.ok && payload?.ok && payload.data?.onboarding?.onboardingCompleted);
+        if (!cancelled) {
+          setOnboardingCompleted(completed);
+        }
+      } catch {
+        if (!cancelled) {
+          setOnboardingCompleted(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setOnboardingLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user]);
 
   useEffect(() => {
     const onFocus = () => {
@@ -88,8 +129,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isProtected = PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
     if (isProtected && !user) {
       router.replace(`/auth?redirectTo=${encodeURIComponent(pathname)}`);
+      return;
     }
-  }, [loading, user, pathname, router]);
+
+    const isSetupRoute =
+      pathname.startsWith("/info") ||
+      pathname.startsWith("/setup") ||
+      pathname.startsWith("/auth");
+
+    if (user && onboardingCompleted === false && !isSetupRoute) {
+      router.replace("/info?mode=quiz");
+    }
+  }, [loading, user, onboardingCompleted, pathname, router]);
 
   const signOut = useCallback(async () => {
     try {
@@ -102,8 +153,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   const value = useMemo(
-    () => ({ user, loading, signOut, refreshSession }),
-    [user, loading, signOut, refreshSession]
+    () => ({
+      user,
+      loading,
+      onboardingCompleted,
+      onboardingLoading,
+      signOut,
+      refreshSession,
+    }),
+    [user, loading, onboardingCompleted, onboardingLoading, signOut, refreshSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
