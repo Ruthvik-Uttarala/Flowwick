@@ -367,13 +367,15 @@ function SignedOutHome() {
           </div>
         </div>
 
-        <div className="relative min-h-[360px] overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-[#f3efe9] sm:min-h-[460px] lg:min-h-[620px]">
-          <Image src="/brand/flowwick-home-bg.png" alt="Boutique products prepared for posting" fill priority className="object-cover object-center" sizes="(max-width: 1024px) 100vw, 50vw" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/22 via-black/0 to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4 rounded-xl border border-white/25 bg-black/35 px-4 py-3 text-white backdrop-blur-sm">
-            <p className="text-sm font-semibold">Flowwick as your posting employee</p>
-            <p className="mt-1 text-xs text-white/90">Let Flowwick handle product posting while you focus on sales.</p>
-          </div>
+        <div className="relative aspect-square overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)]">
+          <Image
+            src="/brand/flowwick-home-business-value-hero.png"
+            alt="Flowwick business value hero visual"
+            fill
+            priority
+            className="object-contain object-center"
+            sizes="(max-width: 1024px) 100vw, 50vw"
+          />
         </div>
       </motion.div>
 

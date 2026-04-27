@@ -151,7 +151,7 @@ export function OnboardingFlow() {
     }
   }, [searchParams, loadOnboarding]);
 
-  const visualSrc = step === 1 ? "/brand/flowwick-onboarding-visual-1.png" : "/brand/flowwick-onboarding-visual-2.png";
+  const visualSrc = "/brand/flowwick-onboarding-quiz-preview-visual.png";
   const shopifyConnected = Boolean(settings?.shopifyConnected);
   const shopifyDomainSaved = Boolean(settings?.shopifyDomainSaved || shopifyDomain.trim());
   const instagramConnected = Boolean(settings?.instagramConnected);
@@ -477,7 +477,7 @@ export function OnboardingFlow() {
                 alt="Flowwick setup preview"
                 fill
                 priority
-                className="object-cover object-center"
+                className="object-contain object-center"
                 sizes="420px"
               />
             </div>
@@ -560,7 +560,14 @@ function LoggedOutIntro() {
         transition={{ duration: 0.35 }}
         className="relative min-h-[360px] overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white lg:min-h-[620px]"
       >
-        <Image src="/brand/flowwick-onboarding-visual-1.png" alt="Flowwick setup walkthrough" fill priority className="object-cover object-center" sizes="(max-width: 1024px) 100vw, 54vw" />
+        <Image
+          src="/brand/flowwick-onboarding-quiz-preview-visual.png"
+          alt="Flowwick onboarding quiz preview visual"
+          fill
+          priority
+          className="object-contain object-center"
+          sizes="(max-width: 1024px) 100vw, 54vw"
+        />
       </motion.div>
     </div>
   );
