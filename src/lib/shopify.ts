@@ -1,7 +1,13 @@
 export const SHOPIFY_OAUTH_SCOPES = [
+  "read_products",
   "write_products",
+  "read_inventory",
+  "write_inventory",
+  "read_locations",
   "read_publications",
   "write_publications",
+  "read_files",
+  "write_files",
 ] as const;
 
 export const SHOPIFY_OAUTH_SCOPE_PARAM = SHOPIFY_OAUTH_SCOPES.join(",");

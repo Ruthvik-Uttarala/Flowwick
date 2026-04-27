@@ -291,6 +291,11 @@ function buildInventorySkippedWarning(message: string): string {
   return "Inventory quantity was not updated.";
 }
 
+function looksLikeAlreadyPublishedMessage(message: string): boolean {
+  const lowered = message.toLowerCase();
+  return lowered.includes("already published");
+}
+
 function pickPrimaryImageUrl(imageUrls: string[]): string {
   return imageUrls.find((url) => hasPublicUrl(url))?.trim() ?? "";
 }
@@ -653,6 +658,34 @@ export async function updateShopifyProductArtifact(input: {
         "Inventory quantity was not updated because no Shopify inventory item was found.",
         "inventory_item_missing"
       );
+    }
+
+    try {
+      const publicationData = await fetchShopifyAdminGraphQL<ShopifyPublicationsQuery>({
+        shopDomain: storeDomain,
+        adminToken,
+        query: GET_PUBLICATIONS_QUERY,
+      });
+      const publicationId = pickOnlineStorePublication(publicationData.publications);
+      if (publicationId) {
+        const publishData = await fetchShopifyAdminGraphQL<ShopifyPublishMutation>({
+          shopDomain: storeDomain,
+          adminToken,
+          query: PUBLISH_PRODUCT_MUTATION,
+          variables: {
+            id: existingProductId,
+            input: [{ publicationId }],
+          },
+        });
+        const publishErrors = normalizeUserErrors(publishData.publishablePublish?.userErrors);
+        if (publishErrors && !looksLikeAlreadyPublishedMessage(publishErrors)) {
+          syncWarnings.push("Publication status was not updated.");
+        }
+      } else {
+        syncWarnings.push("Publication status was not updated.");
+      }
+    } catch {
+      syncWarnings.push("Publication status was not updated.");
     }
 
     if (imageUrl) {
