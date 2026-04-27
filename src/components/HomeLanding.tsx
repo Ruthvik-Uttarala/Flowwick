@@ -290,10 +290,10 @@ function SignedOutHome() {
       <div className="mx-auto grid w-full max-w-[1160px] gap-6 rounded-[26px] border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-8 lg:grid-cols-[1.02fr_0.98fr] lg:p-10">
         <div className="flex flex-col justify-center">
           <Image
-            src="/brand/flowwick-horizontal.png"
+            src="/brand/flowwick-logo-v1.png"
             alt="Flowwick"
-            width={720}
-            height={240}
+            width={520}
+            height={180}
             priority
             className="h-auto w-[172px] sm:w-[188px]"
           />
@@ -320,14 +320,14 @@ function SignedOutHome() {
               href="/info"
               className="inline-flex h-11 items-center justify-center rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-5 text-sm font-semibold text-[color:var(--fc-text-primary)] transition hover:bg-[color:var(--fc-surface-muted)]"
             >
-              Info
+              Setup guide
             </Link>
           </div>
         </div>
 
         <div className="relative min-h-[340px] overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-[#f3efe9] sm:min-h-[420px] lg:min-h-[560px]">
           <Image
-            src="/brand/flowwick-product-visual.png"
+            src="/brand/flowwick-home-bg.png"
             alt="Flowwick product posting preview"
             fill
             priority

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Check,
@@ -55,6 +56,17 @@ interface BucketsPayload {
   trashedBuckets?: Bucket[];
 }
 
+interface OnboardingPayload {
+  onboarding: {
+    storeName: string;
+    industry: string;
+    instagramHandle: string;
+    niche: string;
+    onboardingCompleted: boolean;
+    onboardingStep: number;
+  };
+}
+
 export default function SettingsPage() {
   return (
     <Suspense
@@ -80,6 +92,7 @@ function SettingsContent() {
   const [instagramConnection, setInstagramConnection] = useState<InstagramConnectionSummary | null>(null);
   const [instagramDebugFieldModeEnabled, setInstagramDebugFieldModeEnabled] = useState(false);
   const [trashedBuckets, setTrashedBuckets] = useState<Bucket[]>([]);
+  const [onboarding, setOnboarding] = useState<OnboardingPayload["onboarding"] | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -101,9 +114,10 @@ function SettingsContent() {
     setErrorMessage("");
 
     try {
-      const [settingsResponse, bucketsResponse] = await Promise.all([
+      const [settingsResponse, bucketsResponse, onboardingResponse] = await Promise.all([
         fetch("/api/settings", { cache: "no-store" }),
         fetch("/api/buckets", { cache: "no-store" }),
+        fetch("/api/onboarding", { cache: "no-store" }),
       ]);
 
       const settingsPayload = await readApiResponse<SettingsPayload>(settingsResponse);
@@ -114,6 +128,11 @@ function SettingsContent() {
       const bucketsPayload = await readApiResponse<BucketsPayload>(bucketsResponse);
       if (!bucketsResponse.ok || !bucketsPayload?.ok) {
         throw new Error(apiErrorMessage(bucketsPayload, "Failed to load removed posts."));
+      }
+
+      const onboardingPayload = await readApiResponse<OnboardingPayload>(onboardingResponse);
+      if (onboardingResponse.ok && onboardingPayload?.ok && onboardingPayload.data) {
+        setOnboarding(onboardingPayload.data.onboarding);
       }
 
       const s = settingsPayload.data.settings;
@@ -428,6 +447,40 @@ function SettingsContent() {
           </Badge>
         </div>
       </section>
+
+      {onboarding ? (
+        <section className="rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-[color:var(--fc-text-primary)]">
+                Business profile
+              </h2>
+              <p className="mt-1 text-sm text-[color:var(--fc-text-muted)]">
+                These details come from your Flowwick setup.
+              </p>
+            </div>
+            <Link
+              href="/info"
+              className="inline-flex h-9 items-center justify-center rounded-lg border border-[color:var(--fc-border-strong)] bg-white px-4 text-sm font-semibold text-[color:var(--fc-text-primary)] transition hover:bg-[color:var(--fc-surface-muted)]"
+            >
+              Edit setup
+            </Link>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-4">
+            <SettingsDetail label="Store" value={onboarding.storeName || "Not added"} />
+            <SettingsDetail label="Industry" value={onboarding.industry || "Not added"} />
+            <SettingsDetail
+              label="Instagram"
+              value={onboarding.instagramHandle ? `@${onboarding.instagramHandle}` : "Not added"}
+            />
+            <SettingsDetail
+              label="Setup"
+              value={onboarding.onboardingCompleted ? "Complete" : `Step ${onboarding.onboardingStep} of 3`}
+            />
+          </div>
+        </section>
+      ) : null}
 
       {message ? (
         <div className="rounded-xl border border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] px-4 py-3 text-sm text-[#166534]">
@@ -769,5 +822,18 @@ function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: "ne
     <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${className}`}>
       {children}
     </span>
+  );
+}
+
+function SettingsDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">
+        {label}
+      </p>
+      <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
+        {value}
+      </p>
+    </div>
   );
 }

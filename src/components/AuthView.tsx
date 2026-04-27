@@ -135,7 +135,7 @@ export function AuthView({ redirectTo, reason }: AuthViewProps) {
       <div className="grid w-full overflow-hidden rounded-2xl border border-[color:var(--fc-border-subtle)] bg-white lg:grid-cols-[1.05fr_0.95fr]">
         <section className="relative hidden min-h-[680px] overflow-hidden border-r border-[color:var(--fc-border-subtle)] bg-[#f4f1eb] lg:block">
           <Image
-            src="/brand/flowwick-auth-visual.png"
+            src="/brand/flowwick-onboarding-visual-1.png"
             alt="Flowwick marketing visual"
             fill
             priority
@@ -152,10 +152,10 @@ export function AuthView({ redirectTo, reason }: AuthViewProps) {
         <section className="flex min-h-[640px] flex-col justify-center px-6 py-8 sm:px-10">
           <div className="mx-auto w-full max-w-[390px]">
             <Image
-              src="/brand/flowwick-horizontal.png"
+              src="/brand/flowwick-logo-v1.png"
               alt="Flowwick"
-              width={720}
-              height={240}
+              width={520}
+              height={180}
               priority
               className="h-auto w-[160px]"
             />
@@ -269,7 +269,7 @@ export function AuthView({ redirectTo, reason }: AuthViewProps) {
 
             <div className="mt-6 overflow-hidden rounded-xl border border-[color:var(--fc-border-subtle)] lg:hidden">
               <Image
-                src="/brand/flowwick-auth-visual.png"
+                src="/brand/flowwick-onboarding-visual-1.png"
                 alt="Flowwick auth visual"
                 width={1254}
                 height={1254}

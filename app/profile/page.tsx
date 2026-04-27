@@ -16,6 +16,11 @@ interface ProfileRecord {
   shopName: string;
   bio: string;
   avatarUrl: string;
+  industry: string;
+  instagramHandle: string;
+  niche: string;
+  onboardingCompleted: boolean;
+  onboardingStep: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -282,6 +287,34 @@ export default function ProfilePage() {
               <ProfileStat label="Ready" value={readyCount} />
               <ProfileStat label="Issues" value={issuesCount} />
             </div>
+
+            <div className="rounded-xl border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-semibold text-[color:var(--fc-text-primary)]">
+                  Business profile
+                </h2>
+                <span
+                  className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    profile?.onboardingCompleted
+                      ? "border-[rgba(22,163,74,0.32)] bg-[rgba(22,163,74,0.08)] text-[#166534]"
+                      : "border-[color:var(--fc-border-subtle)] bg-white text-[color:var(--fc-text-muted)]"
+                  }`}
+                >
+                  {profile?.onboardingCompleted ? "Setup complete" : `Step ${profile?.onboardingStep ?? 1} of 3`}
+                </span>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <BusinessDetail label="Store name" value={profile?.shopName || "Not added"} />
+                <BusinessDetail label="Industry" value={profile?.industry || "Not added"} />
+                <BusinessDetail
+                  label="Instagram"
+                  value={profile?.instagramHandle ? `@${profile.instagramHandle}` : "Not added"}
+                />
+              </div>
+              {profile?.niche ? (
+                <p className="mt-3 text-sm text-[color:var(--fc-text-primary)]">{profile.niche}</p>
+              ) : null}
+            </div>
           </div>
         )}
       </section>
@@ -422,6 +455,19 @@ function ProfileStat({ label, value }: { label: string; value: number }) {
     <div className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-[color:var(--fc-surface-muted)] px-3 py-2 text-center">
       <p className="text-lg font-semibold text-[color:var(--fc-text-primary)]">{value}</p>
       <p className="text-xs text-[color:var(--fc-text-muted)]">{label}</p>
+    </div>
+  );
+}
+
+function BusinessDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-[color:var(--fc-border-subtle)] bg-white px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--fc-text-soft)]">
+        {label}
+      </p>
+      <p className="mt-0.5 truncate text-sm font-semibold text-[color:var(--fc-text-primary)]">
+        {value}
+      </p>
     </div>
   );
 }

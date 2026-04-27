@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CircleUserRound, Grid3x3, Home, Info, LogIn, LogOut, Settings } from "lucide-react";
+import { CircleUserRound, Grid3x3, Home, ListChecks, LogIn, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 
 interface NavLink {
@@ -16,14 +16,14 @@ interface NavLink {
 
 const LOGGED_OUT_LINKS: NavLink[] = [
   { key: "home", href: "/", label: "Home", icon: <Home size={18} strokeWidth={1.85} /> },
-  { key: "info", href: "/info", label: "Info", icon: <Info size={18} strokeWidth={1.85} /> },
+  { key: "info", href: "/info", label: "Setup", icon: <ListChecks size={18} strokeWidth={1.85} /> },
   { key: "auth", href: "/auth", label: "Login", icon: <LogIn size={18} strokeWidth={1.85} /> },
 ];
 
 const LOGGED_IN_LINKS: NavLink[] = [
   { key: "home", href: "/", label: "Home", icon: <Home size={18} strokeWidth={1.85} /> },
   { key: "dashboard", href: "/dashboard", label: "Posts", icon: <Grid3x3 size={18} strokeWidth={1.85} /> },
-  { key: "info", href: "/info", label: "Info", icon: <Info size={18} strokeWidth={1.85} /> },
+  { key: "info", href: "/info", label: "Setup", icon: <ListChecks size={18} strokeWidth={1.85} /> },
   { key: "profile", href: "/profile", label: "Profile", icon: <CircleUserRound size={18} strokeWidth={1.85} /> },
   { key: "settings", href: "/settings", label: "Settings", icon: <Settings size={18} strokeWidth={1.85} /> },
 ];
@@ -35,6 +35,12 @@ const MOBILE_LOGGED_IN_LINKS: NavLink[] = [
     href: "/dashboard",
     label: "Posts",
     icon: <Grid3x3 size={19} strokeWidth={1.85} />,
+  },
+  {
+    key: "info",
+    href: "/info",
+    label: "Setup",
+    icon: <ListChecks size={19} strokeWidth={1.85} />,
   },
   {
     key: "profile",
@@ -148,7 +154,7 @@ export function Navbar() {
           aria-label="Mobile primary"
           className="fixed bottom-0 left-0 right-0 z-40 border-t border-[color:var(--fc-border-subtle)] bg-white/98 backdrop-blur md:hidden"
         >
-          <ul className="mx-auto grid w-full max-w-[560px] grid-cols-4 px-2 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-1">
+          <ul className="mx-auto grid w-full max-w-[620px] grid-cols-5 px-2 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-1">
             {MOBILE_LOGGED_IN_LINKS.map((item) => {
               const isActive = item.key === activeKey;
               return (
