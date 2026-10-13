@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "check:config": "node scripts/check-config.mjs --mode=production",
     "verify:phase": "node --preserve-symlinks --preserve-symlinks-main scripts/verify-phase-loop.mjs",
     "airia:check": "node --preserve-symlinks --preserve-symlinks-main scripts/check-airia-config.mjs",
     "smoke:live": "node --preserve-symlinks --preserve-symlinks-main scripts/live-smoke-test.mjs"
