@@ -58,6 +58,24 @@ describe("GET /api/shopify/callback", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://flowcart.example";
   });
 
+  it("rejects a callback delivered through a non-authoritative request host", async () => {
+    const { getShopifyOauthState } = await import(
+      "@/src/lib/server/shopify-oauth-state"
+    );
+    const { GET } = await import("@/app/api/shopify/callback/route");
+    const response = await GET(
+      new Request(
+        "https://preview-flowwick.vercel.app/api/shopify/callback?code=abc&shop=demo.myshopify.com&state=state-123&hmac=invalid",
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://flowcart.example/settings?shopify_error=app_url_mismatch",
+    );
+    expect(getShopifyOauthState).not.toHaveBeenCalled();
+  });
+
   it("rejects missing callback params", async () => {
     const { GET } = await import("@/app/api/shopify/callback/route");
     const response = await GET(new Request("https://flowcart.example/api/shopify/callback"));
