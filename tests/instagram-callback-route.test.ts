@@ -26,6 +26,24 @@ describe("Instagram callback route", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://flowcart.example";
   });
 
+  it("rejects a callback delivered through a non-authoritative request host", async () => {
+    const { getInstagramOauthState } = await import(
+      "@/src/lib/server/instagram-oauth-state"
+    );
+    const { GET } = await import("@/app/api/instagram/callback/route");
+    const response = await GET(
+      new Request(
+        "https://preview-flowwick.vercel.app/api/instagram/callback?code=abc&state=state-123",
+      ),
+    );
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://flowcart.example/settings?instagram_error=app_url_mismatch",
+    );
+    expect(getInstagramOauthState).not.toHaveBeenCalled();
+  });
+
   it("redirects to settings when the callback is missing required params", async () => {
     const { GET } = await import("@/app/api/instagram/callback/route");
     const response = await GET(

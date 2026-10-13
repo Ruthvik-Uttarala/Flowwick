@@ -7,6 +7,7 @@ import {
   SHOPIFY_OAUTH_SCOPE_PARAM,
   normalizeShopifyDomain,
 } from "@/src/lib/shopify";
+import { resolveApplicationOrigin } from "@/src/lib/server/production-config.mjs";
 
 export const SHOPIFY_ADMIN_API_VERSION = "2026-04";
 export const SHOPIFY_OAUTH_STATE_COOKIE = "flowcart-shopify-oauth-state";
@@ -30,8 +31,7 @@ export function getShopifyClientSecret(): string {
 }
 
 export function getAuthoritativeAppUrl(): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
-  return appUrl.replace(/\/$/, "");
+  return resolveApplicationOrigin(process.env);
 }
 
 /**
@@ -86,8 +86,14 @@ export function getRequestHost(request: Request): string {
 
 export function isAuthoritativeAppRequest(request: Request): boolean {
   const requestHost = getRequestHost(request);
-  const authoritativeHost = new URL(getAuthoritativeAppUrl()).host.toLowerCase();
-  return requestHost === authoritativeHost;
+  const forwardedProtocol = request.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim()
+    .toLowerCase();
+  const requestProtocol = forwardedProtocol || new URL(request.url).protocol.replace(":", "");
+  const requestOrigin = `${requestProtocol}://${requestHost}`;
+  return requestOrigin === getAuthoritativeAppUrl().toLowerCase();
 }
 
 function refererIsShopifyAdmin(request: Request): boolean {

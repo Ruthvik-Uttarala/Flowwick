@@ -63,6 +63,7 @@ describe("production configuration validation", () => {
     "http://flowwick.test",
     "https://localhost:3000",
     "https://127.0.0.1",
+    "https://flowwick.test:8443",
     "https://flowwick.test/callback",
     "https://flowwick.test?preview=true",
     "https://flowwick.test#fragment",

@@ -8,6 +8,7 @@ import {
   buildInstagramSettingsUrl,
   exchangeInstagramCodeForLongLivedUserToken,
   getMetaCallbackStateCookie,
+  isMetaCallbackRequestAuthoritative,
 } from "@/src/lib/server/instagram";
 import {
   deleteInstagramOauthState,
@@ -64,6 +65,23 @@ function redirectToSettings(input?: {
 }
 
 export async function GET(request: Request) {
+  try {
+    if (!isMetaCallbackRequestAuthoritative(request)) {
+      return redirectToSettings({
+        errorCode: "app_url_mismatch",
+        finalErrorCode: "app_url_mismatch",
+      });
+    }
+  } catch {
+    return new NextResponse(
+      JSON.stringify({
+        ok: false,
+        error: { message: "Instagram OAuth application origin is not configured." },
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const url = new URL(request.url);
   const code = url.searchParams.get("code")?.trim() ?? "";
   const state = url.searchParams.get("state")?.trim() ?? "";

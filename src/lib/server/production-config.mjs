@@ -92,13 +92,43 @@ function validateAppUrl(value, mode) {
 
     if (!isCanonicalOrigin) return false;
     if (mode === "production") {
-      return url.protocol === "https:" && !isLoopbackHostname(url.hostname);
+      return (
+        url.protocol === "https:" &&
+        url.port === "" &&
+        !isLoopbackHostname(url.hostname)
+      );
     }
 
     return url.protocol === "https:" || url.protocol === "http:";
   } catch {
     return false;
   }
+}
+
+/**
+ * @param {Record<string, string | undefined>} [environment]
+ * @param {{ mode?: "production" | "development" }} [options]
+ */
+export function resolveApplicationOrigin(environment = process.env, options = {}) {
+  const mode =
+    options.mode ??
+    (environment.NODE_ENV === "production" ? "production" : "development");
+  const configuredValue = valueFor(environment, "NEXT_PUBLIC_APP_URL");
+  const value =
+    configuredValue || (mode === "development" ? "http://localhost:3000" : "");
+
+  if (!value) {
+    throw new Error("NEXT_PUBLIC_APP_URL is required for production OAuth.");
+  }
+  if ((mode === "production" && isPlaceholder(value)) || !validateAppUrl(value, mode)) {
+    throw new Error(
+      mode === "production"
+        ? "NEXT_PUBLIC_APP_URL must be a canonical HTTPS origin without localhost, a path, query, fragment, or custom port."
+        : "NEXT_PUBLIC_APP_URL must be a canonical HTTP(S) origin.",
+    );
+  }
+
+  return new URL(value).origin;
 }
 
 function addRequiredValueError(errors, environment, name) {

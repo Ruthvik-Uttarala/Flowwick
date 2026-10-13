@@ -38,6 +38,7 @@ export type ShopifyCallbackErrorCode = Extract<
   | "token_exchange_failed"
   | "token_verification_failed"
   | "store_domain_mismatch"
+  | "app_url_mismatch"
   | "oauth_state_persist_failed"
 >;
 export type ShopifyConnectErrorCode = Extract<

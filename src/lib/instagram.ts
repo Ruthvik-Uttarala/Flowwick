@@ -50,6 +50,7 @@ export type InstagramCallbackErrorCode = Extract<
   | "missing_page_access_token"
   | "no_eligible_account"
   | "invalid_selection"
+  | "app_url_mismatch"
 >;
 export type InstagramConnectErrorCode = Extract<
   InstagramOauthErrorCode,

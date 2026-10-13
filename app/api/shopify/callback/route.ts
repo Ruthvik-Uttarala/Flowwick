@@ -5,6 +5,7 @@ import {
   buildShopifySettingsUrl,
   getShopifyClientId,
   getShopifyClientSecret,
+  isAuthoritativeAppRequest,
   readCookieValue,
   validateShopifyCallbackHmac,
   verifyShopifyAdminToken,
@@ -76,6 +77,20 @@ function logShopifyDomainDiagnostics(
 }
 
 export async function GET(request: Request) {
+  try {
+    if (!isAuthoritativeAppRequest(request)) {
+      return settingsRedirect("app_url_mismatch");
+    }
+  } catch {
+    return new NextResponse(
+      JSON.stringify({
+        ok: false,
+        error: { message: "Shopify OAuth application origin is not configured." },
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   const url = new URL(request.url);
   const code = url.searchParams.get("code")?.trim() ?? "";
   const callbackShopRaw = url.searchParams.get("shop")?.trim() ?? "";
