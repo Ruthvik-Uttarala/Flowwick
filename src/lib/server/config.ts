@@ -42,9 +42,10 @@ export function getRuntimeConfigSnapshot(settings: ConnectionSettings): RuntimeC
     settings: getSafeSettingsStatus(settings),
     launch: getLaunchReadinessStatus(settings),
     storage: {
-      persistence: "file",
-      dataDirectory: "supabase",
-      uploadsDirectory: "supabase-storage",
+      persistence: "supabase",
+      bucketRecords: "public.buckets",
+      uploads: "supabase-storage",
+      uploadsBucket: "product_images",
     },
   };
 }

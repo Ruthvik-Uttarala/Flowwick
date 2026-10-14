@@ -31,9 +31,7 @@ export async function GET(request: Request) {
       execution,
       storage: snapshot.storage,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Health check failed.";
-    return errorResponse(message, { status: 500 });
+  } catch {
+    return errorResponse("Health check failed.", { status: 500 });
   }
 }

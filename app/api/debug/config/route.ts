@@ -31,9 +31,7 @@ export async function GET(request: Request) {
       execution,
       runtime: snapshot,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to load config.";
-    return errorResponse(message, { status: 500 });
+  } catch {
+    return errorResponse("Failed to load config.", { status: 500 });
   }
 }

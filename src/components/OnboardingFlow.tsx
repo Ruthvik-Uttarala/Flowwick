@@ -290,15 +290,17 @@ export function OnboardingFlow() {
         throw new Error(apiErrorMessage(payload, "Failed to check Instagram."));
       }
 
+      const result = payload.data;
+
       setSettings((current) => {
         if (!current) return current;
         return {
           ...current,
-          instagramConnected: payload.data.instagramConnection.canPublish,
-          instagramSummary: payload.data.instagramConnection,
+          instagramConnected: result.instagramConnection.canPublish,
+          instagramSummary: result.instagramConnection,
         };
       });
-      setMessage(payload.data.message ?? "Instagram checked.");
+      setMessage(result.message ?? "Instagram checked.");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to check Instagram.");
     } finally {

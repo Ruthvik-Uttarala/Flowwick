@@ -7,21 +7,15 @@ function readSource(relativePath: string): string {
 }
 
 describe("ui regressions", () => {
-  it("defines the FlowCart Instagram-style brand token system in globals.css", () => {
+  it("defines the current Flowwick monochrome brand token system in globals.css", () => {
     const globalsSource = readSource("app/globals.css");
 
-    // Instagram action blue is the primary CTA color.
-    expect(globalsSource).toContain("--fc-primary: #0095f6;");
-    // Purple/pink/orange Instagram gradient stops.
-    expect(globalsSource).toContain("--fc-secondary: #833ab4;");
-    expect(globalsSource).toContain("--fc-accent: #fd1d1d;");
-    // Clean white canvas.
-    expect(globalsSource).toContain("--fc-background: #ffffff;");
-    // Instagram dark text and friendly status colors.
-    expect(globalsSource).toContain("--fc-text-primary: #262626;");
-    expect(globalsSource).toContain("--fc-success: #46a96f;");
-    expect(globalsSource).toContain("--fc-error: #ed4956;");
-    expect(globalsSource).toContain("--fc-highlight: #fcaf45;");
+    expect(globalsSource).toContain("--fc-primary: #111111;");
+    expect(globalsSource).toContain("--fc-background: #fafafa;");
+    expect(globalsSource).toContain("--fc-text-primary: #111111;");
+    expect(globalsSource).toContain("--fc-success: #16a34a;");
+    expect(globalsSource).toContain("--fc-error: #dc2626;");
+    expect(globalsSource).toContain("--fc-warning: #b45309;");
   });
 
   it("keeps homepage brand assets wired into the real app surfaces", () => {
@@ -29,12 +23,12 @@ describe("ui regressions", () => {
     const navSource = readSource("src/components/Navbar.tsx");
     const authSource = readSource("src/components/AuthView.tsx");
 
-    expect(homeSource).toContain("/brand/flowcart-background.png");
-    expect(navSource).toContain("/brand/flowcart-logo-clean.png");
-    expect(authSource).toContain("/brand/flowcart-logo-clean.png");
+    expect(homeSource).toContain("/brand/flowwick-home-business-value-hero.png");
+    expect(navSource).toContain("/brand/flowwick-horizontal.png");
+    expect(authSource).toContain("/brand/flowwick-logo-v1.png");
   });
 
-  it("uses the shared LiquidButton primitive for the Instagram-style action labels", () => {
+  it("uses the shared LiquidButton primitive for merchant actions", () => {
     const dashboardSource = readSource("app/dashboard/page.tsx");
     const settingsSource = readSource("app/settings/page.tsx");
     const bucketSource = readSource("src/components/ProductBucket.tsx");
@@ -45,36 +39,36 @@ describe("ui regressions", () => {
     expect(dashboardSource).toMatch(/<LiquidButton[\s\S]*Post All/);
     // Settings button labels are unchanged backend-named flows.
     expect(settingsSource).toMatch(/<LiquidButton[\s\S]*Reconnect Shopify|Connect Shopify/);
-    expect(settingsSource).toMatch(/<LiquidButton[\s\S]*Validate Connection/);
+    expect(settingsSource).toMatch(/<LiquidButton[\s\S]*Check connection/);
     expect(settingsSource).toMatch(/<LiquidButton[\s\S]*Disconnect Instagram/);
     // Post card uses Update Post / Post / Edit as the primary action verbs.
     expect(bucketSource).toMatch(/<LiquidButton[\s\S]*Update Post/);
     expect(bucketSource).toMatch(/<LiquidButton[\s\S]*\bPost\b/);
     expect(bucketSource).toMatch(/<LiquidButton[\s\S]*\bEdit\b/);
-    // The button primitive uses Instagram blue + Instagram red (no SaaS gradient).
-    expect(buttonSource).toContain("bg-[#0095f6]");
-    expect(buttonSource).toContain("bg-[#ed4956]");
+    // The current button primitive uses the approved restrained monochrome palette.
+    expect(buttonSource).toContain("bg-[#111111]");
+    expect(buttonSource).toContain("bg-[#16a34a]");
     expect(buttonSource).not.toContain("bg-[linear-gradient(158deg,#101010,#000)]");
     expect(buttonSource).not.toContain("bg-[linear-gradient(155deg,#0f6cbd_0%,#0c5fa8_58%,#0a4f8a_100%)]");
   });
 
-  it("keeps settings ripple visuals gated behind active async states only", () => {
+  it("shows progress indicators only during active settings operations", () => {
     const settingsSource = readSource("app/settings/page.tsx");
 
-    expect(settingsSource).toContain("{isConnectingShopify ? <RippleCircles compact /> : null}");
-    expect(settingsSource).toContain("{isConnectingInstagram || isValidatingInstagram ? (");
+    expect(settingsSource).toMatch(/isConnectingShopify[\s\S]*Loader2[\s\S]*Connecting\.\.\./);
+    expect(settingsSource).toMatch(/isConnectingInstagram[\s\S]*Loader2[\s\S]*Connecting\.\.\./);
+    expect(settingsSource).toMatch(/isValidatingInstagram[\s\S]*Loader2[\s\S]*Checking\.\.\./);
   });
 
   it("auto-refreshes dashboard posts while Post All or active processing is in progress", () => {
     const dashboardSource = readSource("app/dashboard/page.tsx");
 
     expect(dashboardSource).toContain("hasActiveBucketWork(buckets)");
-    expect(dashboardSource).toContain("const shouldAutoRefreshBuckets = isRunningGoAll || hasActiveProcessingBuckets;");
-    expect(dashboardSource).toContain("if (authLoading || !user || !shouldAutoRefreshBuckets) {");
+    expect(dashboardSource).toContain("const hasActiveProcessingBuckets = useMemo(() => hasActiveBucketWork(buckets)");
+    expect(dashboardSource).toContain("if (authLoading || !user || (!isRunningGoAll && !hasActiveProcessingBuckets)) {");
     expect(dashboardSource).toContain("window.setTimeout(() => {");
     expect(dashboardSource).toContain("getBucketPollIntervalMs(isRunningGoAll)");
-    expect(dashboardSource).toContain("markBucketsProcessingForGoAll");
-    expect(dashboardSource).toContain("runBoundedQueue(targetBucketIds, GO_ALL_CONCURRENCY_LIMIT");
+    expect(dashboardSource).toContain('fetch("/api/buckets/go-all", { method: "POST" })');
   });
 
   it("renders posted post update acknowledgement as structured status chips instead of raw paragraph text", () => {

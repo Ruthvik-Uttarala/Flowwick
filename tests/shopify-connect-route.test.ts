@@ -218,7 +218,7 @@ describe("Shopify connect route", () => {
       productionSettingsUrl:
         "https://flowcart.example/settings?shopify_error=unsupported_shopify_context&shopify_connect=1&shopDomain=smbauto.myshopify.com",
     });
-    expect(payload.error?.message).toContain("standalone FlowCart settings page");
+    expect(payload.error?.message).toContain("standalone Flowwick settings page");
   });
 
   it("sanitizes oauth state persistence failures for the browser", async () => {
