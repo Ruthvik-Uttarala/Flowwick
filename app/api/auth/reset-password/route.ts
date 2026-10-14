@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { supabasePublicEnv } from "@/src/lib/supabase/env";
 import { errorResponse, okResponse } from "@/src/lib/server/api-response";
+import { resolveApplicationOrigin } from "@/src/lib/server/production-config.mjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +25,17 @@ export async function POST(request: Request) {
       return okResponse({ message: genericMessage });
     }
 
-    const url = `${supabasePublicEnv.url.replace(/\/$/, "")}/auth/v1/recover`;
+    let redirectTo = "";
+    try {
+      redirectTo = `${resolveApplicationOrigin(process.env)}/auth/update-password`;
+    } catch {
+      return errorResponse("Password reset is temporarily unavailable.", { status: 503 });
+    }
+
+    const url = new URL(
+      `${supabasePublicEnv.url.replace(/\/$/, "")}/auth/v1/recover`,
+    );
+    url.searchParams.set("redirect_to", redirectTo);
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -41,8 +52,8 @@ export async function POST(request: Request) {
     return okResponse({
       message: genericMessage,
     });
-  } catch (error) {
-    console.error("[merchflow:auth:reset]", error);
+  } catch {
+    console.error("[flowwick:auth:reset] Password reset request failed.");
     return okResponse({
       message: "If this email has an account, reset instructions were sent.",
     });

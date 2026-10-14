@@ -169,6 +169,58 @@ export async function getSupabaseUser(accessToken: string): Promise<{
   return { user: result.data };
 }
 
+export async function updatePasswordWithRecovery(input: {
+  password: string;
+  accessToken?: string;
+  tokenHash?: string;
+}): Promise<{
+  updated: boolean;
+  errorCode?: "invalid_recovery_link" | "password_rejected";
+}> {
+  let accessToken = input.accessToken?.trim() ?? "";
+
+  if (!accessToken && input.tokenHash?.trim()) {
+    const verification = await supabaseAuthRequest<SupabaseAuthSession>("/verify", {
+      method: "POST",
+      body: JSON.stringify({
+        token_hash: input.tokenHash.trim(),
+        type: "recovery",
+      }),
+    });
+    accessToken = verification.data?.access_token?.trim() ?? "";
+    if (!accessToken) {
+      return { updated: false, errorCode: "invalid_recovery_link" };
+    }
+  }
+
+  if (!accessToken) {
+    return { updated: false, errorCode: "invalid_recovery_link" };
+  }
+
+  const verifiedUser = await getSupabaseUser(accessToken);
+  if (!verifiedUser.user) {
+    return { updated: false, errorCode: "invalid_recovery_link" };
+  }
+
+  const update = await supabaseAuthRequest<SupabaseUser>("/user", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({ password: input.password }),
+  });
+
+  if (!update.data || update.error) {
+    return { updated: false, errorCode: "password_rejected" };
+  }
+
+  // Best-effort revocation: the user must sign in again after recovery.
+  await supabaseAuthRequest<unknown>("/logout", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  return { updated: true };
+}
+
 export function serializeSessionCookies(session: SupabaseAuthSession): Array<{
   name: string;
   value: string;

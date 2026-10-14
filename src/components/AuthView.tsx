@@ -14,6 +14,7 @@ type StatusTone = "error" | "success" | "neutral";
 interface AuthViewProps {
   redirectTo: string;
   reason: string;
+  initialMode?: AuthMode;
 }
 
 interface AuthResponsePayload {
@@ -25,11 +26,11 @@ function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }
 
-export function AuthView({ redirectTo, reason }: AuthViewProps) {
+export function AuthView({ redirectTo, reason, initialMode = "login" }: AuthViewProps) {
   const router = useRouter();
   const { user, refreshSession } = useAuth();
 
-  const [mode, setMode] = useState<AuthMode>("login");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState(reason ? decodeURIComponent(reason) : "");
