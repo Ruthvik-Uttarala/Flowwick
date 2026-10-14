@@ -208,6 +208,19 @@ describe("shopify adapter", () => {
         inventorySetQuantities: { userErrors: [] },
       })
       .mockResolvedValueOnce({
+        publications: {
+          nodes: [
+            {
+              id: "gid://shopify/Publication/1",
+              channels: { nodes: [{ name: "Online Store", handle: "online-store" }] },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        publishablePublish: { userErrors: [] },
+      })
+      .mockResolvedValueOnce({
         productSet: { product: { id: "gid://shopify/Product/42" }, userErrors: [] },
       })
       .mockResolvedValueOnce({
@@ -307,6 +320,19 @@ describe("shopify adapter", () => {
         productVariantsBulkUpdate: { userErrors: [] },
       })
       .mockRejectedValueOnce(new Error("Access denied for locations field."))
+      .mockResolvedValueOnce({
+        publications: {
+          nodes: [
+            {
+              id: "gid://shopify/Publication/1",
+              channels: { nodes: [{ name: "Online Store", handle: "online-store" }] },
+            },
+          ],
+        },
+      })
+      .mockResolvedValueOnce({
+        publishablePublish: { userErrors: [] },
+      })
       .mockResolvedValueOnce({
         product: {
           id: "gid://shopify/Product/42",

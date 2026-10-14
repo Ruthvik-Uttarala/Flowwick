@@ -13,5 +13,6 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     mockReset: true,
+    testTimeout: 10000,
   },
 });

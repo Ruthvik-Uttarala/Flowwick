@@ -219,8 +219,9 @@ export interface RuntimeConfigSnapshot {
   settings: SafeSettingsStatus;
   launch: LaunchReadinessStatus;
   storage: {
-    persistence: "file";
-    dataDirectory: string;
-    uploadsDirectory: string;
+    persistence: "supabase";
+    bucketRecords: "public.buckets";
+    uploads: "supabase-storage";
+    uploadsBucket: "product_images";
   };
 }

@@ -38,9 +38,7 @@ export async function GET(request: Request) {
       execution,
       launch: snapshot.launch,
     });
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Readiness check failed.";
-    return errorResponse(message, { status: 500 });
+  } catch {
+    return errorResponse("Readiness check failed.", { status: 500 });
   }
 }

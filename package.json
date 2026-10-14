@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "test:e2e": "playwright test",
     "check:config": "node scripts/check-config.mjs --mode=production",
     "verify:phase": "node --preserve-symlinks --preserve-symlinks-main scripts/verify-phase-loop.mjs",
     "airia:check": "node --preserve-symlinks --preserve-symlinks-main scripts/check-airia-config.mjs",
@@ -27,6 +28,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
